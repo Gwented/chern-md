@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::Word;
+use crate::parser::context::Word;
 
 #[derive(Debug)]
 pub struct SpannedToken {
@@ -10,9 +10,9 @@ pub struct SpannedToken {
 
 #[derive(Debug)]
 pub enum Token {
-    Id(String),
-    Literal(String),
-    Number(String),
+    Id(usize),
+    Literal(usize),
+    Number(usize),
     OBracket,
     CBracket,
     OCurlyBracket,
@@ -39,6 +39,76 @@ pub enum Token {
     VerticalBar,
     //TODO: Include branch or specific state of lexer. Maybe.
     Illegal(String),
+    EOF,
+}
+
+impl Token {
+    pub fn kind(&self) -> TokenKind {
+        match self {
+            Token::Id(_) => TokenKind::Id,
+            Token::Literal(_) => TokenKind::Literal,
+            Token::Number(_) => TokenKind::Number,
+            Token::OBracket => TokenKind::OBracket,
+            Token::CBracket => TokenKind::CBracket,
+            Token::OCurlyBracket => TokenKind::OCurlyBracket,
+            Token::CCurlyBracket => TokenKind::CCurlyBracket,
+            Token::QuestionMark => TokenKind::QuestionMark,
+            Token::Equals => TokenKind::Equals,
+            Token::OAngleBracket => TokenKind::OAngleBracket,
+            Token::CAngleBracket => TokenKind::CAngleBracket,
+            Token::Comma => TokenKind::Comma,
+            Token::SlimArrow => TokenKind::SlimArrow,
+            Token::Slash => TokenKind::Slash,
+            Token::HashSymbol => TokenKind::HashSymbol,
+            Token::Percent => TokenKind::Percent,
+            Token::Colon => TokenKind::Colon,
+            Token::OParen => TokenKind::OParen,
+            Token::CParen => TokenKind::CParen,
+            Token::Hyphen => TokenKind::Hyphen,
+            Token::ExclamationPoint => TokenKind::ExclamationPoint,
+            Token::Asterisk => TokenKind::Asterisk,
+            //FIX: Not possible so may remove
+            Token::DoubleQuotes => TokenKind::DoubleQuotes,
+            Token::Tilde => TokenKind::Tilde,
+            Token::Dot => TokenKind::Dot,
+            Token::VerticalBar => TokenKind::VerticalBar,
+            Token::Illegal(_) => TokenKind::Illegal,
+            Token::EOF => TokenKind::EOF,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum TokenKind {
+    Id,
+    Literal,
+    Number,
+    OBracket,
+    CBracket,
+    OCurlyBracket,
+    CCurlyBracket,
+    QuestionMark,
+    Equals,
+    OAngleBracket,
+    CAngleBracket,
+    Comma,
+    SlimArrow,
+    Slash,
+    HashSymbol,
+    Percent,
+    Colon,
+    OParen,
+    CParen,
+    Hyphen,
+    // At,
+    ExclamationPoint,
+    Asterisk,
+    DoubleQuotes,
+    Tilde,
+    Dot,
+    VerticalBar,
+    //TODO: Include branch or specific state of lexer. Maybe.
+    Illegal,
     EOF,
 }
 
@@ -84,17 +154,6 @@ pub enum ActualType {
 }
 
 #[derive(Debug)]
-pub enum Cond {
-    // Approximation operator is a range internally.
-    Range(usize, usize),
-    // Probably should just attach bool
-    IsEmpty,
-    Len(usize),
-    // Ok this is kinda cool
-    Not(Box<Cond>),
-}
-
-#[derive(Debug)]
 pub enum InnerArgs {
     Warn,
     Scientific,
@@ -106,4 +165,13 @@ pub enum InnerArgs {
 #[derive(Debug)]
 pub struct Table {
     symbols: HashMap<u32, Vec<Word>>,
+}
+
+impl Table {
+    // In case table has something else added
+    pub fn new() -> Table {
+        Table {
+            symbols: HashMap::new(),
+        }
+    }
 }

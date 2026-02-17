@@ -15,7 +15,7 @@ i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,
 char, bool, str, E%Enum, S%Obj, nil, BigInt, BigFloat, Array, Map, Set
 
-%S for structure of data.
+S% for structure of data.
 E% for Enum type.
 
 ## [Operators]

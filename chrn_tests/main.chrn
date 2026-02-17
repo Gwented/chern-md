@@ -1,6 +1,5 @@
 @def
-　　　 
-    bind-> "\../..props.chrn"
+    bind-> "\."$
     var->
         name: str(!isEmpty, len(~12))
         age: u8
