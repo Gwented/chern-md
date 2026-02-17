@@ -60,7 +60,7 @@ Utilities to alter actual main file, such as trimming all strings.
 
 Attributes ie. `#warn`, `#rm_if` (would remove anything that didn't align under condition rather than crash or warn.) `#scientific`, `#hex`, `#binary`, `#octo`
 
-Numerics: Binary, hex, octo. Allows for notation to serialize to be a specific notation.
+Numerics: Binary, hex, octo. Allows for notation to serialize to be a specific notation. Unicode.
 
 Maybe more complex operations such as '/' and '*'
 

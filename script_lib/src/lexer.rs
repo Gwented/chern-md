@@ -46,15 +46,6 @@ impl Lexer<'_> {
             let byte = self.peek();
 
             match byte {
-                b if b.is_ascii_digit() => {
-                    let (ln, col) = (self.ln, self.col);
-                    let token = self.read_num();
-
-                    tokens.push(SpannedToken {
-                        token,
-                        span: Span::new(ln, col),
-                    });
-                }
                 b if b.is_ascii_alphabetic() || b == b'_' => {
                     let (ln, col) = (self.ln, self.col);
                     let token = self.read_id();
@@ -64,6 +55,15 @@ impl Lexer<'_> {
                         span: Span::new(ln, col),
                     });
                     eprintln!("Peeking {}", self.peek() as char);
+                }
+                b if b.is_ascii_digit() => {
+                    let (ln, col) = (self.ln, self.col);
+                    let token = self.read_num();
+
+                    tokens.push(SpannedToken {
+                        token,
+                        span: Span::new(ln, col),
+                    });
                 }
                 b':' => {
                     tokens.push(SpannedToken {
@@ -168,13 +168,12 @@ impl Lexer<'_> {
 
                         break;
                     } else {
-                        todo!();
                         // //TODO: Unwind then put it into the illegal token but break after.
                         // todo!("Needs unwind after @ failure");
-                        let id = self.unwind();
+                        let tok = self.unwind();
 
                         tokens.push(SpannedToken {
-                            token: Token::Illegal(id),
+                            token: Token::Illegal(tok),
                             span: Span::new(self.ln, self.col),
                         });
                     }
@@ -198,12 +197,15 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'"' => {
-                    tokens.push(SpannedToken {
-                        token: Token::DoubleQuotes,
-                        span: Span::new(self.ln, self.col),
-                    });
-
+                    let (ln, col) = (self.ln, self.col);
                     self.advance();
+
+                    let token = self.read_quotes();
+
+                    tokens.push(SpannedToken {
+                        token,
+                        span: Span::new(ln, col),
+                    });
                 }
                 b'-' => {
                     let (ln, col) = (self.ln, self.col);
@@ -239,7 +241,6 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'/' => {
-                    // Can this be fixed?
                     if self.peek_ahead(1) == b'/' {
                         self.skip(2);
                         self.handle_comment();
@@ -251,9 +252,9 @@ impl Lexer<'_> {
                             token: Token::Slash,
                             span: Span::new(self.ln, self.col),
                         });
-                    }
 
-                    self.advance();
+                        self.advance();
+                    }
                 }
                 b'*' => {
                     tokens.push(SpannedToken {
@@ -302,7 +303,7 @@ impl Lexer<'_> {
         (starting_point, tokens)
     }
 
-    //TODO: Utf-8 compliance
+    //TODO: Utf-8 compliance. Maybe.
     fn read_id(&mut self) -> Token {
         let mut id = Vec::with_capacity(8);
 
@@ -313,9 +314,13 @@ impl Lexer<'_> {
             id.push(byte);
         }
 
-        let id = String::from_utf8(id).expect("Invalid UTF-8");
+        //TODO: Illegal
+        let id = String::from_utf8(id);
 
-        Token::Id(id)
+        match id {
+            Ok(id) => Token::Id(id),
+            Err(_) => Token::Illegal("Invalid UTF-8. Could not parse id.".to_string()),
+        }
     }
 
     fn read_num(&mut self) -> Token {
@@ -336,6 +341,47 @@ impl Lexer<'_> {
 
         //TODO: Possible "Base" enum with Number type arg
         Token::Number(id)
+    }
+
+    //TODO: WE NEED UTF-8
+    fn read_quotes(&mut self) -> Token {
+        let mut path: Vec<u8> = Vec::with_capacity(10);
+
+        //FIXME: Could be more escapes
+        let escape_sequence = [b'n', b'r', b'\"', b'0', b'\\'];
+
+        while self.pos < self.bytes.len() {
+            match self.peek() {
+                //TODO: May remove escape. Odd handling stays for now.
+                b'\\' => {
+                    let b = self.advance();
+
+                    if escape_sequence.contains(&self.peek()) {
+                        let tok = self.unwind();
+                        return Token::Illegal(tok);
+                    }
+
+                    path.push(b);
+                }
+                b'\"' => {
+                    self.advance();
+                    break;
+                }
+                _ => path.push(self.advance()),
+            }
+        }
+
+        //TODO: Cleaner handle of failure to close string
+        if self.pos == self.bytes.len() {
+            return Token::Illegal("Failed to close string and found <eof>".to_string());
+        }
+
+        let path = String::from_utf8(path);
+        match path {
+            Ok(p) => Token::Literal(p),
+            Err(_) => Token::Illegal("Invalid UTF-8. Could not parse id.".to_string()),
+        }
+        // Unsure if this needs to exist since, I have no reason to process these.
     }
 
     // Null byte denotes EOF as of now.
@@ -375,45 +421,39 @@ impl Lexer<'_> {
     }
 
     // Intended to prevent garbage characters from being read after an illegal token.
+    // Change the name
     fn unwind(&mut self) -> String {
         let mut id = String::new();
 
-        while let Some(ch) = self.peek_char() {
+        while let Some(ch) = self.peek_char()
+            && !ch.is_whitespace()
+        {
             //FIXME: Unwrap call for Utf-8 compliance
-            let ch = ch.as_slice();
-            let ch = str::from_utf8(&ch).unwrap();
 
-            id.push_str(ch);
+            id.push(ch);
             dbg!(&id);
 
-            panic!("Stalls here {ch}");
+            // panic!("Stalls here {ch}");
         }
 
         id
     }
 
     //FIXME: INFINITE LOOP
-    fn peek_char(&mut self) -> Option<[u8; 4]> {
-        let mut bytes = [0u8; 4];
-        let mut i = 0;
+    fn peek_char(&mut self) -> Option<char> {
+        let b = self.peek();
 
-        while let Some(b) = self.bytes.get(self.pos).copied() {
-            if i + 1 < bytes.len() {
-                bytes[i] = b;
-                i += 1;
-                // This is here to represent being more of a primitive increment rather than just
-                // self.advance
-                self.pos += 1;
-            } else {
-                break;
-            }
+        if b <= 127 {
+            return Some(b as char);
         }
 
-        if bytes.is_empty() {
-            return None;
-        }
+        let end = std::cmp::min(self.pos + 4, self.bytes.len());
+        let chunk = &self.bytes[self.pos..end];
 
-        Some(bytes)
+        // Lazy evaluation to avoid utf-8 checking entire self.bytes
+        std::str::from_utf8(chunk)
+            .ok()
+            .and_then(|c| c.chars().next())
     }
 
     //FIX: I THINK THIS IS OK I DONT KNOW
@@ -429,7 +469,7 @@ impl Lexer<'_> {
             self.advance();
         }
         // To get rid of leftover slash
-        self.advance();
+        self.skip(2);
     }
 
     // May return byte
@@ -459,6 +499,12 @@ impl Lexer<'_> {
     fn skip_whitespace(&mut self) {
         //FIXME: Odd handling. May just keep it in b'/'.
         while self.peek().is_ascii_whitespace() {
+            self.advance();
+        }
+
+        while let Some(ch) = self.peek_char()
+            && ch.is_whitespace()
+        {
             self.advance();
         }
     }

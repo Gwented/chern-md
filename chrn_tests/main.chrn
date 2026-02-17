@@ -1,12 +1,13 @@
 @def
-    bind-> props.chrn
-
+　　　 
+    bind-> "\../..props.chrn"
     var->
         name: str(!isEmpty, len(~12))
         age: u8
         person: S%Person
 
     complex_rules->
+
 @end
 // IF this file is found it will override
 
@@ -18,3 +19,4 @@ person:= {
         age: 6
     }
 }
+

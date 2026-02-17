@@ -11,6 +11,7 @@ pub struct SpannedToken {
 #[derive(Debug)]
 pub enum Token {
     Id(String),
+    Literal(String),
     Number(String),
     OBracket,
     CBracket,
@@ -36,7 +37,7 @@ pub enum Token {
     Tilde,
     Dot,
     VerticalBar,
-    //TODO: Include branch or specific state of lexer
+    //TODO: Include branch or specific state of lexer. Maybe.
     Illegal(String),
     EOF,
 }
