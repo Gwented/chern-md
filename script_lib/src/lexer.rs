@@ -168,8 +168,15 @@ impl Lexer<'_> {
 
                         break;
                     } else {
-                        //TODO: Unwind then put it into the illegal token but break after.
-                        todo!("Needs unwind after @ failure")
+                        todo!();
+                        // //TODO: Unwind then put it into the illegal token but break after.
+                        // todo!("Needs unwind after @ failure");
+                        let id = self.unwind();
+
+                        tokens.push(SpannedToken {
+                            token: Token::Illegal(id),
+                            span: Span::new(self.ln, self.col),
+                        });
                     }
 
                     self.advance();
@@ -232,15 +239,19 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'/' => {
+                    // Can this be fixed?
                     if self.peek_ahead(1) == b'/' {
-                        self.skip_whitespace();
-                        break;
+                        self.skip(2);
+                        self.handle_comment();
+                    } else if self.peek_ahead(1) == b'*' {
+                        self.skip(2);
+                        self.handle_multi_comment();
+                    } else {
+                        tokens.push(SpannedToken {
+                            token: Token::Slash,
+                            span: Span::new(self.ln, self.col),
+                        });
                     }
-
-                    tokens.push(SpannedToken {
-                        token: Token::Slash,
-                        span: Span::new(self.ln, self.col),
-                    });
 
                     self.advance();
                 }
@@ -310,7 +321,6 @@ impl Lexer<'_> {
     fn read_num(&mut self) -> Token {
         let mut id = String::new();
 
-        let mut notation = false;
         // FIXME: CHANGE ALL PLACES TO LOSSY
 
         // TODO: Match specific handling for underscores for cleanliness.
@@ -365,18 +375,35 @@ impl Lexer<'_> {
     }
 
     // Intended to prevent garbage characters from being read after an illegal token.
-    fn unwind() {}
+    fn unwind(&mut self) -> String {
+        let mut id = String::new();
 
+        while let Some(ch) = self.peek_char() {
+            //FIXME: Unwrap call for Utf-8 compliance
+            let ch = ch.as_slice();
+            let ch = str::from_utf8(&ch).unwrap();
+
+            id.push_str(ch);
+            dbg!(&id);
+
+            panic!("Stalls here {ch}");
+        }
+
+        id
+    }
+
+    //FIXME: INFINITE LOOP
     fn peek_char(&mut self) -> Option<[u8; 4]> {
         let mut bytes = [0u8; 4];
         let mut i = 0;
 
-        while let Some(b) = self.bytes.get(self.pos).copied()
-            && b > 127
-        {
+        while let Some(b) = self.bytes.get(self.pos).copied() {
             if i + 1 < bytes.len() {
                 bytes[i] = b;
                 i += 1;
+                // This is here to represent being more of a primitive increment rather than just
+                // self.advance
+                self.pos += 1;
             } else {
                 break;
             }
@@ -387,6 +414,27 @@ impl Lexer<'_> {
         }
 
         Some(bytes)
+    }
+
+    //FIX: I THINK THIS IS OK I DONT KNOW
+    fn handle_comment(&mut self) {
+        while self.peek() != b'\n' {
+            self.advance();
+        }
+    }
+
+    //Peek batch method?
+    fn handle_multi_comment(&mut self) {
+        while self.peek() != b'*' && self.peek_ahead(1) != b'/' {
+            self.advance();
+        }
+        // To get rid of leftover slash
+        self.advance();
+    }
+
+    // May return byte
+    fn skip(&mut self, dest: usize) {
+        self.pos += dest;
     }
 
     fn peek_ahead(&mut self, dest: usize) -> u8 {
@@ -407,7 +455,9 @@ impl Lexer<'_> {
         b
     }
 
+    //TODO: Utf-8 compliance
     fn skip_whitespace(&mut self) {
+        //FIXME: Odd handling. May just keep it in b'/'.
         while self.peek().is_ascii_whitespace() {
             self.advance();
         }

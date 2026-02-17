@@ -1,5 +1,5 @@
 [package]
-name = "parse_lib"
+name = "script_lib"
 version.workspace = true
 edition.workspace = true
 

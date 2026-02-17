@@ -13,7 +13,7 @@ mod tests {
 
     #[test]
     fn testing() {
-        let path = "../main.chrn";
+        let path = "../chrn_tests/main.chrn";
         let text = fs::read_to_string(path).unwrap();
         let toks = Lexer::new(text.as_bytes()).tokenize();
         dbg!(toks);
