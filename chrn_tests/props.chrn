@@ -1,0 +1,21 @@
+bind-> main.chrn
+
+var->
+    name: str(!isEmpty, #rm_if 0..=5)
+    age: u8 (5..=5)
+    cat: S%Cat
+
+nest->
+    .Cat:= {
+        nose: E%Color
+        color: E%Color
+    }
+
+default_override->
+    with JAVA:= {
+        .name = i32, // (Not going to stop commas but also not necessary)
+        .age = i16
+    }
+
+complex_rules->
+    .Color:= {Red, Green, Blue, Purple, Yellow}

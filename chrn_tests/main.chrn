@@ -1,0 +1,20 @@
+@def
+    bind-> props.chrn
+
+    var->
+        name: str(!isEmpty, len(~12))
+        age: u8
+        person: S%Person
+
+    complex_rules->
+@end
+// IF this file is found it will override
+
+person:= {
+    name: "Floor"
+    age: 20
+    car:= {
+        name: "Car"
+        age: 6
+    }
+}
