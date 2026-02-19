@@ -1,5 +1,6 @@
+
 @def
-    bind-> "\."$
+    bind->$ "\."
     var->
         name: str(!isEmpty, len(~12))
         age: u8

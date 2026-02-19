@@ -10,6 +10,8 @@ This language expects a structure of data that greatly resembles what a piece of
 
 - If the `.chrn` file is turned into binary, the definition is immediately truncated and there needs to be a main.chrn file or else it is a "bag of bytes". Note: May have a way for it to undo itself by storing extremely specific header bytes that define what I should interpret the data as. Complicated :C. 
 
+LANGUAGE BLOAT >>>>>>>
+
 ## [Types]
 i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,

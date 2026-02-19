@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crate::parser::context::Word;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpannedToken {
     pub token: Token,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Token {
     Id(usize),
     Literal(usize),
@@ -37,7 +37,7 @@ pub enum Token {
     Tilde,
     Dot,
     VerticalBar,
-    //TODO: Include branch or specific state of lexer. Maybe.
+    //FIXME: INTERN THIS
     Illegal(String),
     EOF,
 }
@@ -78,7 +78,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum TokenKind {
     Id,
     Literal,
@@ -112,7 +112,7 @@ pub enum TokenKind {
     EOF,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Span {
     ln: usize,
     col: usize,
@@ -122,9 +122,17 @@ impl Span {
     pub fn new(ln: usize, col: usize) -> Span {
         Span { ln, col }
     }
+
+    pub fn ln(&self) -> usize {
+        self.ln
+    }
+
+    pub fn col(&self) -> usize {
+        self.col
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActualType {
     I8,
     U8,
@@ -153,7 +161,7 @@ pub enum ActualType {
     Custom(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InnerArgs {
     Warn,
     Scientific,

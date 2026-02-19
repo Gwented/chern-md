@@ -1,7 +1,7 @@
 pub mod lexer;
 pub mod parser;
 pub mod storage;
-mod token;
+pub mod token;
 
 #[cfg(test)]
 mod tests {
@@ -14,28 +14,30 @@ mod tests {
 
     use super::*;
 
+    // #[test]
+    // fn lex_test() {
+    //     let path = "../chrn_tests/main.chrn";
+    //     let text = fs::read_to_string(path).unwrap();
+    //
+    //     let mut interner = Intern::new();
+    //     let toks = Lexer::new(text.as_bytes()).tokenize(&mut interner);
+    //
+    //     dbg!(toks);
+    //     panic!("I'm panicking");
+    // }
+    //
     #[test]
-    fn lex_test() {
+    fn parse_test() {
         let path = "../chrn_tests/main.chrn";
         let text = fs::read_to_string(path).unwrap();
 
         let mut interner = Intern::new();
-        let toks = Lexer::new(text.as_bytes()).tokenize(&mut interner);
 
-        dbg!(toks);
+        let (start_offset, toks) = Lexer::new(text.as_bytes()).tokenize(&mut interner);
+
+        let table = parser::parse(&toks, &mut interner);
+
+        dbg!(table);
         panic!("I'm panicking");
     }
-
-    // #[test]
-    // fn parse_test() {
-    //     let path = "../chrn_tests/main.chrn";
-    //     let text = fs::read_to_string(path).unwrap();
-    //
-    //     let (start_offset, toks) = Lexer::new(text.as_bytes()).tokenize();
-    //
-    //     let table = parser::parse(&toks);
-    //
-    //     dbg!(table);
-    //     panic!("I'm panicking");
-    // }
 }

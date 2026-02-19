@@ -37,12 +37,19 @@ impl Context<'_> {
         t
     }
 
-    //FIXME: Some custom error
+    //FIXME: HORRIFIC INLINE FIX
     pub fn expect(&mut self, expected: TokenKind) -> Result<&SpannedToken, ParseError<'_>> {
-        let found = self.advance();
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
 
         if found.token.kind() != expected {
-            return Err(ParseError::new(expected, found, Branch::Searching));
+            let prev_tok = &self.tokens[self.pos - 1];
+            return Err(ParseError::new(
+                expected,
+                found,
+                Branch::Searching,
+                &prev_tok,
+            ));
         }
 
         Ok(found)
@@ -52,10 +59,16 @@ impl Context<'_> {
 #[derive(Debug)]
 pub struct Word {
     // May be integer idk
-    id: String,
+    id: usize,
     ty: ActualType,
     args: Vec<InnerArgs>,
     cond: Vec<Cond>,
+}
+
+impl Word {
+    pub fn new(id: usize, ty: ActualType, args: Vec<InnerArgs>, cond: Vec<Cond>) -> Word {
+        Word { id, ty, args, cond }
+    }
 }
 
 #[derive(Debug)]

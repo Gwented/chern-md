@@ -29,6 +29,8 @@ impl Lexer<'_> {
         // In case of in md file definition
         let mut start_offset = 0;
 
+        let mut has_def = false;
+
         loop {
             self.skip_whitespace();
 
@@ -57,7 +59,7 @@ impl Lexer<'_> {
                 }
                 b if b.is_ascii_digit() => {
                     let (ln, col) = (self.ln, self.col);
-                    let token = self.read_num();
+                    let token = self.read_num(interner);
 
                     tokens.push(SpannedToken {
                         token,
@@ -155,12 +157,15 @@ impl Lexer<'_> {
                 b'@' => {
                     // Allows for same behavior even in file and serialized data definition
                     if self.is_def_start() {
+                        has_def = true;
                         // Known size of type def in bytes for '@def' and '@end'
                         self.pos += 4;
                     } else if self.is_def_end() {
+                        has_def = false;
                         //TODO: Starting point set method needed. Maybe not.
                         start_offset = self.pos + 4;
-
+                        dbg!(start_offset);
+                        panic!("Def end");
                         tokens.push(SpannedToken {
                             token: Token::EOF,
                             span: Span::new(self.ln, self.col),
@@ -297,16 +302,18 @@ impl Lexer<'_> {
                 }
             }
         }
-
+        //FIXME: Definition needs to be uncommented
+        // if has_def {
+        //     panic!("No definition");
+        // }
         dbg!(start_offset);
         (start_offset, tokens)
     }
 
-    //FIXME: Utf-8 compliance.
-    //String interning <><><><>><>
     fn read_id(&mut self, interner: &mut Intern) -> Token {
         let mut id = Vec::with_capacity(8);
 
+        //FIXME: Utf-8 compliance.
         while self.pos < self.bytes.len() && self.peek().is_ascii_alphanumeric()
             || self.peek() == b'_'
         {
@@ -325,7 +332,7 @@ impl Lexer<'_> {
         }
     }
 
-    fn read_num(&mut self) -> Token {
+    fn read_num(&mut self, interner: &mut Intern) -> Token {
         let mut id = String::new();
 
         // TODO: Match specific handling for underscores for cleanliness.
@@ -340,6 +347,8 @@ impl Lexer<'_> {
         }
 
         //TODO: Possible "Base" enum with Number type arg
+        let id = interner.intern(&id);
+
         Token::Number(id)
     }
 
@@ -347,7 +356,7 @@ impl Lexer<'_> {
         let mut path: Vec<u8> = Vec::with_capacity(10);
 
         //FIXME: Could be more escapes
-        let escape_sequence = [b'n', b'r', b'\"', b'0', b'\\'];
+        let escape_sequence = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
 
         while self.pos < self.bytes.len() {
             match self.peek() {
@@ -394,7 +403,7 @@ impl Lexer<'_> {
         self.bytes.get(self.pos).copied().unwrap_or(b'\0')
     }
 
-    //FIX: MAY BE BETTER INLINE STILL
+    //FIX: IS THIS REQUIRED NOW?
     fn is_def_start(&mut self) -> bool {
         if self.pos + 3 > self.bytes.len() {
             return false;
@@ -409,7 +418,7 @@ impl Lexer<'_> {
         false
     }
 
-    //FIX: MAY BE BETTER INLINE
+    //FIX: READ PREVIOUS
     fn is_def_end(&mut self) -> bool {
         if self.pos + 3 > self.bytes.len() {
             return false;

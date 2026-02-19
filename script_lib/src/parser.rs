@@ -1,7 +1,7 @@
 pub mod context;
 pub mod error;
 
-use common::intern::Intern;
+use common::intern::{Intern, ReservedKeyword};
 use std::cell::RefCell;
 
 use crate::parser::error::ParseError;
@@ -11,7 +11,7 @@ use crate::{
     token::{SpannedToken, Table, Token, TokenKind},
 };
 
-pub fn parse(tokens: &Vec<SpannedToken>) -> Table {
+pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
     let table = Table::new();
 
     let mut ctx = Context {
@@ -23,18 +23,21 @@ pub fn parse(tokens: &Vec<SpannedToken>) -> Table {
     // May change to basic loop
     while ctx.peek_kind() != TokenKind::EOF {
         let tok = ctx.peek();
+        // if let Token::Id(id) = tok.token {
+        //     let name = interner.search(id);
+        //     dbg!(name, &tok.token);
+        //     panic!("Not a feature");
+        // }
 
         match &tok.token {
-            Token::Id(id) => match id {
-                // Unsure about this
-                // 0 == bind. 1 == var. 2 == nest. 3 == complex_rules
-                0 => {
+            Token::Id(id) => match *id {
+                id if id == ReservedKeyword::Bind as usize => {
                     parse_bind_section(&mut ctx);
                 }
-                1 => (),
-                2 => (),
-                3 => (),
-                _ => {}
+                id if id == ReservedKeyword::Var as usize => {}
+                id if id == ReservedKeyword::Nest as usize => {}
+                id if id == ReservedKeyword::ComplexRules as usize => {}
+                t => unimplemented!("Failed in main parse branch with tok of id '{:?}'", t),
             },
             // Token::Illegal(_) => todo!(),
             Token::EOF => break,
