@@ -1,6 +1,5 @@
-
 @def
-    bind->$ "\."
+    bind-> $ "\."
     var->
         name: str(!isEmpty, len(~12))
         age: u8
@@ -9,6 +8,10 @@
     complex_rules->
 
 @end
+// I feel like expecting (file_size / 30) new lines is a good with_capacity metric if storing them \n
+// If file_size > 300 bytes I will CAP it out at 300 since that likely means we are in a serialized file.
+// For in serialized file definitions, should be (file_size / 40 + 4)
+
 // IF this file is found it will override
 
 person:= {
