@@ -176,8 +176,10 @@ impl Lexer<'_> {
                         todo!("Implement unwind");
                         let tok = self.unwind();
 
+                        let id = interner.intern(&tok);
+
                         tokens.push(SpannedToken {
-                            token: Token::Illegal(tok),
+                            token: Token::Illegal(id),
                             span: Span::new(self.ln, self.col),
                         });
                     }
@@ -285,7 +287,7 @@ impl Lexer<'_> {
 
                     self.advance();
                 }
-                _ => {
+                t => {
                     illegal_toks += 1;
 
                     // TODO: Figure out if this should exist to avoid Java level errors
@@ -295,8 +297,11 @@ impl Lexer<'_> {
                     todo!("Implement unwind.");
                     let tok = self.unwind();
 
+                    //FIXME: STAND IN VALUE
+                    // let id = interner.intern(&t);
+
                     tokens.push(SpannedToken {
-                        token: Token::Illegal(tok),
+                        token: Token::Illegal(0x00),
                         span: Span::new(self.ln, self.col),
                     });
                 }
@@ -306,6 +311,7 @@ impl Lexer<'_> {
         // if has_def {
         //     panic!("No definition");
         // }
+        dbg!(&tokens);
         dbg!(start_offset);
         (start_offset, tokens)
     }
@@ -328,7 +334,11 @@ impl Lexer<'_> {
                 let id = interner.intern(id);
                 Token::Id(id)
             }
-            Err(_) => Token::Illegal("Invalid UTF-8. Could not parse id.".to_string()),
+            Err(_) => {
+                let response = "Invalid UTF-8. Could not parse id.";
+                let id = interner.intern(response);
+                Token::Illegal(id)
+            }
         }
     }
 
@@ -363,11 +373,11 @@ impl Lexer<'_> {
                 b'\\' => {
                     let b = self.advance();
 
-                    //FIXME: BROKEN WINDER.
+                    //FIXME: BROKEN WINDER. TEMPORARY VALUE
                     if escape_sequence.contains(&self.peek()) {
                         todo!("Implement wounding (name clashing)");
                         let tok = self.unwind();
-                        return Token::Illegal(tok);
+                        return Token::Illegal(0x00);
                     }
 
                     dbg!(b);
@@ -383,7 +393,8 @@ impl Lexer<'_> {
 
         //TODO: Cleaner handle of failure to close string
         if self.pos == self.bytes.len() {
-            return Token::Illegal("Failed to close string and found <eof>".to_string());
+            let response_id = interner.intern("Failed to close string literal and found <eof>");
+            return Token::Illegal(response_id);
         }
         dbg!(&path);
         let path_res = str::from_utf8(path.as_slice());
@@ -393,7 +404,11 @@ impl Lexer<'_> {
                 let p = interner.intern(p);
                 Token::Literal(p)
             }
-            Err(_) => Token::Illegal("Invalid UTF-8. Could not parse id.".to_string()),
+            Err(_) => {
+                let response = "Invalid UTF-8. Could not parse literal.";
+                let id = interner.intern(response);
+                Token::Illegal(id)
+            }
         }
         // Unsure if this needs to exist since, I have no reason to process these.
     }
