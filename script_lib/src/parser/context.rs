@@ -15,6 +15,7 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub(crate) fn peek(&self) -> &SpannedToken {
+        dbg!(&self.tokens[self.pos - 2]);
         &self.tokens[self.pos]
     }
 
@@ -44,7 +45,11 @@ impl<'a> Context<'a> {
     //FIXME: Change to usize return
     //ADD IDENTIFIER SPECIFIC FUNCTIONS FOR IDS
 
-    pub(crate) fn expect_id(&mut self, expected: TokenKind, branch: Branch) -> Result<usize, ()> {
+    pub(crate) fn expect_id(
+        &mut self,
+        expected: TokenKind,
+        branch: Branch,
+    ) -> Result<usize, Token> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
@@ -74,8 +79,25 @@ impl<'a> Context<'a> {
                     .borrow_mut()
                     .push(Diagnostic::new(msg, branch, &prev_tok));
 
-                return Err(());
+                self.recover();
+
+                return Err(found.token);
             }
+        }
+    }
+
+    // IT WORKS
+    pub(crate) fn recover(&mut self) {
+        dbg!("Recovering from", &self.tokens[self.pos - 2]);
+        if self.peek_kind() != TokenKind::EOF {
+            while self.pos > self.tokens.len()
+                && self.peek_ahead(1).token.kind() != TokenKind::Colon
+                && self.peek_ahead(1).token.kind() != TokenKind::Id
+            {
+                dbg!("Recovering in");
+                self.advance();
+            }
+            dbg!("Recovered");
         }
     }
 
@@ -94,7 +116,7 @@ impl<'a> Context<'a> {
         &mut self,
         expected: TokenKind,
         branch: Branch,
-    ) -> Result<Token, ()> {
+    ) -> Result<Token, Token> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
@@ -119,7 +141,9 @@ impl<'a> Context<'a> {
                 .borrow_mut()
                 .push(Diagnostic::new(msg, branch, &prev_tok));
 
-            return Err(());
+            self.recover();
+
+            return Err(found.token);
         }
 
         Ok(found.token.clone())
@@ -135,9 +159,11 @@ impl<'a> Context<'a> {
 
         //TODO: TEMP ERR MSG
         let msg = format!(
-            "(in {})\n[{}:{}] Expected '{}' but found '{}'.",
+            "(in {})\n[{}:{}] Expected {} but found {}.",
             branch, ln, col, emsg, fmsg,
         );
+
+        self.recover();
 
         let report = Diagnostic::new(msg, Branch::InnerArgs, prev_tok);
 

@@ -1,14 +1,12 @@
 @def
  //   bind-> "./main.chrn"
     var->
-    s
-    name: i8 #as_octo
+    name: hi
+    age: u8
+    something: gorp
+
    // person: BigInt
-        age: u8
         // Make id search by default <><><>
-
-    complex_rules->
-
 @end
 // I feel like expecting (file_size / 30) new lines is a good with_capacity metric if storing them \n
 // If file_size > 300 bytes I will CAP it out at 300 since that likely means we are in a serialized file.

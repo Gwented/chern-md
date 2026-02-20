@@ -53,7 +53,9 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
                         .ok();
 
                     while let Token::Id(current_id) = ctx.peek().token {
-                        if interner.is_section(current_id) {
+                        if ctx.peek().token.kind() == TokenKind::EOF
+                            || interner.is_section(current_id)
+                        {
                             break;
                         }
 
@@ -92,7 +94,7 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
         // WHERES MY ITERATOR
         dbg!(table);
         for err in ctx.err_vec.borrow().iter() {
-            eprintln!("{}", err.msg);
+            eprintln!("{}\n", err.msg);
         }
 
         panic!("I'm new to thinking. Anyone have beginner thoughts?");
@@ -107,7 +109,7 @@ fn unwind() {}
 
 //TODO: Just return id
 //And error need to return something useful eventually to know that we have to error
-fn parse_bind_section(ctx: &mut Context, interner: &Intern) -> Result<Bind, ()> {
+fn parse_bind_section(ctx: &mut Context, interner: &Intern) -> Result<Bind, Token> {
     let id = ctx.expect_id(TokenKind::Literal, Branch::Bind)?;
 
     dbg!(interner.search(id));
@@ -115,13 +117,13 @@ fn parse_bind_section(ctx: &mut Context, interner: &Intern) -> Result<Bind, ()> 
     Ok(Bind::new(id))
 }
 
-fn parse_var_section(ctx: &mut Context, interner: &mut Intern) -> Result<TypeDef, ()> {
+fn parse_var_section(ctx: &mut Context, interner: &Intern) -> Result<TypeDef, Token> {
     let name_id = ctx.expect_id(TokenKind::Id, Branch::Var)?;
     // dbg!(interner.search(name_id), name_id);
 
     ctx.expect_basic(TokenKind::Colon, Branch::Var)?;
 
-    let ty = parse_type(ctx)?;
+    let ty = parse_type(ctx, interner)?;
 
     let conds: Vec<Cond> = Vec::new();
 
@@ -142,18 +144,36 @@ fn parse_var_section(ctx: &mut Context, interner: &mut Intern) -> Result<TypeDef
     Ok(TypeDef::new(name_id, ty, args, conds))
 }
 
+// macro_rules! check_similar {
+//     ($x:ident) => {
+//
+//     };
+// }
+
 //FIXME: Give ActualType the function instead
 //The ActualType should USE the ReservedKeyword to GET the type to avoid misdirection
-fn parse_type(ctx: &mut Context) -> Result<ActualType, ()> {
+fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token> {
     match ctx.peek().token {
-        Token::Id(id) => match ReservedKeyword::try_from(id)? {
-            ReservedKeyword::Array => parse_array(ctx),
-            ReservedKeyword::Set => todo!(),
-            ReservedKeyword::Map => todo!(),
-            _ => {
-                let id = ActualType::try_from(id);
-                ctx.advance();
-                id
+        Token::Id(id) => match ReservedKeyword::try_from(id) {
+            Ok(help_us_all) => match help_us_all {
+                ReservedKeyword::Array => parse_array(ctx),
+                ReservedKeyword::Set => todo!(),
+                ReservedKeyword::Map => todo!(),
+                _ => {
+                    let type_res = ActualType::try_from(id).or(Err(Token::Illegal(id)));
+                    ctx.advance();
+                    type_res
+                }
+            },
+            Err(_) => {
+                let name_id = interner.search(id);
+                let fmt_tok = format!("identifier \"{name_id}\"");
+
+                //FIX: CHECK IF WE WE GOT WAS SIMILAR TO something?
+                //It's going to be a macro because <>
+                ctx.report_template("a type", &fmt_tok, Branch::Var);
+
+                Err(Token::Illegal(id))
             }
         },
         Token::QuestionMark => Ok(ActualType::Any),
@@ -174,29 +194,21 @@ fn parse_type(ctx: &mut Context) -> Result<ActualType, ()> {
         t => {
             //FIX: I FORGOT
             let fmt_tok = format!("{}", t.kind());
-            ctx.report_template("a type", &fmt_tok, Branch::InnerArgs);
-            Err(())
+            ctx.report_template("a type after identifier", &fmt_tok, Branch::Var);
+            Err(t)
         }
     }
 }
 
-fn parse_arg(ctx: &mut Context, interner: &mut Intern) -> Result<InnerArgs, ()> {
+fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
     let id = ctx.expect_id(TokenKind::Id, Branch::InnerArgs)?;
 
-    InnerArgs::try_from(interner.search(id))
+    InnerArgs::try_from(interner.search(id)).or(Err(Token::Illegal(id)))
 
     //FIX: CHECK FOR NOTATION ON CORRECT TYPE BY OTHER PASSING IN TYPE OR OUTSIDE
-
-    // match arg {
-    //     InnerArgs::Warn => todo!(),
-    //     InnerArgs::Scientific => todo!(),
-    //     InnerArgs::Hex => todo!(),
-    //     InnerArgs::Binary => todo!(),
-    //     InnerArgs::Octo => todo!(),
-    // }
 }
 
-fn parse_array(ctx: &mut Context) -> Result<ActualType, ()> {
+fn parse_array(ctx: &mut Context) -> Result<ActualType, Token> {
     todo!()
 }
 
