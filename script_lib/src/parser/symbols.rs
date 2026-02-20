@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::token::{ActualType, InnerArgs};
 
@@ -7,32 +7,45 @@ use crate::token::{ActualType, InnerArgs};
 #[derive(Debug)]
 pub enum Symbol {
     Definition(TypeDef),
-    Path { id: usize },
+    Bind(Bind),
+}
+
+#[derive(Debug)]
+//FIX: Give interner a list of pathbufs
+pub struct Bind {
+    pub(crate) id: usize,
+}
+
+impl Bind {
+    pub fn new(id: usize) -> Bind {
+        Bind { id }
+    }
 }
 
 #[derive(Debug)]
 pub struct TypeDef {
     // May be integer idk
-    id: usize,
-    ty: ActualType,
-    args: Vec<InnerArgs>,
-    cond: Vec<Cond>,
+    pub(crate) id: usize,
+    pub(crate) ty: ActualType,
+    pub(crate) args: Vec<InnerArgs>,
+    pub(crate) cond: Vec<Cond>,
 }
 
 impl TypeDef {
-    pub fn new(id: usize, ty: ActualType, args: Vec<InnerArgs>, cond: Vec<Cond>) -> TypeDef {
+    pub(crate) fn new(id: usize, ty: ActualType, args: Vec<InnerArgs>, cond: Vec<Cond>) -> TypeDef {
         TypeDef { id, ty, args, cond }
     }
 }
 
 #[derive(Debug)]
-pub enum Cond {
+pub(crate) enum Cond {
     // Approximation operator is a range internally.
     Range(usize, usize),
     // Probably should just attach bool
     IsEmpty,
     Len(usize),
     // Ok this is kinda cool
+    // but should likely be removed
     Not(Box<Cond>),
 }
 
@@ -43,7 +56,7 @@ pub struct Table {
 
 impl Table {
     // In case table has something else added
-    pub fn new() -> Table {
+    pub(crate) fn new() -> Table {
         Table {
             symbols: HashMap::new(),
         }

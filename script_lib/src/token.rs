@@ -5,12 +5,12 @@ use crate::parser::symbols::Symbol;
 //FIXME: Change to span of bytes
 #[derive(Debug, Clone)]
 pub struct SpannedToken {
-    pub token: Token,
-    pub span: Span,
+    pub(crate) token: Token,
+    pub(crate) span: Span,
 }
 
-#[derive(Debug, Clone)]
-pub enum Token {
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Token {
     Id(usize),
     Literal(usize),
     Number(usize),
@@ -79,46 +79,76 @@ impl Token {
     }
 }
 
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            // Token::Id(_) => write!(f, "identifier"),
-            // Token::Literal(_) => write!(f, "literal"),
-            Token::Number(num) => write!(f, "{num}"),
-            Token::OBracket => write!(f, "["),
-            Token::CBracket => write!(f, "]"),
-            Token::OCurlyBracket => write!(f, "}}"),
-            Token::CCurlyBracket => write!(f, "{{"),
-            Token::QuestionMark => write!(f, "?"),
-            Token::Equals => write!(f, "="),
-            Token::OAngleBracket => write!(f, "<"),
-            Token::CAngleBracket => write!(f, ">"),
-            Token::Comma => write!(f, ","),
-            Token::SlimArrow => write!(f, "->"),
-            Token::Slash => write!(f, "/"),
-            Token::HashSymbol => write!(f, "#"),
-            Token::Percent => write!(f, "%"),
-            Token::Colon => write!(f, ":"),
-            Token::OParen => write!(f, "("),
-            Token::CParen => write!(f, ")"),
-            Token::Hyphen => write!(f, "-"),
-            Token::ExclamationPoint => write!(f, "!"),
-            Token::Asterisk => write!(f, "*"),
-            Token::DoubleQuotes => write!(f, "\""),
-            Token::Tilde => write!(f, "~"),
-            Token::Dot => write!(f, "."),
-            Token::VerticalBar => write!(f, "|"),
-            // Token::Illegal(_) => write!(f, "Illegal"),
-            Token::EOF => write!(f, "<eof>"),
-            _ => unreachable!(),
-        }
-    }
-}
+//FIX: Should turn into impl method since I need the interner
+// impl Display for Token {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             // Token::Id(_) => write!(f, "identifier"),
+//             // Token::Literal(_) => write!(f, "literal"),
+//             Token::Number(num) => write!(f, "{num}"),
+//             Token::OBracket => write!(f, "["),
+//             Token::CBracket => write!(f, "]"),
+//             Token::OCurlyBracket => write!(f, "}}"),
+//             Token::CCurlyBracket => write!(f, "{{"),
+//             Token::QuestionMark => write!(f, "?"),
+//             Token::Equals => write!(f, "="),
+//             Token::OAngleBracket => write!(f, "<"),
+//             Token::CAngleBracket => write!(f, ">"),
+//             Token::Comma => write!(f, ","),
+//             Token::SlimArrow => write!(f, "->"),
+//             Token::Slash => write!(f, "/"),
+//             Token::HashSymbol => write!(f, "#"),
+//             Token::Percent => write!(f, "%"),
+//             Token::Colon => write!(f, ":"),
+//             Token::OParen => write!(f, "("),
+//             Token::CParen => write!(f, ")"),
+//             Token::Hyphen => write!(f, "-"),
+//             Token::ExclamationPoint => write!(f, "!"),
+//             Token::Asterisk => write!(f, "*"),
+//             Token::DoubleQuotes => write!(f, "\""),
+//             Token::Tilde => write!(f, "~"),
+//             Token::Dot => write!(f, "."),
+//             Token::VerticalBar => write!(f, "|"),
+//             // Token::Illegal(_) => write!(f, "Illegal"),
+//             Token::EOF => write!(f, "<eof>"),
+//             _ => unreachable!(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub enum TokenKind {
+pub(crate) enum TokenKind {
     Id,
     Literal,
+    // START OF TYPES
+    I8,
+    U8,
+    I16,
+    U16,
+    F16,
+    I32,
+    U32,
+    F32,
+    I64,
+    U64,
+    F64,
+    I128,
+    U128,
+    F128,
+    Sized,
+    Unsized,
+    Str,
+    BigInt,
+    BigFloat,
+    Array,
+    Set,
+    Map,
+    // QUESTIONABLE
+    Any,
+    //
+    Type,
+    UserType,
+    // END OF TYPES
     Number,
     OBracket,
     CBracket,
@@ -180,32 +210,57 @@ impl Display for TokenKind {
             TokenKind::VerticalBar => write!(f, "|"),
             TokenKind::Illegal => write!(f, "illegal"),
             TokenKind::EOF => write!(f, "<eof>"),
+            TokenKind::I8 => write!(f, "i8"),
+            TokenKind::U8 => write!(f, "u8"),
+            TokenKind::I16 => write!(f, "i16"),
+            TokenKind::U16 => write!(f, "u16"),
+            TokenKind::F16 => write!(f, "f16"),
+            TokenKind::I32 => write!(f, "i32"),
+            TokenKind::U32 => write!(f, "u32"),
+            TokenKind::F32 => write!(f, "f32"),
+            TokenKind::I64 => write!(f, "i64"),
+            TokenKind::U64 => write!(f, "u64"),
+            TokenKind::F64 => write!(f, "f64"),
+            TokenKind::I128 => write!(f, "i128"),
+            TokenKind::U128 => write!(f, "u128"),
+            TokenKind::F128 => write!(f, "f128"),
+            TokenKind::Sized => write!(f, "sized"),
+            TokenKind::Unsized => write!(f, "unsized"),
+            TokenKind::Str => write!(f, "str"),
+            TokenKind::BigInt => write!(f, "BigInt"),
+            TokenKind::BigFloat => write!(f, "BigFloat"),
+            TokenKind::Type => write!(f, "type"),
+            TokenKind::Array => write!(f, "Array"),
+            TokenKind::Set => write!(f, "Set"),
+            TokenKind::Map => write!(f, "Map"),
+            TokenKind::Any => write!(f, "Any"),
+            TokenKind::UserType => write!(f, "User type"),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Span {
+pub(crate) struct Span {
     ln: usize,
     col: usize,
 }
 
 impl Span {
-    pub fn new(ln: usize, col: usize) -> Span {
+    pub(crate) fn new(ln: usize, col: usize) -> Span {
         Span { ln, col }
     }
 
-    pub fn ln(&self) -> usize {
+    pub(crate) fn ln(&self) -> usize {
         self.ln
     }
 
-    pub fn col(&self) -> usize {
+    pub(crate) fn col(&self) -> usize {
         self.col
     }
 }
-
+//FIXME: Add enum and struct
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ActualType {
+pub(crate) enum ActualType {
     I8,
     U8,
     I16,
@@ -222,22 +277,77 @@ pub enum ActualType {
     F128,
     Sized,
     Unsized,
-    Str(String),
-    BigInt(String),
+    Bool,
+    Nil,
+    Char,
+    Str,
+    BigInt,
     // Hex?
-    BigFloat(String),
+    BigFloat,
     Array(Box<ActualType>),
     Set(Box<ActualType>),
     Map(Box<ActualType>, Box<ActualType>),
     Any,
-    Custom(String),
+    UserType,
+}
+
+//FIXME: Change match to actual enum name
+impl TryFrom<usize> for ActualType {
+    type Error = ();
+
+    fn try_from(v: usize) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(ActualType::I8),
+            1 => Ok(ActualType::U8),
+            2 => Ok(ActualType::I16),
+            3 => Ok(ActualType::U16),
+            4 => Ok(ActualType::F16),
+            5 => Ok(ActualType::I32),
+            6 => Ok(ActualType::U32),
+            7 => Ok(ActualType::F32),
+            8 => Ok(ActualType::I64),
+            9 => Ok(ActualType::U64),
+            10 => Ok(ActualType::F64),
+            11 => Ok(ActualType::I128),
+            12 => Ok(ActualType::U128),
+            13 => Ok(ActualType::F128),
+            14 => Ok(ActualType::Sized),
+            15 => Ok(ActualType::Unsized),
+            16 => Ok(ActualType::Char),
+            17 => Ok(ActualType::Str),
+            18 => Ok(ActualType::Bool),
+            19 => Ok(ActualType::Nil),
+            20 => Ok(ActualType::BigInt),
+            21 => Ok(ActualType::BigFloat),
+            // 25 => Ok(ReservedKeyword::Bind),
+            // 26 => Ok(ReservedKeyword::Var),
+            // 27 => Ok(ReservedKeyword::Nest),
+            // 28 => Ok(ReservedKeyword::ComplexRules),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InnerArgs {
+pub(crate) enum InnerArgs {
     Warn,
     Scientific,
     Hex,
     Binary,
     Octo,
+}
+
+impl TryFrom<&str> for InnerArgs {
+    type Error = ();
+
+    fn try_from(v: &str) -> Result<Self, Self::Error> {
+        match v {
+            "warn" => Ok(InnerArgs::Warn),
+            "as_scien" => Ok(InnerArgs::Scientific),
+            "as_hex" => Ok(InnerArgs::Hex),
+            "as_bin" => Ok(InnerArgs::Binary),
+            "as_octo" => Ok(InnerArgs::Octo),
+            _ => Err(()),
+        }
+    }
 }

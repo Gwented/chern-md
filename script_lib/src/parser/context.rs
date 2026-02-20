@@ -2,37 +2,37 @@ use std::cell::RefCell;
 
 use crate::{
     parser::error::{Branch, Diagnostic},
-    token::{Span, SpannedToken, Token, TokenKind},
+    token::{SpannedToken, Token, TokenKind},
 };
 
 pub struct Context<'a> {
-    pub(super) tokens: &'a [SpannedToken],
-    pub(super) pos: usize,
+    pub(crate) tokens: &'a [SpannedToken],
+    pub(crate) pos: usize,
     // Needs RefCell for recursion
-    pub(super) err_vec: RefCell<Vec<Diagnostic>>,
-    // pub(super) warn_vec: Vec<ParseError<'a>>,
+    pub(crate) err_vec: RefCell<Vec<Diagnostic>>,
+    // pub(crate) warn_vec: Vec<ParseError<'a>>,
 }
 
 impl<'a> Context<'a> {
-    pub fn peek(&self) -> &SpannedToken {
+    pub(crate) fn peek(&self) -> &SpannedToken {
         &self.tokens[self.pos]
     }
 
-    pub fn peek_ahead(&self, dest: usize) -> &SpannedToken {
+    pub(crate) fn peek_ahead(&self, dest: usize) -> &SpannedToken {
         &self.tokens[self.pos + dest]
     }
 
-    pub fn skip(&mut self, dest: usize) -> &SpannedToken {
-        self.pos += dest;
-        &self.tokens[self.pos + dest]
-    }
+    // pub(crate) fn skip(&mut self, dest: usize) -> &SpannedToken {
+    //     self.pos += dest;
+    //     &self.tokens[self.pos + dest]
+    // }
 
-    pub fn peek_kind(&self) -> TokenKind {
+    pub(crate) fn peek_kind(&self) -> TokenKind {
+        dbg!(&self.tokens[self.pos - 2].token.kind());
         self.tokens[self.pos].token.kind()
     }
 
-    pub fn advance(&mut self) -> &SpannedToken {
-        dbg!(&self.tokens[self.pos]);
+    pub(crate) fn advance(&mut self) -> &SpannedToken {
         let t = &self.tokens[self.pos];
         self.pos += 1;
         t
@@ -41,7 +41,60 @@ impl<'a> Context<'a> {
     //TODO: (Possibly) REASON FOR EMPTY ERROR. I DO NOT REPORT IT, THE METHOD DOES.
     //REPORTING TWICE WHEN THE BRANCH WAS GIVEN IS REDUNDANT. (probably)
 
-    pub fn expect_basic(&mut self, expected: TokenKind, branch: Branch) -> Result<Token, ()> {
+    //FIXME: Change to usize return
+    //ADD IDENTIFIER SPECIFIC FUNCTIONS FOR IDS
+
+    pub(crate) fn expect_id(&mut self, expected: TokenKind, branch: Branch) -> Result<usize, ()> {
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
+
+        // Horrific.
+        match found.token.clone() {
+            Token::Id(id) if expected == TokenKind::Id => Ok(id),
+            Token::Literal(id) if expected == TokenKind::Literal => Ok(id),
+            // Token::EOF => todo!(),
+            _ => {
+                let prev_tok = &self.tokens[self.pos - 2];
+                let ln = found.span.ln();
+                let col = found.span.col();
+                dbg!(&branch);
+
+                //TODO: TEMP ERR MSG
+                let msg = format!(
+                    "(in {})\n[{}:{}] Expected '{}' but found '{}'. [{}]",
+                    branch,
+                    ln,
+                    col,
+                    expected,
+                    found.token.kind(),
+                    prev_tok.token.kind()
+                );
+
+                self.err_vec
+                    .borrow_mut()
+                    .push(Diagnostic::new(msg, branch, &prev_tok));
+
+                return Err(());
+            }
+        }
+    }
+
+    // FIXME: Maybe just clone the SpannedToken...
+    // pub fn expect_type(&mut self, expected: TokenKind, branch: Branch) -> Result<ActualType, ()> {
+    //     let found = &self.tokens[self.pos];
+    //     self.pos += 1;
+    //
+    // }
+
+    pub fn expect_num(&mut self) -> Result<usize, ()> {
+        todo!()
+    }
+
+    pub(crate) fn expect_basic(
+        &mut self,
+        expected: TokenKind,
+        branch: Branch,
+    ) -> Result<Token, ()> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
@@ -53,8 +106,13 @@ impl<'a> Context<'a> {
 
             //TODO: TEMP ERR MSG
             let msg = format!(
-                "(in {})\n[{}:{}] Expected '{}' but found '{}'.",
-                branch, ln, col, expected, found.token
+                "(in {})\n[{}:{}] Expected '{}' but found '{}'. [{:?}]",
+                branch,
+                ln,
+                col,
+                expected,
+                found.token.kind(),
+                prev_tok.token
             );
 
             self.err_vec
@@ -67,8 +125,22 @@ impl<'a> Context<'a> {
         Ok(found.token.clone())
     }
 
-    pub fn expect_template(span: Span, emsg: &str, fmsg: &str) -> Result<Token, ()> {
-        let msg = format!("Expected {emsg} but found {fmsg}");
-        unimplemented!()
+    pub(crate) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
+
+        let prev_tok = &self.tokens[self.pos - 2];
+        let ln = found.span.ln();
+        let col = found.span.col();
+
+        //TODO: TEMP ERR MSG
+        let msg = format!(
+            "(in {})\n[{}:{}] Expected '{}' but found '{}'.",
+            branch, ln, col, emsg, fmsg,
+        );
+
+        let report = Diagnostic::new(msg, Branch::InnerArgs, prev_tok);
+
+        self.err_vec.borrow_mut().push(report);
     }
 }

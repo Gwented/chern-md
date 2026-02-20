@@ -4,20 +4,23 @@ use crate::token::SpannedToken;
 
 // Has a lifetime because of previous clone concerns in instantiation
 #[derive(Debug)]
+// Turn to, Type, ie. expected. Have general, expected, found, branch, pre_tok parts.
+// I'm new to thinking. Anyone have some beginner thoughts?
 pub struct Diagnostic {
     // Maybe warns will exist at some point
-    pub(super) msg: String,
-    pub(super) branch: Branch,
-    pub(super) prev_tok: SpannedToken,
+    pub(crate) msg: String,
+    pub(crate) branch: Branch,
+    pub(crate) prev_tok: SpannedToken,
     // Maybe help
-    // pub(super) help: Option<String>
+    // pub(crate) help: Option<String>
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Branch {
+pub(crate) enum Branch {
     Searching,
     Bind,
     Var,
+    InnerArgs,
     Nest,
     ComplexRules,
 }
@@ -25,9 +28,10 @@ pub enum Branch {
 impl Display for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Branch::Searching => write!(f, ""),
+            Branch::Searching => write!(f, "start"),
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
+            Branch::InnerArgs => write!(f, "[var] args"),
             Branch::Nest => write!(f, "nest"),
             Branch::ComplexRules => write!(f, "complex_rules"),
         }
@@ -35,7 +39,7 @@ impl Display for Branch {
 }
 
 impl Diagnostic {
-    pub fn new(msg: String, branch: Branch, prev_tok: &SpannedToken) -> Diagnostic {
+    pub(crate) fn new(msg: String, branch: Branch, prev_tok: &SpannedToken) -> Diagnostic {
         Diagnostic {
             msg,
             branch,

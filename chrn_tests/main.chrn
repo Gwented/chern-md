@@ -1,9 +1,11 @@
 @def
-    bind-> $ "\."
+ //   bind-> "./main.chrn"
     var->
-        name: str(!isEmpty, len(~12))
+    s
+    name: i8 #as_octo
+   // person: BigInt
         age: u8
-        person: S%Person
+        // Make id search by default <><><>
 
     complex_rules->
 

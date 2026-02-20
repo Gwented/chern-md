@@ -11,6 +11,7 @@ pub struct Lexer<'a> {
     pos: usize,
 }
 
+//FIX: remove tracker of ln and col
 impl Lexer<'_> {
     pub fn new(bytes: &[u8]) -> Lexer<'_> {
         Lexer {
@@ -165,7 +166,6 @@ impl Lexer<'_> {
                         //TODO: Starting point set method needed. Maybe not.
                         start_offset = self.pos + 4;
                         dbg!(start_offset);
-                        panic!("Def end");
                         tokens.push(SpannedToken {
                             token: Token::EOF,
                             span: Span::new(self.ln, self.col),

@@ -37,7 +37,7 @@ mod tests {
 
         let table = parser::parse(&toks, &mut interner);
 
-        dbg!(table);
+        dbg!(start_offset, table);
         panic!("I'm panicking");
     }
 }

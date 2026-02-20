@@ -2,12 +2,13 @@ pub mod context;
 pub mod error;
 pub mod symbols;
 
-use common::intern::{Intern, ReservedKeyword};
+use common::intern::{self, Intern, ReservedKeyword};
 use std::cell::RefCell;
 
 use crate::parser::error::Branch;
 
-use crate::parser::symbols::Table;
+use crate::parser::symbols::{Bind, Cond, Table, TypeDef};
+use crate::token::{ActualType, InnerArgs};
 use crate::{
     parser::{context::Context, symbols::Symbol},
     token::{SpannedToken, Token, TokenKind},
@@ -23,7 +24,7 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
     };
 
     while ctx.pos < ctx.tokens.len() {
-        if ctx.err_vec.borrow().len() > 5 {
+        if ctx.err_vec.borrow().len() > 7 {
             break;
         }
 
@@ -31,8 +32,8 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
         let tok = ctx.advance();
 
         if let Token::Id(id) = tok.token {
-            let name = interner.search(id);
-            dbg!(name, &tok.token);
+            let section = interner.search(id);
+            dbg!(section, &tok.token);
         }
 
         match &tok.token {
@@ -42,13 +43,26 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
                     ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching)
                         .ok();
 
-                    if let Ok(Symbol::Path { id }) = parse_bind_section(&mut ctx) {
-                        table.symbols.insert(id, Symbol::Path { id });
+                    // Odd handling so I can pattern match
+                    if let Ok(b) = parse_bind_section(&mut ctx, interner) {
+                        table.symbols.insert(b.id, Symbol::Bind(b));
                     };
                 }
                 id if id == ReservedKeyword::Var as usize => {
                     ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching)
                         .ok();
+
+                    while let Token::Id(current_id) = ctx.peek().token {
+                        if interner.is_section(current_id) {
+                            break;
+                        }
+
+                        if let Ok(type_def) = parse_var_section(&mut ctx, interner) {
+                            table
+                                .symbols
+                                .insert(type_def.id, Symbol::Definition(type_def));
+                        }
+                    }
                 }
                 id if id == ReservedKeyword::Nest as usize => {
                     ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching)
@@ -58,48 +72,138 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
                     ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching)
                         .ok();
                 }
-                t => unimplemented!("Failed in main parse branch with tok of id '{:?}'", t),
+                t => {
+                    eprintln!("Possible silent err tok inside: {}", interner.search(t));
+                    break;
+                }
             },
             // Token::Illegal(_) => todo!(),
             Token::EOF => break,
-            t => unimplemented!("Failed in main parse branch with tok '{:?}'", t),
+            // Currently assmung all errors that are propogated are program ending by default
+            // since...
+            t => {
+                eprintln!("Possible silent err tok outside: {}", t.kind());
+                break;
+            }
         }
     }
 
     if !ctx.err_vec.borrow().is_empty() {
         // WHERES MY ITERATOR
+        dbg!(table);
         for err in ctx.err_vec.borrow().iter() {
             eprintln!("{}", err.msg);
         }
-        panic!("I am new to thinking");
+
+        panic!("I'm new to thinking. Anyone have beginner thoughts?");
         // std::process::exit(1);
     }
 
-    dbg!(ctx.err_vec.borrow());
     table
 }
 
 //FIXME: NEED TO SKIP IN CONTEXT STRUCT
 fn unwind() {}
 
-//TODO: Set only to one bind allowed for now
-fn parse_bind_section(ctx: &mut Context) -> Result<Symbol, ()> {
-    //FIX: NEED TO HAVE UNIFIED ERROR HANDLE POINT
-    if let Ok(Token::Literal(id)) = ctx.expect_basic(TokenKind::Literal, Branch::Bind) {
-        return Ok(Symbol::Path { id });
+//TODO: Just return id
+//And error need to return something useful eventually to know that we have to error
+fn parse_bind_section(ctx: &mut Context, interner: &Intern) -> Result<Bind, ()> {
+    let id = ctx.expect_id(TokenKind::Literal, Branch::Bind)?;
+
+    dbg!(interner.search(id));
+
+    Ok(Bind::new(id))
+}
+
+fn parse_var_section(ctx: &mut Context, interner: &mut Intern) -> Result<TypeDef, ()> {
+    let name_id = ctx.expect_id(TokenKind::Id, Branch::Var)?;
+    // dbg!(interner.search(name_id), name_id);
+
+    ctx.expect_basic(TokenKind::Colon, Branch::Var)?;
+
+    let ty = parse_type(ctx)?;
+
+    let conds: Vec<Cond> = Vec::new();
+
+    if ctx.peek_kind() == TokenKind::OParen {}
+
+    let mut args: Vec<InnerArgs> = Vec::new();
+    // dbg!("Before var^ args", ctx.peek_kind());
+
+    while ctx.peek_kind() == TokenKind::HashSymbol {
+        ctx.advance();
+        // dbg!(interner.search(ctx.expect_id(TokenKind::Id, Branch::Var).unwrap()));
+        let arg = parse_arg(ctx, interner)?;
+        args.push(arg);
     }
 
-    Err(())
+    // dbg!(&interner.search(name_id));
+
+    Ok(TypeDef::new(name_id, ty, args, conds))
 }
 
-fn parse_var_section<'a>(ctx: &'a Context) -> Result<Symbol, ()> {
+//FIXME: Give ActualType the function instead
+//The ActualType should USE the ReservedKeyword to GET the type to avoid misdirection
+fn parse_type(ctx: &mut Context) -> Result<ActualType, ()> {
+    match ctx.peek().token {
+        Token::Id(id) => match ReservedKeyword::try_from(id)? {
+            ReservedKeyword::Array => parse_array(ctx),
+            ReservedKeyword::Set => todo!(),
+            ReservedKeyword::Map => todo!(),
+            _ => {
+                let id = ActualType::try_from(id);
+                ctx.advance();
+                id
+            }
+        },
+        Token::QuestionMark => Ok(ActualType::Any),
+        // parse
+        // Specific error messages here to say types were misplaeced?
+        Token::OAngleBracket => todo!(),
+        Token::CAngleBracket => todo!(),
+        // Token::Comma => todo!(),
+        // Token::OParen => todo!(),
+        // Token::CParen => todo!(),
+        // gorp
+        // Token::Equals => todo!(),
+        // Token::Percent => todo!(),
+        // Token::Tilde => todo!(),
+        // Token::Dot => todo!(),
+        // Token::VerticalBar => todo!(),
+        Token::EOF => panic!("Got eof during parse type (Later)"),
+        t => {
+            //FIX: I FORGOT
+            let fmt_tok = format!("{}", t.kind());
+            ctx.report_template("a type", &fmt_tok, Branch::InnerArgs);
+            Err(())
+        }
+    }
+}
+
+fn parse_arg(ctx: &mut Context, interner: &mut Intern) -> Result<InnerArgs, ()> {
+    let id = ctx.expect_id(TokenKind::Id, Branch::InnerArgs)?;
+
+    InnerArgs::try_from(interner.search(id))
+
+    //FIX: CHECK FOR NOTATION ON CORRECT TYPE BY OTHER PASSING IN TYPE OR OUTSIDE
+
+    // match arg {
+    //     InnerArgs::Warn => todo!(),
+    //     InnerArgs::Scientific => todo!(),
+    //     InnerArgs::Hex => todo!(),
+    //     InnerArgs::Binary => todo!(),
+    //     InnerArgs::Octo => todo!(),
+    // }
+}
+
+fn parse_array(ctx: &mut Context) -> Result<ActualType, ()> {
     todo!()
 }
 
-fn parse_nest_section<'a>(ctx: &'a Context) -> Result<Symbol, ()> {
+fn parse_nest_section(ctx: &mut Context, interner: &mut Intern) -> Result<Symbol, ()> {
     todo!()
 }
 
-fn parse_complex_section<'a>(ctx: &'a Context) -> Result<Symbol, ()> {
+fn parse_complex_section(ctx: &mut Context, interner: &mut Intern) -> Result<Symbol, ()> {
     todo!()
 }
