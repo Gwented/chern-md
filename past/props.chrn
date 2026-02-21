@@ -104,7 +104,7 @@ var:
     price 0..=5&>0&!=5 (Unsure of if we need != we'll see)
 
     !Unifying MD!
-    Supports .json, .toml, toon?, .yml .yaml, .xml
+    Supports .json, .toml, .yml .yaml, .xml
 
     !Tags! (For langauge specific args)
 

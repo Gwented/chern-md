@@ -25,21 +25,26 @@ E% for Enum type.
 
 `||`: Or operator.
 
-`?`: Infers type and expects type consistency throughout entire `.chrn` file. Can be used in struct definition to perform the same check, but also allows for the name after for clarity. Name affects nothing.
-Can be used as "I don't know" for the naming so it doesn't matter. Some polish needed.
+`?`: Infers type and expects type consistency throughout entire `.chrn` file.  Name affects nothing.
+Can be used as "I don't know" for the naming so it doesn't matter. Exmpl: name?: ? (likely illegal)
+Maybe inference only works if there is one of one type?
+
+(may remove)-> Can be used in struct definition to perform the same check, but also allows for the name after for clarity.
 
 `!?`: Self declaring type inference that then alters props file.
 
-`~`: Approximation operator acts as general range. Equivalent to: 0 <= x <= 6, 0..=6.
-
-'`.`': References past defined variable.
+`~`: Approximation operator acts as a range. Equivalent to: 0 <= x <= 6, 0..=6.
 
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
 
-## [Commands]
-`is_empty`: Checks if given array within a `.chrn` file is empty, or if a given string is empty/has only whitespace. Ends program with error if true.
+'`.`': References past defined variable. `.person:= {..}`
 
-## Functions
+
+## [Predicates]
+`IsEmpty`: Checks if given array or string within a `.chrn` file is empty, or if a string only has whitespace. Ends program with error if true.
+`IsWhitespace`: (MAY EXIST)
+
+## Functions (Predicate)
 `Len(x || range || ~)`: Checks if length of string is in condition. name: str (Len(0..=5), !IsEmpty)
 
 ## [Sections]

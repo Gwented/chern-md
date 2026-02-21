@@ -2,11 +2,9 @@
 // Typedef will merge with corresponding type if needed during semantic analysis
 // Or maybe just a flat table of type defs in a new type that IS the struct/enum for ease of use?
 @def
-    bind-> "./main.chrn"
     var->
-        name: ..=
-        age: u8 (Len(~9), !isEmpty) #octo
-        person: %Person
+        name: str(Len(~8), !IsEmpty)
+        floor: Set<u32>
     /*nest->
         .person:= {
             names: List<str>

@@ -192,7 +192,7 @@ impl Lexer<'_> {
                     self.advance();
 
                     if self.peek() == b'.' && self.peek_ahead(1) == b'=' {
-                        self.skip(2);
+                        self.skip(1);
 
                         tokens.push(SpannedToken {
                             token: Token::DotRange,

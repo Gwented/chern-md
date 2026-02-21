@@ -293,7 +293,8 @@ pub(crate) enum ActualType {
     Map(Box<ActualType>, Box<ActualType>),
     // TODO: Figure out if this should be an 'init' type of type
     Any(Option<Box<ActualType>>),
-    UserType,
+    UserStruct,
+    UserEnum,
 }
 
 // OR
