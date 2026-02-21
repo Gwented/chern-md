@@ -19,7 +19,7 @@ pub(crate) enum Branch {
     Searching,
     Bind,
     Var,
-    InnerArgs,
+    VarInnerArgs,
     Nest,
     ComplexRules,
 }
@@ -30,7 +30,7 @@ impl Display for Branch {
             Branch::Searching => write!(f, "start"),
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
-            Branch::InnerArgs => write!(f, "[var] args"),
+            Branch::VarInnerArgs => write!(f, "var [args]"),
             Branch::Nest => write!(f, "nest"),
             Branch::ComplexRules => write!(f, "complex_rules"),
         }

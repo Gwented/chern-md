@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path};
 // I'm scared
 // Also the interner shouldn't own this
 // Also add null
-const GLOBAL_KEYWORDS: [&str; 29] = [
+const PRMITIVES_ARRAY: [&str; 29] = [
     "i8",
     "u8",
     "i16",
@@ -26,7 +26,7 @@ const GLOBAL_KEYWORDS: [&str; 29] = [
     "nil", // 19
     "BigInt",
     "BigFloat",
-    "Array",
+    "List",
     "Map",
     "Set", // 24
     "bind",
@@ -35,7 +35,7 @@ const GLOBAL_KEYWORDS: [&str; 29] = [
     "complex_rules", // 28
 ];
 
-pub enum ReservedKeyword {
+pub enum PrimitiveKeywords {
     I8 = 0,
     U8 = 1,
     I16 = 2,
@@ -58,7 +58,7 @@ pub enum ReservedKeyword {
     Nil = 19,
     BigInt = 20,
     BigFloat = 21,
-    Array = 22,
+    List = 22,
     Map = 23,
     Set = 24,
     Bind = 25,
@@ -68,36 +68,36 @@ pub enum ReservedKeyword {
 }
 
 //FIXME: IM SCARED OF THIS
-impl TryFrom<usize> for ReservedKeyword {
+impl TryFrom<u32> for PrimitiveKeywords {
     type Error = ();
 
-    fn try_from(val: usize) -> Result<Self, Self::Error> {
+    fn try_from(val: u32) -> Result<Self, Self::Error> {
         match val {
-            0 => Ok(ReservedKeyword::I8),
-            1 => Ok(ReservedKeyword::U8),
-            2 => Ok(ReservedKeyword::I16),
-            3 => Ok(ReservedKeyword::U16),
-            4 => Ok(ReservedKeyword::F16),
-            5 => Ok(ReservedKeyword::I32),
-            6 => Ok(ReservedKeyword::U32),
-            7 => Ok(ReservedKeyword::F32),
-            8 => Ok(ReservedKeyword::I64),
-            9 => Ok(ReservedKeyword::U64),
-            10 => Ok(ReservedKeyword::F64),
-            11 => Ok(ReservedKeyword::I128),
-            12 => Ok(ReservedKeyword::U128),
-            13 => Ok(ReservedKeyword::F128),
-            14 => Ok(ReservedKeyword::Sized),
-            15 => Ok(ReservedKeyword::Unsized),
-            16 => Ok(ReservedKeyword::Char),
-            17 => Ok(ReservedKeyword::Str),
-            18 => Ok(ReservedKeyword::Bool),
-            19 => Ok(ReservedKeyword::Nil),
-            20 => Ok(ReservedKeyword::BigInt),
-            21 => Ok(ReservedKeyword::BigFloat),
-            22 => Ok(ReservedKeyword::Array),
-            23 => Ok(ReservedKeyword::Map),
-            24 => Ok(ReservedKeyword::Set),
+            0 => Ok(PrimitiveKeywords::I8),
+            1 => Ok(PrimitiveKeywords::U8),
+            2 => Ok(PrimitiveKeywords::I16),
+            3 => Ok(PrimitiveKeywords::U16),
+            4 => Ok(PrimitiveKeywords::F16),
+            5 => Ok(PrimitiveKeywords::I32),
+            6 => Ok(PrimitiveKeywords::U32),
+            7 => Ok(PrimitiveKeywords::F32),
+            8 => Ok(PrimitiveKeywords::I64),
+            9 => Ok(PrimitiveKeywords::U64),
+            10 => Ok(PrimitiveKeywords::F64),
+            11 => Ok(PrimitiveKeywords::I128),
+            12 => Ok(PrimitiveKeywords::U128),
+            13 => Ok(PrimitiveKeywords::F128),
+            14 => Ok(PrimitiveKeywords::Sized),
+            15 => Ok(PrimitiveKeywords::Unsized),
+            16 => Ok(PrimitiveKeywords::Char),
+            17 => Ok(PrimitiveKeywords::Str),
+            18 => Ok(PrimitiveKeywords::Bool),
+            19 => Ok(PrimitiveKeywords::Nil),
+            20 => Ok(PrimitiveKeywords::BigInt),
+            21 => Ok(PrimitiveKeywords::BigFloat),
+            22 => Ok(PrimitiveKeywords::List),
+            23 => Ok(PrimitiveKeywords::Map),
+            24 => Ok(PrimitiveKeywords::Set),
             // 25 => Ok(ReservedKeyword::Bind),
             // 26 => Ok(ReservedKeyword::Var),
             // 27 => Ok(ReservedKeyword::Nest),
@@ -108,11 +108,8 @@ impl TryFrom<usize> for ReservedKeyword {
 }
 
 pub struct Intern {
-    // Onboarding
-    map: HashMap<String, usize>,
-    // Actual search
+    map: HashMap<String, u32>,
     stored: Vec<String>,
-    // 80 BYTES
     cursor: usize,
 }
 
@@ -120,26 +117,26 @@ pub struct Intern {
 impl Intern {
     pub fn new() -> Intern {
         let mut interner = Intern {
-            map: HashMap::with_capacity(GLOBAL_KEYWORDS.len()),
-            stored: Vec::with_capacity(GLOBAL_KEYWORDS.len()),
-            cursor: GLOBAL_KEYWORDS.len(),
+            map: HashMap::with_capacity(PRMITIVES_ARRAY.len()),
+            stored: Vec::with_capacity(PRMITIVES_ARRAY.len()),
+            cursor: PRMITIVES_ARRAY.len(),
         };
 
         // TODO: Is this ok?
-        for (id, keyword) in GLOBAL_KEYWORDS.iter().enumerate() {
-            interner.map.insert(keyword.to_string(), id);
+        for (id, keyword) in PRMITIVES_ARRAY.iter().enumerate() {
+            interner.map.insert(keyword.to_string(), id as u32);
             interner.stored.push(keyword.to_string());
         }
 
         interner
     }
 
-    pub fn intern(&mut self, s: &str) -> usize {
+    pub fn intern(&mut self, s: &str) -> u32 {
         if let Some(id) = self.map.get(s) {
             return *id;
         }
 
-        let id = self.cursor;
+        let id = self.cursor as u32;
         self.cursor += 1;
 
         let new_str = s.to_string();
@@ -151,11 +148,11 @@ impl Intern {
     }
 
     pub fn is_reserved(&self, id: usize) -> bool {
-        id < GLOBAL_KEYWORDS.len()
+        id < PRMITIVES_ARRAY.len()
     }
 
     // HOW DO I USE RANGE FOR THIS. I AM NEW TO THINKING.
-    pub fn is_section(&self, id: usize) -> bool {
+    pub fn is_section(&self, id: u32) -> bool {
         if id >= 25 && id <= 28 {
             return true;
         }

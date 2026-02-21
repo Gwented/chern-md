@@ -29,7 +29,6 @@ impl<'a> Context<'a> {
     // }
 
     pub(crate) fn peek_kind(&self) -> TokenKind {
-        dbg!("Peeking kind", self.tokens[self.pos - 2].token.kind());
         self.tokens[self.pos].token.kind()
     }
 
@@ -42,21 +41,17 @@ impl<'a> Context<'a> {
     //TODO: (Possibly) REASON FOR EMPTY ERROR. I DO NOT REPORT IT, THE METHOD DOES.
     //REPORTING TWICE WHEN THE BRANCH WAS GIVEN IS REDUNDANT. (probably)
 
-    //FIXME: Change to usize return
-    //ADD IDENTIFIER SPECIFIC FUNCTIONS FOR IDS
-
-    pub(crate) fn expect_id(
-        &mut self,
-        expected: TokenKind,
-        branch: Branch,
-    ) -> Result<usize, Token> {
+    //FIXME: GET RID OF THIS
+    //May want to return Option<usize>. Or get rid of it.
+    //This is a horrible dependency
+    pub(crate) fn expect_id(&mut self, expected: TokenKind, branch: Branch) -> Result<u32, Token> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
-        // Horrific.
         match found.token {
             Token::Id(id) if expected == TokenKind::Id => Ok(id),
             Token::Literal(id) if expected == TokenKind::Literal => Ok(id),
+            Token::Number(id) if expected == TokenKind::Number => Ok(id),
             // Token::EOF => todo!(),
             _ => {
                 //FIX: Needs to be removed or some type
@@ -92,10 +87,6 @@ impl<'a> Context<'a> {
     //
     // }
 
-    pub fn expect_num(&mut self) -> Result<usize, ()> {
-        todo!()
-    }
-
     pub(crate) fn expect_basic(
         &mut self,
         expected: TokenKind,
@@ -105,13 +96,12 @@ impl<'a> Context<'a> {
         self.pos += 1;
 
         if found.token.kind() != expected {
-            //FIX: NEEDS TO BE SOME OR NONE
             let ln = found.span.ln();
             let col = found.span.col();
 
             //TODO: TEMP ERR MSG
             let msg = format!(
-                "(in {})\n[{}:{}] Expected '{}' but found '{}'. SPECIAL",
+                "(in {})\n[{}:{}] Expected '{}' but found '{}'. TEMP",
                 branch,
                 ln,
                 col,
@@ -121,9 +111,7 @@ impl<'a> Context<'a> {
 
             self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
-            dbg!("hello?");
             self.recover();
-            dbg!("Smellello?");
 
             return Err(found.token);
         }
@@ -146,21 +134,22 @@ impl<'a> Context<'a> {
 
         self.recover();
 
-        let report = Diagnostic::new(msg, Branch::InnerArgs);
+        let report = Diagnostic::new(msg, Branch::VarInnerArgs);
 
         self.err_vec.borrow_mut().push(report);
     }
 
     pub(crate) fn recover(&mut self) {
         if self.pos < self.tokens.len() && self.peek_kind() == TokenKind::EOF {
-            while self.pos > self.tokens.len()
+            while self.pos < self.tokens.len() + 2
                 && self.peek_ahead(1).token.kind() != TokenKind::Colon
-                && self.peek_ahead(1).token.kind() != TokenKind::Id
+                && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow
             {
-                dbg!("Recovering in");
+                // dbg!(self.peek_ahead(1).token.kind());
+                // dbg!("Recovering in");
                 self.advance();
             }
-            dbg!("Recovered");
+            // dbg!("Recovered");
         }
     }
 }

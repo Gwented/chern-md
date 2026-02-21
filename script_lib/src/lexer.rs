@@ -1,5 +1,4 @@
 use common::intern::Intern;
-use std::io::Read;
 
 use crate::token::{Span, SpannedToken, Token};
 
@@ -22,13 +21,14 @@ impl Lexer<'_> {
         }
     }
 
+    //FIXME: What if @end is forgotten?
     pub fn tokenize(&mut self, interner: &mut Intern) -> (usize, Vec<SpannedToken>) {
         let mut tokens: Vec<SpannedToken> = Vec::new();
 
         // For threshold of illegal tokens before just giving up. Likely 8 cap.
-        let mut illegal_toks = 0;
+        let mut illegal_toks: u8 = 0;
         // In case of in md file definition
-        let mut start_offset = 0;
+        let mut start_offset: usize = 0;
 
         let mut has_def = false;
 
@@ -56,6 +56,7 @@ impl Lexer<'_> {
                         token,
                         span: Span::new(ln, col),
                     });
+
                     eprintln!("Peeking {}", self.peek() as char);
                 }
                 b if b.is_ascii_digit() => {
@@ -174,7 +175,7 @@ impl Lexer<'_> {
                         break;
                     } else {
                         todo!("Implement unwind");
-                        let tok = self.unwind();
+                        let tok = self.recover();
 
                         let id = interner.intern(&tok);
 
@@ -187,10 +188,22 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'.' => {
-                    tokens.push(SpannedToken {
-                        token: Token::Dot,
-                        span: Span::new(self.ln, self.col),
-                    });
+                    let (ln, col) = (self.ln, self.col);
+                    self.advance();
+
+                    if self.peek() == b'.' && self.peek_ahead(1) == b'=' {
+                        self.skip(2);
+
+                        tokens.push(SpannedToken {
+                            token: Token::DotRange,
+                            span: Span::new(ln, col),
+                        });
+                    } else {
+                        tokens.push(SpannedToken {
+                            token: Token::Dot,
+                            span: Span::new(ln, col),
+                        });
+                    }
 
                     self.advance();
                 }
@@ -295,7 +308,7 @@ impl Lexer<'_> {
                     //
                     // }
                     todo!("Implement unwind.");
-                    let tok = self.unwind();
+                    let tok = self.recover();
 
                     //FIXME: STAND IN VALUE
                     // let id = interner.intern(&t);
@@ -309,7 +322,7 @@ impl Lexer<'_> {
         }
         //FIXME: Definition needs to be uncommented
         // if has_def {
-        //     panic!("No definition");
+        //     panic!("Definition not ended with @end");
         // }
         dbg!(&tokens);
         dbg!(start_offset);
@@ -376,7 +389,7 @@ impl Lexer<'_> {
                     //FIXME: BROKEN WINDER. TEMPORARY VALUE
                     if escape_sequence.contains(&self.peek()) {
                         todo!("Implement wounding (name clashing)");
-                        let tok = self.unwind();
+                        let tok = self.recover();
                         return Token::Illegal(0x00);
                     }
 
@@ -450,8 +463,7 @@ impl Lexer<'_> {
     }
 
     //FIXME: Intended to prevent garbage characters from being read after an illegal token.
-    // Change the name
-    fn unwind(&mut self) -> String {
+    fn recover(&mut self) -> String {
         let mut id = String::new();
 
         while let Some(ch) = self.peek_char() {
@@ -504,6 +516,7 @@ impl Lexer<'_> {
     }
 
     // May return byte
+    // BUG: This could be an issue. Many other places alike are present.
     fn skip(&mut self, dest: usize) {
         self.pos += dest;
     }

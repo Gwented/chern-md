@@ -13,11 +13,11 @@ pub enum Symbol {
 #[derive(Debug)]
 //FIX: Give interner a list of pathbufs
 pub struct Bind {
-    pub(crate) id: usize,
+    pub(crate) id: u32,
 }
 
 impl Bind {
-    pub fn new(id: usize) -> Bind {
+    pub fn new(id: u32) -> Bind {
         Bind { id }
     }
 }
@@ -25,14 +25,14 @@ impl Bind {
 #[derive(Debug)]
 pub struct TypeDef {
     // May be integer idk
-    pub(crate) id: usize,
+    pub(crate) id: u32,
     pub(crate) ty: ActualType,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) cond: Vec<Cond>,
 }
 
 impl TypeDef {
-    pub(crate) fn new(id: usize, ty: ActualType, args: Vec<InnerArgs>, cond: Vec<Cond>) -> TypeDef {
+    pub(crate) fn new(id: u32, ty: ActualType, args: Vec<InnerArgs>, cond: Vec<Cond>) -> TypeDef {
         TypeDef { id, ty, args, cond }
     }
 }
@@ -50,14 +50,14 @@ pub(crate) enum Cond {
 }
 
 #[derive(Debug)]
-pub struct Table {
-    pub symbols: HashMap<usize, Symbol>,
+pub struct SymbolTable {
+    pub symbols: HashMap<u32, Symbol>,
 }
 
-impl Table {
+impl SymbolTable {
     // In case table has something else added
-    pub(crate) fn new() -> Table {
-        Table {
+    pub(crate) fn new() -> SymbolTable {
+        SymbolTable {
             symbols: HashMap::new(),
         }
     }

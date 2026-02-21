@@ -15,7 +15,7 @@ LANGUAGE BLOAT >>>>>>>
 ## [Types]
 i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,
-char, bool, str, E%Enum, S%Obj, nil, BigInt, BigFloat, Array, Map, Set
+char, bool, str, %Struct/Enum, nil, BigInt, BigFloat, List, Map, Set
 
 S% for structure of data.
 E% for Enum type.
@@ -40,7 +40,7 @@ Can be used as "I don't know" for the naming so it doesn't matter. Some polish n
 `is_empty`: Checks if given array within a `.chrn` file is empty, or if a given string is empty/has only whitespace. Ends program with error if true.
 
 ## Functions
-`Len(x || range || ~)`: Checks if length of string is in condition. name: str (len(0..=5), !is_empty)
+`Len(x || range || ~)`: Checks if length of string is in condition. name: str (Len(0..=5), !IsEmpty)
 
 ## [Sections]
 `bind`: Sets the `.chrn` file to affirm the syntax of. (or `attach`, `find`)
@@ -60,7 +60,7 @@ Example:
 ## POSSIBLE FEATURES
 Utilities to alter actual main file, such as trimming all strings.
 
-Attributes ie. `#warn`, `#rm_if` (would remove anything that didn't align under condition rather than crash or warn.) `#scientific`, `#hex`, `#binary`, `#octo`
+Attributes ie. `#warn`, `#ign_if` (would remove anything that didn't align under condition rather than crash or warn.) `#scientific`, `#hex`, `#binary`, `#octo`
 
 Numerics: Binary, hex, octo. Allows for notation to serialize to be a specific notation. Unicode.
 

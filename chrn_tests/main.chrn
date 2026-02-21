@@ -1,6 +1,18 @@
+// Work on illegal tokens and correctly unwinding while lexing.
+// Typedef will merge with corresponding type if needed during semantic analysis
+// Or maybe just a flat table of type defs in a new type that IS the struct/enum for ease of use?
 @def
     bind-> "./main.chrn"
-    "
+    var->
+        name: ..=
+        age: u8 (Len(~9), !isEmpty) #octo
+        person: %Person
+    /*nest->
+        .person:= {
+            names: List<str>
+            floor: Set<u32>
+        }*/
+    complex_rules->
 @end
 
 // I feel like expecting (file_size / 30) new lines is a good with_capacity metric if storing them \n
@@ -17,4 +29,3 @@ person:= {
         age: 6
     }
 }
-

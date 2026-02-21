@@ -11,9 +11,9 @@ pub struct SpannedToken {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Token {
-    Id(usize),
-    Literal(usize),
-    Number(usize),
+    Id(u32),
+    Literal(u32),
+    Number(u32),
     OBracket,
     CBracket,
     OCurlyBracket,
@@ -24,6 +24,7 @@ pub(crate) enum Token {
     CAngleBracket,
     Comma,
     SlimArrow,
+    DotRange,
     Slash,
     HashSymbol,
     Percent,
@@ -39,7 +40,7 @@ pub(crate) enum Token {
     Dot,
     VerticalBar,
     //FIXME: INTERN THIS
-    Illegal(usize),
+    Illegal(u32),
     EOF,
 }
 
@@ -59,6 +60,7 @@ impl Token {
             Token::CAngleBracket => TokenKind::CAngleBracket,
             Token::Comma => TokenKind::Comma,
             Token::SlimArrow => TokenKind::SlimArrow,
+            Token::DotRange => TokenKind::DotRange,
             Token::Slash => TokenKind::Slash,
             Token::HashSymbol => TokenKind::HashSymbol,
             Token::Percent => TokenKind::Percent,
@@ -140,7 +142,7 @@ pub(crate) enum TokenKind {
     Str,
     BigInt,
     BigFloat,
-    Array,
+    List,
     Set,
     Map,
     // QUESTIONABLE
@@ -162,6 +164,7 @@ pub(crate) enum TokenKind {
     SlimArrow,
     Slash,
     HashSymbol,
+    DotRange,
     Percent,
     Colon,
     OParen,
@@ -184,7 +187,7 @@ impl Display for TokenKind {
         match self {
             TokenKind::Id => write!(f, "identifier"),
             TokenKind::Literal => write!(f, "literal"),
-            TokenKind::Number => write!(f, "Number"),
+            TokenKind::Number => write!(f, "number"),
             TokenKind::OBracket => write!(f, "["),
             TokenKind::CBracket => write!(f, "]"),
             TokenKind::OCurlyBracket => write!(f, "{{"),
@@ -195,6 +198,7 @@ impl Display for TokenKind {
             TokenKind::CAngleBracket => write!(f, ">"),
             TokenKind::Comma => write!(f, ","),
             TokenKind::SlimArrow => write!(f, "->"),
+            TokenKind::DotRange => write!(f, "..= (range)"),
             TokenKind::Slash => write!(f, "/"),
             TokenKind::HashSymbol => write!(f, "#"),
             TokenKind::Percent => write!(f, "%"),
@@ -230,7 +234,7 @@ impl Display for TokenKind {
             TokenKind::BigInt => write!(f, "BigInt"),
             TokenKind::BigFloat => write!(f, "BigFloat"),
             TokenKind::Type => write!(f, "type"),
-            TokenKind::Array => write!(f, "Array"),
+            TokenKind::List => write!(f, "List"),
             TokenKind::Set => write!(f, "Set"),
             TokenKind::Map => write!(f, "Map"),
             TokenKind::Any => write!(f, "Any"),
@@ -284,18 +288,40 @@ pub(crate) enum ActualType {
     BigInt,
     // Hex?
     BigFloat,
-    Array(Box<ActualType>),
+    List(Box<ActualType>),
     Set(Box<ActualType>),
     Map(Box<ActualType>, Box<ActualType>),
-    Any,
+    // TODO: Figure out if this should be an 'init' type of type
+    Any(Option<Box<ActualType>>),
     UserType,
 }
 
+// OR
+pub struct StructuralType {
+    pub(crate) id: usize,
+    // pub(crate) ty: ActualType,
+    // pub(crate) args: Vec<InnerArgs>,
+    // pub(crate) cond: Vec<crate::parser::symbols::Cond>,
+    // Box<ActualType>?
+    pub(crate) children: Vec<u32>,
+    // 64,000 fields????
+    pub(crate) total_fields: u16,
+}
+
+//TODO: IS THIS
+// pub struct UserStruct {
+//     type_defs: Vec<TypeDef>,
+// }
+//
+// pub struct UserEnum {
+//     variants: Vec<usize>,
+// }
+
 //FIXME: Change match to actual enum name
-impl TryFrom<usize> for ActualType {
+impl TryFrom<u32> for ActualType {
     type Error = ();
 
-    fn try_from(v: usize) -> Result<Self, Self::Error> {
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
         match v {
             0 => Ok(ActualType::I8),
             1 => Ok(ActualType::U8),
@@ -343,10 +369,10 @@ impl TryFrom<&str> for InnerArgs {
     fn try_from(v: &str) -> Result<Self, Self::Error> {
         match v {
             "warn" => Ok(InnerArgs::Warn),
-            "as_scien" => Ok(InnerArgs::Scientific),
-            "as_hex" => Ok(InnerArgs::Hex),
-            "as_bin" => Ok(InnerArgs::Binary),
-            "as_octo" => Ok(InnerArgs::Octo),
+            "scientific" => Ok(InnerArgs::Scientific),
+            "hex" => Ok(InnerArgs::Hex),
+            "binary" => Ok(InnerArgs::Binary),
+            "octo" => Ok(InnerArgs::Octo),
             _ => Err(()),
         }
     }
