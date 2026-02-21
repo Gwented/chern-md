@@ -10,7 +10,6 @@ pub struct Diagnostic {
     // Maybe warns will exist at some point
     pub(crate) msg: String,
     pub(crate) branch: Branch,
-    pub(crate) prev_tok: SpannedToken,
     // Maybe help
     // pub(crate) help: Option<String>
 }
@@ -39,11 +38,7 @@ impl Display for Branch {
 }
 
 impl Diagnostic {
-    pub(crate) fn new(msg: String, branch: Branch, prev_tok: &SpannedToken) -> Diagnostic {
-        Diagnostic {
-            msg,
-            branch,
-            prev_tok: prev_tok.clone(),
-        }
+    pub(crate) fn new(msg: String, branch: Branch) -> Diagnostic {
+        Diagnostic { msg, branch }
     }
 }

@@ -49,10 +49,16 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
                     };
                 }
                 id if id == ReservedKeyword::Var as usize => {
-                    ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching)
-                        .ok();
+                    // Will index out of bounds without match because
+                    // errors cannot propogate from here
+                    match ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching) {
+                        Ok(_) => (),
+                        Err(_) => break,
+                    };
+                    dbg!("hello?");
 
                     while let Token::Id(current_id) = ctx.peek().token {
+                        //FIX: TECHNICAL DEBT
                         if ctx.peek().token.kind() == TokenKind::EOF
                             || interner.is_section(current_id)
                         {
@@ -74,8 +80,13 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
                     ctx.expect_basic(TokenKind::SlimArrow, Branch::Searching)
                         .ok();
                 }
-                t => {
-                    eprintln!("Possible silent err tok inside: {}", interner.search(t));
+                id => {
+                    //FIX: CHECK FOR SIMILARITY
+                    let name_id = interner.search(id);
+                    let fmsg =
+                        format!("identifier \"{name_id}\". Use '->' before defining a section.");
+
+                    ctx.report_template("a section", &fmsg, Branch::Searching);
                     break;
                 }
             },
@@ -84,7 +95,27 @@ pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> Table {
             // Currently assmung all errors that are propogated are program ending by default
             // since...
             t => {
-                eprintln!("Possible silent err tok outside: {}", t.kind());
+                match t {
+                    Token::Id(id) | Token::Literal(id) => {
+                        let name = interner.search(*id);
+                        let fmsg = format!("{} \"{}\"", t.kind(), name);
+
+                        ctx.report_template(
+                            "a section or type definition",
+                            &fmsg,
+                            Branch::Searching,
+                        );
+                    }
+                    _ => {
+                        let fmsg = format!("'{}'", t.kind());
+                        ctx.report_template(
+                            "a section or type definition",
+                            &fmsg,
+                            Branch::Searching,
+                        );
+                    }
+                }
+
                 break;
             }
         }
@@ -124,6 +155,10 @@ fn parse_var_section(ctx: &mut Context, interner: &Intern) -> Result<TypeDef, To
     ctx.expect_basic(TokenKind::Colon, Branch::Var)?;
 
     let ty = parse_type(ctx, interner)?;
+
+    if ctx.peek_kind() == TokenKind::Comma {
+        ctx.advance();
+    }
 
     let conds: Vec<Cond> = Vec::new();
 
@@ -173,10 +208,14 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                 //It's going to be a macro because <>
                 ctx.report_template("a type", &fmt_tok, Branch::Var);
 
+                // A little weird since internally, this is meaningless
                 Err(Token::Illegal(id))
             }
         },
-        Token::QuestionMark => Ok(ActualType::Any),
+        Token::QuestionMark => {
+            ctx.advance();
+            Ok(ActualType::Any)
+        }
         // parse
         // Specific error messages here to say types were misplaeced?
         Token::OAngleBracket => todo!(),

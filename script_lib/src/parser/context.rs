@@ -15,7 +15,7 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub(crate) fn peek(&self) -> &SpannedToken {
-        dbg!(&self.tokens[self.pos - 2]);
+        // dbg!(&self.tokens[self.pos - 2]);
         &self.tokens[self.pos]
     }
 
@@ -29,7 +29,7 @@ impl<'a> Context<'a> {
     // }
 
     pub(crate) fn peek_kind(&self) -> TokenKind {
-        dbg!(&self.tokens[self.pos - 2].token.kind());
+        dbg!("Peeking kind", self.tokens[self.pos - 2].token.kind());
         self.tokens[self.pos].token.kind()
     }
 
@@ -54,30 +54,27 @@ impl<'a> Context<'a> {
         self.pos += 1;
 
         // Horrific.
-        match found.token.clone() {
+        match found.token {
             Token::Id(id) if expected == TokenKind::Id => Ok(id),
             Token::Literal(id) if expected == TokenKind::Literal => Ok(id),
             // Token::EOF => todo!(),
             _ => {
-                let prev_tok = &self.tokens[self.pos - 2];
+                //FIX: Needs to be removed or some type
                 let ln = found.span.ln();
                 let col = found.span.col();
                 dbg!(&branch);
 
                 //TODO: TEMP ERR MSG
                 let msg = format!(
-                    "(in {})\n[{}:{}] Expected '{}' but found '{}'. [{}]",
+                    "(in {})\n[{}:{}] Expected '{}' but found '{}'. PSEICAL",
                     branch,
                     ln,
                     col,
                     expected,
                     found.token.kind(),
-                    prev_tok.token.kind()
                 );
 
-                self.err_vec
-                    .borrow_mut()
-                    .push(Diagnostic::new(msg, branch, &prev_tok));
+                self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
                 self.recover();
 
@@ -87,19 +84,6 @@ impl<'a> Context<'a> {
     }
 
     // IT WORKS
-    pub(crate) fn recover(&mut self) {
-        dbg!("Recovering from", &self.tokens[self.pos - 2]);
-        if self.peek_kind() != TokenKind::EOF {
-            while self.pos > self.tokens.len()
-                && self.peek_ahead(1).token.kind() != TokenKind::Colon
-                && self.peek_ahead(1).token.kind() != TokenKind::Id
-            {
-                dbg!("Recovering in");
-                self.advance();
-            }
-            dbg!("Recovered");
-        }
-    }
 
     // FIXME: Maybe just clone the SpannedToken...
     // pub fn expect_type(&mut self, expected: TokenKind, branch: Branch) -> Result<ActualType, ()> {
@@ -122,26 +106,24 @@ impl<'a> Context<'a> {
 
         if found.token.kind() != expected {
             //FIX: NEEDS TO BE SOME OR NONE
-            let prev_tok = &self.tokens[self.pos - 2];
             let ln = found.span.ln();
             let col = found.span.col();
 
             //TODO: TEMP ERR MSG
             let msg = format!(
-                "(in {})\n[{}:{}] Expected '{}' but found '{}'. [{:?}]",
+                "(in {})\n[{}:{}] Expected '{}' but found '{}'. SPECIAL",
                 branch,
                 ln,
                 col,
                 expected,
                 found.token.kind(),
-                prev_tok.token
             );
 
-            self.err_vec
-                .borrow_mut()
-                .push(Diagnostic::new(msg, branch, &prev_tok));
+            self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
+            dbg!("hello?");
             self.recover();
+            dbg!("Smellello?");
 
             return Err(found.token);
         }
@@ -153,20 +135,32 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
-        let prev_tok = &self.tokens[self.pos - 2];
         let ln = found.span.ln();
         let col = found.span.col();
 
         //TODO: TEMP ERR MSG
         let msg = format!(
-            "(in {})\n[{}:{}] Expected {} but found {}.",
+            "(in {})\n[{}:{}] Expected {} but found {}",
             branch, ln, col, emsg, fmsg,
         );
 
         self.recover();
 
-        let report = Diagnostic::new(msg, Branch::InnerArgs, prev_tok);
+        let report = Diagnostic::new(msg, Branch::InnerArgs);
 
         self.err_vec.borrow_mut().push(report);
+    }
+
+    pub(crate) fn recover(&mut self) {
+        if self.pos < self.tokens.len() && self.peek_kind() == TokenKind::EOF {
+            while self.pos > self.tokens.len()
+                && self.peek_ahead(1).token.kind() != TokenKind::Colon
+                && self.peek_ahead(1).token.kind() != TokenKind::Id
+            {
+                dbg!("Recovering in");
+                self.advance();
+            }
+            dbg!("Recovered");
+        }
     }
 }
