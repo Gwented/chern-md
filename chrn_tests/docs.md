@@ -1,7 +1,4 @@
-
-[IMPORTANT TYPE ACKNOWLEDGEMENT]
-(Change this, it's false now)
-This language expects a structure of data that greatly resembles what a piece of data SHOULD look like. If a value is an integer with 32 bits, it is clear if it is within that range. But ambiguity crosses when something like a HashMap is used. The definition, "Map<i32, nil>" could be a hashmap, could have a literal language specific set of nulls representing a HashSet. Therefore, more complex declarations are less so a direct translation of data, and more so a bounds for does this piece of data fit what I was told to scan for?
+### ERROR HANDLING ERROR HANDLING ERROR HA
 
 ## [BEHAVIOR]
 - Ends program by default when type information is correct unless `#warn` is used.
