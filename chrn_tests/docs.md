@@ -1,4 +1,4 @@
-### ERROR HANDLING ERROR HANDLING ERROR HA
+### ERROR HANDLING ERROR HANDLING ERROR 
 
 ## [BEHAVIOR]
 - Ends program by default when type information is correct unless `#warn` is used.

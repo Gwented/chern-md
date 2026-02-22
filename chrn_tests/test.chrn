@@ -1,5 +1,0 @@
-bind-> main.chrn
-
-var->
-    name?: str
-    age?: u8

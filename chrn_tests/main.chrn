@@ -1,6 +1,3 @@
-// Work on illegal tokens and correctly unwinding while lexing.
-// Typedef will merge with corresponding type if needed during semantic analysis
-// Or maybe just a flat table of type defs in a new type that IS the struct/enum for ease of use?
 @def
 bind-> ->
     var->
@@ -19,7 +16,7 @@ bind-> ->
 // If file_size > 300 bytes I will CAP it out at 300 since that likely means we are in a serialized file.
 // For in serialized file definitions, should be (file_size / 40 + 4)
 
-// IF this file is found it will override
+// IF this file is found it will override. I think.
 
 person:= {
     name: "Floor"
