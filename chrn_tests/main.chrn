@@ -2,9 +2,11 @@
 // Typedef will merge with corresponding type if needed during semantic analysis
 // Or maybe just a flat table of type defs in a new type that IS the struct/enum for ease of use?
 @def
+bind-> ->
     var->
-        name: str(Len(4..=5
-        floor: Set<u32>
+        name: str(Len(0..=5
+        floor: List<u32>
+        flop: Map<i32, i32>
     /*nest->
         .person:= {
             names: List<str>

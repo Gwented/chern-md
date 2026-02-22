@@ -65,7 +65,7 @@ impl SymbolTable {
     /// To make the type I either have to make dedicated funcs
     /// or reserve it first. Reserving makes no assumptions of position and just
     /// reserves a single slot. Will be null but impossible to access.
-    pub(crate) fn reserve_t_id(&mut self) -> u32 {
+    pub(crate) fn reserve_id(&mut self) -> u32 {
         let type_id = self.cursor;
         self.type_ids.push(ActualType::Nil);
         self.cursor += 1;

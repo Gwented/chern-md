@@ -198,7 +198,7 @@ impl Display for TokenKind {
             TokenKind::CAngleBracket => write!(f, ">"),
             TokenKind::Comma => write!(f, ","),
             TokenKind::SlimArrow => write!(f, "->"),
-            TokenKind::DotRange => write!(f, "..= (range)"),
+            TokenKind::DotRange => write!(f, "(range)"),
             TokenKind::Slash => write!(f, "/"),
             TokenKind::HashSymbol => write!(f, "#"),
             TokenKind::Percent => write!(f, "%"),
@@ -245,21 +245,13 @@ impl Display for TokenKind {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Span {
-    ln: usize,
-    col: usize,
+    pub(crate) ln: usize,
+    pub(crate) col: usize,
 }
 
 impl Span {
     pub(crate) fn new(ln: usize, col: usize) -> Span {
         Span { ln, col }
-    }
-
-    pub(crate) fn ln(&self) -> usize {
-        self.ln
-    }
-
-    pub(crate) fn col(&self) -> usize {
-        self.col
     }
 }
 //FIXME: Add enum and struct
@@ -364,17 +356,17 @@ pub(crate) enum InnerArgs {
     Octo,
 }
 
-impl TryFrom<&str> for InnerArgs {
-    type Error = ();
+impl<'a> TryFrom<&'a str> for InnerArgs {
+    type Error = &'a str;
 
-    fn try_from(v: &str) -> Result<Self, Self::Error> {
+    fn try_from(v: &'a str) -> Result<Self, Self::Error> {
         match v {
             "warn" => Ok(InnerArgs::Warn),
             "scientific" => Ok(InnerArgs::Scientific),
             "hex" => Ok(InnerArgs::Hex),
             "binary" => Ok(InnerArgs::Binary),
             "octo" => Ok(InnerArgs::Octo),
-            _ => Err(()),
+            v => Err(v),
         }
     }
 }

@@ -1,10 +1,13 @@
 use std::cell::RefCell;
 
+use common::intern::Intern;
+
 use crate::{
     parser::error::{Branch, Diagnostic},
     token::{SpannedToken, Token, TokenKind},
 };
 
+//TODO: May give it the interner directly
 pub struct Context<'a> {
     pub(crate) tokens: &'a [SpannedToken],
     pub(crate) pos: usize,
@@ -33,15 +36,13 @@ impl<'a> Context<'a> {
         t
     }
 
-    //TODO: (Possibly) REASON FOR EMPTY ERROR. I DO NOT REPORT IT, THE METHOD DOES.
-    //REPORTING TWICE WHEN THE BRANCH WAS GIVEN IS REDUNDANT. (probably)
-
-    //FIXME: GET RID OF THIS
-    //May want to return Option<usize>. Or get rid of it.
-    //This is a horrible dependency
-    //Add an Option<&str> side note.                                    Maybe Option<u32>
-    //Intended because I need it
-    pub(crate) fn expect_id(&mut self, expected: TokenKind, branch: Branch) -> Result<u32, Token> {
+    /// The Intern won.
+    pub(crate) fn expect_id(
+        &mut self,
+        expected: TokenKind,
+        branch: Branch,
+        interner: Intern,
+    ) -> Result<u32, Token> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
@@ -49,11 +50,10 @@ impl<'a> Context<'a> {
             Token::Id(id) if expected == TokenKind::Id => Ok(id),
             Token::Literal(id) if expected == TokenKind::Literal => Ok(id),
             Token::Number(id) if expected == TokenKind::Number => Ok(id),
-            // Token::EOF => todo!(),
             _ => {
-                //FIX: Needs to be removed or some type
-                let ln = found.span.ln();
-                let col = found.span.col();
+                //FIX: Need byte ranges
+                let ln = found.span.ln;
+                let col = found.span.col;
                 dbg!(&branch);
 
                 //TODO: TEMP ERR MSG
@@ -75,14 +75,56 @@ impl<'a> Context<'a> {
         }
     }
 
-    // IT WORKS
+    //Configuration for expected and found being disabled
+    pub(crate) fn expect_id_verbose(
+        &mut self,
+        expected: TokenKind,
+        bmsg: &str,
+        amsg: &str,
+        branch: Branch,
+        // help: Option<&str>
+        interner: &Intern,
+    ) -> Result<u32, Token> {
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
 
-    // FIXME: Maybe just clone the SpannedToken...
-    // pub fn expect_type(&mut self, expected: TokenKind, branch: Branch) -> Result<ActualType, ()> {
-    //     let found = &self.tokens[self.pos];
-    //     self.pos += 1;
-    //
-    // }
+        // Maybe just check each individually first so we know it is invalid after.
+        let id_opt = match found.token {
+            Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
+                if found.token.kind() == expected {
+                    return Ok(id);
+                }
+
+                Some(id)
+            }
+            _ => None,
+        };
+
+        let ln = found.span.ln;
+        let col = found.span.col;
+
+        let msg = if let Some(id) = id_opt {
+            let name_id = interner.search(id as usize);
+
+            format!(
+                "(in {branch})\n[{ln}:{col}] {bmsg}{} \"{name_id}\"{amsg}",
+                found.token.kind()
+            )
+        } else {
+            format!(
+                "(in {branch})\n[{ln}:{col}] {bmsg}'{}'{amsg}",
+                found.token.kind()
+            )
+        };
+
+        //FIX: Need byte ranges
+
+        self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
+
+        self.recover();
+
+        Err(found.token)
+    }
 
     /// Intended for basic errors that need little context after
     pub(crate) fn expect_basic(
@@ -95,8 +137,8 @@ impl<'a> Context<'a> {
         self.pos += 1;
 
         if found.token.kind() != expected {
-            let ln = found.span.ln();
-            let col = found.span.col();
+            let ln = found.span.ln;
+            let col = found.span.col;
 
             let msg = format!(
                 "(in {})\n[{}:{}] Expected '{}' but found '{}'. {}",
@@ -119,81 +161,88 @@ impl<'a> Context<'a> {
         Ok(found.token.clone())
     }
 
-    pub(crate) fn report_verbose(&mut self, emsg: &str, branch: Branch) {
+    pub(crate) fn report_verbose(&mut self, msg: &str, branch: Branch) {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
-        let ln = found.span.ln();
-        let col = found.span.col();
+        let ln = found.span.ln;
+        let col = found.span.col;
 
-        let msg = format!("(in {})\n[{}:{}] {}", branch, ln, col, emsg,);
+        let msg = format!("(in {})\n[{}:{}] {}", branch, ln, col, msg);
 
         self.recover();
 
-        let report = Diagnostic::new(msg, Branch::VarTypeArgs);
+        let report = Diagnostic::new(msg, branch);
 
         self.err_vec.borrow_mut().push(report);
-        todo!()
     }
 
+    /// Fully curated version of `expect_basic`
+    //TODO: Primitive type recognition for printing all errors
     pub(crate) fn expect_verbose(
         &mut self,
         expected: TokenKind,
-    ) -> Result<(), (Option<u32>, SpannedToken)> {
+        bmsg: &str,
+        amsg: &str,
+        branch: Branch,
+        interner: &Intern,
+    ) -> Result<Token, Token> {
         let found = &self.tokens[self.pos];
+        dbg!(&found);
         self.pos += 1;
+        dbg!(&self.tokens[self.pos]);
 
-        if found.token.kind() != expected {
-            let name_id: Option<u32> = match found.token {
-                Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
-                _ => None,
-            };
+        let id_opt = match found.token {
+            Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
+            _ => None,
+        };
 
-            self.recover();
-
-            return Err((name_id, found.clone()));
+        if found.token.kind() == expected {
+            return Ok(found.token);
         }
 
-        Ok(())
+        let ln = found.span.ln;
+        let col = found.span.col;
+
+        let msg = if let Some(id) = id_opt {
+            let name_id = interner.search(id as usize);
+
+            format!(
+                "(in {branch})\n[{ln}:{col}] {bmsg}{} \"{name_id}\"{amsg}",
+                found.token.kind()
+            )
+        } else {
+            format!(
+                "(in {branch})\n[{ln}:{col}] {bmsg}'{}'{amsg}",
+                found.token.kind()
+            )
+        };
+
+        //FIX: Need byte ranges
+
+        self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
+
+        self.recover();
+
+        Err(found.token)
     }
 
     /// Intended to take down horrific dependency
-    pub(crate) fn expect_verbose_id(
-        &mut self,
-        expected: TokenKind,
-    ) -> Result<(), (Option<u32>, SpannedToken)> {
-        let found = &self.tokens[self.pos];
-        self.pos += 1;
+    // pub(crate) fn report_direct(&mut self, msg: &str, branch: Branch) {
+    //     let report = Diagnostic::new(msg.to_string(), branch);
+    //     self.err_vec.borrow_mut().push(report);
+    // }
 
-        if found.token.kind() != expected {
-            let name_id: Option<u32> = match found.token {
-                Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
-                _ => None,
-            };
-
-            self.recover();
-
-            return Err((name_id, found.clone()));
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn report_direct(&mut self, msg: &str, branch: Branch) {
-        let report = Diagnostic::new(msg.to_string(), branch);
-        self.err_vec.borrow_mut().push(report);
-    }
-
-    /// Intended for composable but more detailed errors
+    /// More composable "Expected but found" error
     pub(crate) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
-        let found = &self.tokens[self.pos];
-        self.pos += 1;
+        //BUG: POSSIBLY FIXED OF WRONG LN AND COL PRINT
+        let found = &self.tokens[self.pos - 2];
 
-        let ln = found.span.ln();
-        let col = found.span.col();
+        let ln = found.span.ln;
+        let col = found.span.col;
 
         let msg = format!(
-            "(in {})\n[{}:{}] Expected {} but found {}",
+            "(in {})\n[{}:{}] Expected {}, found {}",
             branch, ln, col, emsg, fmsg,
         );
 
@@ -205,7 +254,7 @@ impl<'a> Context<'a> {
     }
 
     //TODO: Branch specific behavior
-    pub(crate) fn recover(&mut self) {
+    fn recover(&mut self) {
         dbg!(self.pos, self.tokens.len());
         if self.pos < self.tokens.len() && self.peek_kind() != TokenKind::EOF {
             while self.pos < self.tokens.len() + 2
