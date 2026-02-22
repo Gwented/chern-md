@@ -1,15 +1,11 @@
 @def
-bind-> ->
     var->
-        name: str(Len(0..=5
-        floor: List<u32>
-        flop: Map<i32, i32>
+        flop daopfjwea
     /*nest->
         .person:= {
             names: List<str>
             floor: Set<u32>
         }*/
-    complex_rules->
 @end
 
 // I feel like expecting (file_size / 30) new lines is a good with_capacity metric if storing them \n

@@ -2,4 +2,7 @@ Err messages need to be more composable for any use case
 Make errors less static<<<
 Errors.
 We make errors now.
+How do we make errors better?
+Lets add primitive recognition to errors.
+We need more errors
 Matchable errors if a specific token is of note

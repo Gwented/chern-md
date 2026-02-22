@@ -5,20 +5,13 @@ use crate::token::{Span, SpannedToken, Token};
 // Possible issues?
 pub struct Lexer<'a> {
     bytes: &'a [u8],
-    ln: usize,
-    col: usize,
     pos: usize,
 }
 
-//FIX: remove tracker of ln and col
+//FIX: Should not read to string
 impl Lexer<'_> {
     pub fn new(bytes: &[u8]) -> Lexer<'_> {
-        Lexer {
-            bytes,
-            ln: 1,
-            col: 1,
-            pos: 0,
-        }
+        Lexer { bytes, pos: 0 }
     }
 
     //FIXME: What if @end is forgotten?
@@ -39,7 +32,7 @@ impl Lexer<'_> {
             if self.peek() == b'\0' || self.peek() == b'$' {
                 tokens.push(SpannedToken {
                     token: Token::EOF,
-                    span: Span::new(self.ln, self.col),
+                    span: Span::new(self.pos, self.pos),
                 });
 
                 break;
@@ -49,29 +42,27 @@ impl Lexer<'_> {
 
             match byte {
                 b if b.is_ascii_alphabetic() || b == b'_' => {
-                    let (ln, col) = (self.ln, self.col);
-                    let token = self.read_id(interner);
+                    eprintln!(
+                        "Peeking byte {} char {} start",
+                        self.peek(),
+                        self.peek() as char
+                    );
 
-                    tokens.push(SpannedToken {
-                        token,
-                        span: Span::new(ln, col),
-                    });
+                    tokens.push(self.read_id(interner));
 
-                    eprintln!("Peeking {}", self.peek() as char);
+                    eprintln!(
+                        "Peeking byte {} char {} end",
+                        self.peek(),
+                        self.peek() as char
+                    );
                 }
                 b if b.is_ascii_digit() => {
-                    let (ln, col) = (self.ln, self.col);
-                    let token = self.read_num(interner);
-
-                    tokens.push(SpannedToken {
-                        token,
-                        span: Span::new(ln, col),
-                    });
+                    tokens.push(self.read_num(interner));
                 }
                 b':' => {
                     tokens.push(SpannedToken {
                         token: Token::Colon,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -79,7 +70,7 @@ impl Lexer<'_> {
                 b'(' => {
                     tokens.push(SpannedToken {
                         token: Token::OParen,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -87,7 +78,7 @@ impl Lexer<'_> {
                 b')' => {
                     tokens.push(SpannedToken {
                         token: Token::CParen,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -95,7 +86,7 @@ impl Lexer<'_> {
                 b'<' => {
                     tokens.push(SpannedToken {
                         token: Token::OAngleBracket,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -103,7 +94,7 @@ impl Lexer<'_> {
                 b'>' => {
                     tokens.push(SpannedToken {
                         token: Token::CAngleBracket,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -111,7 +102,7 @@ impl Lexer<'_> {
                 b'[' => {
                     tokens.push(SpannedToken {
                         token: Token::OBracket,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -119,7 +110,7 @@ impl Lexer<'_> {
                 b']' => {
                     tokens.push(SpannedToken {
                         token: Token::CBracket,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -127,7 +118,7 @@ impl Lexer<'_> {
                 b'{' => {
                     tokens.push(SpannedToken {
                         token: Token::OCurlyBracket,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -135,7 +126,7 @@ impl Lexer<'_> {
                 b'}' => {
                     tokens.push(SpannedToken {
                         token: Token::CCurlyBracket,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -143,7 +134,7 @@ impl Lexer<'_> {
                 b',' => {
                     tokens.push(SpannedToken {
                         token: Token::Comma,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -151,7 +142,7 @@ impl Lexer<'_> {
                 b'?' => {
                     tokens.push(SpannedToken {
                         token: Token::QuestionMark,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -169,7 +160,7 @@ impl Lexer<'_> {
                         dbg!(start_offset);
                         tokens.push(SpannedToken {
                             token: Token::EOF,
-                            span: Span::new(self.ln, self.col),
+                            span: Span::new(self.pos, self.pos),
                         });
 
                         break;
@@ -181,14 +172,14 @@ impl Lexer<'_> {
 
                         tokens.push(SpannedToken {
                             token: Token::Illegal(id),
-                            span: Span::new(self.ln, self.col),
+                            span: Span::new(self.pos, self.pos),
                         });
                     }
 
                     self.advance();
                 }
                 b'.' => {
-                    let (ln, col) = (self.ln, self.col);
+                    let (ln, col) = (self.pos, self.pos);
                     self.advance();
 
                     if self.peek() == b'.' && self.peek_ahead(1) == b'=' {
@@ -210,28 +201,21 @@ impl Lexer<'_> {
                 b'#' => {
                     tokens.push(SpannedToken {
                         token: Token::HashSymbol,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
                 }
                 b'"' => {
-                    let (ln, col) = (self.ln, self.col);
                     self.advance();
-
-                    let token = self.read_quotes(interner);
-                    dbg!(&token);
-
-                    tokens.push(SpannedToken {
-                        token,
-                        span: Span::new(ln, col),
-                    });
+                    tokens.push(self.read_quotes(interner));
                 }
                 b'-' => {
-                    let (ln, col) = (self.ln, self.col);
+                    let (start, mut end) = (self.pos, self.pos);
 
                     let token = if self.peek_ahead(1) == b'>' {
                         self.advance();
+                        end = self.pos;
                         Token::SlimArrow
                     } else {
                         Token::Hyphen
@@ -239,7 +223,7 @@ impl Lexer<'_> {
 
                     tokens.push(SpannedToken {
                         token,
-                        span: Span::new(ln, col),
+                        span: Span::new(start, end),
                     });
 
                     self.advance();
@@ -247,7 +231,7 @@ impl Lexer<'_> {
                 b'=' => {
                     tokens.push(SpannedToken {
                         token: Token::Equals,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -255,7 +239,7 @@ impl Lexer<'_> {
                 b'~' => {
                     tokens.push(SpannedToken {
                         token: Token::Tilde,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -270,7 +254,7 @@ impl Lexer<'_> {
                     } else {
                         tokens.push(SpannedToken {
                             token: Token::Slash,
-                            span: Span::new(self.ln, self.col),
+                            span: Span::new(self.pos, self.pos),
                         });
 
                         self.advance();
@@ -279,7 +263,7 @@ impl Lexer<'_> {
                 b'*' => {
                     tokens.push(SpannedToken {
                         token: Token::Asterisk,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -287,7 +271,7 @@ impl Lexer<'_> {
                 b'!' => {
                     tokens.push(SpannedToken {
                         token: Token::ExclamationPoint,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -295,7 +279,7 @@ impl Lexer<'_> {
                 b'%' => {
                     tokens.push(SpannedToken {
                         token: Token::Percent,
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
 
                     self.advance();
@@ -315,7 +299,7 @@ impl Lexer<'_> {
 
                     tokens.push(SpannedToken {
                         token: Token::Illegal(0x00),
-                        span: Span::new(self.ln, self.col),
+                        span: Span::new(self.pos, self.pos),
                     });
                 }
             }
@@ -329,8 +313,11 @@ impl Lexer<'_> {
         (start_offset, tokens)
     }
 
-    fn read_id(&mut self, interner: &mut Intern) -> Token {
+    fn read_id(&mut self, interner: &mut Intern) -> SpannedToken {
         let mut id = Vec::with_capacity(8);
+
+        let start = self.pos;
+        dbg!(self.bytes[start] as char);
 
         //FIXME: Utf-8 compliance.
         while self.pos < self.bytes.len() && self.peek().is_ascii_alphanumeric()
@@ -340,25 +327,38 @@ impl Lexer<'_> {
             id.push(byte);
         }
 
+        // 9 trillion years debugging and it was an off by one error.
+        let end = self.pos - 1;
+
         let id = str::from_utf8(id.as_slice());
 
         match id {
             Ok(id) => {
                 let id = interner.intern(id);
-                Token::Id(id)
+
+                SpannedToken {
+                    token: Token::Id(id),
+                    span: Span::new(start, end),
+                }
             }
             Err(_) => {
                 let response = "Invalid UTF-8. Could not parse id.";
-                let id = interner.intern(response);
-                Token::Illegal(id)
+                let resp_id = interner.intern(response);
+
+                SpannedToken {
+                    token: Token::Illegal(resp_id),
+                    span: Span::new(start, end),
+                }
             }
         }
     }
 
-    fn read_num(&mut self, interner: &mut Intern) -> Token {
+    fn read_num(&mut self, interner: &mut Intern) -> SpannedToken {
         let mut id = String::new();
+        let start = self.pos;
 
         // TODO: Match specific handling for underscores for cleanliness.
+        // Clean code, clean architecture, SOLID principles
         while self.pos < self.bytes.len() && self.peek().is_ascii_digit() || self.peek() == b'_' {
             let byte = self.advance();
 
@@ -369,17 +369,22 @@ impl Lexer<'_> {
             id.push(byte as char);
         }
 
+        let end = self.pos - 1;
         //TODO: Possible "Base" enum with Number type arg
         let id = interner.intern(&id);
 
-        Token::Number(id)
+        SpannedToken {
+            token: Token::Number(id),
+            span: Span::new(start, end),
+        }
     }
 
-    fn read_quotes(&mut self, interner: &mut Intern) -> Token {
+    fn read_quotes(&mut self, interner: &mut Intern) -> SpannedToken {
         let mut path: Vec<u8> = Vec::with_capacity(10);
+        let start = self.pos;
 
         //FIXME: Could be more escapes
-        let escape_sequence = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
+        let escape_sequences = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
 
         while self.pos < self.bytes.len() {
             match self.peek() {
@@ -387,10 +392,10 @@ impl Lexer<'_> {
                     let b = self.advance();
 
                     //FIXME: BROKEN WINDER. TEMPORARY VALUE
-                    if escape_sequence.contains(&self.peek()) {
-                        todo!("Implement wounding (name clashing)");
+                    if escape_sequences.contains(&self.peek()) {
+                        todo!("Implement wooging (name clashing)");
                         let tok = self.recover();
-                        return Token::Illegal(0x00);
+                        // return Token::Illegal(0x00);
                     }
 
                     dbg!(b);
@@ -404,23 +409,35 @@ impl Lexer<'_> {
             }
         }
 
+        let end = self.pos;
+
         //TODO: Cleaner handle of failure to close string
         if self.pos == self.bytes.len() {
-            let response_id = interner.intern("Failed to close string literal and found <eof>");
-            return Token::Illegal(response_id);
+            let resp_id = interner.intern("Failed to close string literal and found <eof>");
+            return SpannedToken {
+                token: Token::Illegal(resp_id),
+                span: Span::new(start, end),
+            };
         }
+
         dbg!(&path);
         let path_res = str::from_utf8(path.as_slice());
 
         match path_res {
             Ok(p) => {
                 let p = interner.intern(p);
-                Token::Literal(p)
+                SpannedToken {
+                    token: Token::Literal(p),
+                    span: Span::new(start, end),
+                }
             }
             Err(_) => {
                 let response = "Invalid UTF-8. Could not parse literal.";
                 let id = interner.intern(response);
-                Token::Illegal(id)
+                SpannedToken {
+                    token: Token::Illegal(id),
+                    span: Span::new(start, end),
+                }
             }
         }
         // Unsure if this needs to exist since, I have no reason to process these.
@@ -527,14 +544,6 @@ impl Lexer<'_> {
 
     fn advance(&mut self) -> u8 {
         let b = self.peek();
-
-        if b == b'\n' {
-            self.ln += 1;
-            self.col = 1;
-        } else {
-            self.col += 1;
-        }
-
         self.pos += 1;
         b
     }

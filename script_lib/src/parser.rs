@@ -14,10 +14,15 @@ use crate::{
     token::{SpannedToken, Token, TokenKind},
 };
 
-pub fn parse(tokens: &Vec<SpannedToken>, interner: &mut Intern) -> SymbolTable {
+pub fn parse(
+    original_text: &[u8],
+    tokens: &Vec<SpannedToken>,
+    interner: &mut Intern,
+) -> SymbolTable {
     let mut sym_table = SymbolTable::new();
 
     let mut ctx = Context {
+        original_text,
         tokens: &tokens[..],
         pos: 0,
         err_vec: RefCell::new(Vec::new()),
@@ -195,10 +200,11 @@ fn parse_var_section(
 
     ctx.expect_verbose(
         TokenKind::Colon,
-        //TODO: Have a 'help' option that goes under the span shown
-        "Insert a ':' after ",
+        //TODO: Have a 'help' option that goes under the span shown, just a small example.
+        "Use a ':' after ",
         " to declare it's type.",
         Branch::Var,
+        None,
         interner,
     )?;
 
@@ -285,6 +291,10 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                 }
                 _ => {
                     let type_res = ActualType::try_from(id).or(Err(Token::Illegal(id)));
+                    if ctx.peek_kind() == TokenKind::EOF {
+                        panic!("Eof");
+                    }
+                    dbg!(&ctx.peek());
                     ctx.advance();
                     type_res
                 }
@@ -292,9 +302,11 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
             Err(_) => {
                 let name = interner.search(id as usize);
 
+                let primitive = ctx.try_rewind(10);
+
                 let msg =
                     // Please no more expected but found please please palsea
-                    format!("Expected a type next, found identifier \"{name}\"");
+                    format!("Expected a type, found identifier \"{name}\"");
                 //FIX: CHECK IF WE WE GOT WAS SIMILAR TO something?
                 ctx.report_verbose(&msg, Branch::Var);
 
@@ -324,7 +336,10 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
 
             Err(Token::Literal(id))
         }
-        Token::EOF => panic!("Got eof during parse type (Later)"),
+        Token::EOF => {
+            ctx.report_verbose("Found <eof> while parsing type", Branch::Var);
+            Err(Token::EOF)
+        }
         t => {
             //FIX: I FORGOT.  Forgot what??? I actually don't know.
 
@@ -339,8 +354,8 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
 fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
     let id = ctx.expect_id_verbose(
         TokenKind::Id,
-        "A type argument requires a '#' but '",
-        "' was found. |e.g. #warn|",
+        "A type argument requires a '#' but ",
+        " was found. |e.g. #warn|",
         Branch::VarTypeArgs,
         interner,
     )?;
@@ -354,10 +369,10 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
 }
 
 fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token> {
-    // Probably should just separate func
+    //TODO: Probably should just separate func for Sets
     ctx.expect_verbose(
         TokenKind::OAngleBracket,
-        "A '<' is required to hold a type in `List`, found ",
+        "A '<' is required to hold a type in `List` or `Set`, found ",
         "",
         Branch::Var,
         interner,
@@ -367,7 +382,7 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
 
     ctx.expect_verbose(
         TokenKind::CAngleBracket,
-        "Expected a '>' to close `List`, found ",
+        "Expected a '>' to close `List` or `Set`, found ",
         "",
         Branch::Var,
         interner,
@@ -379,7 +394,7 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
 fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, ActualType), Token> {
     ctx.expect_verbose(
         TokenKind::OAngleBracket,
-        "Expected a '<' to define `Map`, found",
+        "Expected a '<' after `Map`, found",
         "",
         Branch::Var,
         interner,
@@ -531,8 +546,11 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
     let end = end
         .parse()
         //TODO: report this
-        .expect(format!("Failed to parse identifier {} as a number in len func", end).as_str());
-    dbg!("here");
+        .or_else(|_| {
+            ctx.report_verbose("pkill", Branch::VarCond);
+            //FIX: Illegal tokens don't do anything
+            return Err(Token::Illegal(end_id));
+        })?;
 
     if start > end {
         let msg = format!("The range '{start}..={end}' is invalid. Cannot have end > start.");

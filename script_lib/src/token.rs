@@ -245,13 +245,13 @@ impl Display for TokenKind {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Span {
-    pub(crate) ln: usize,
-    pub(crate) col: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
 }
 
 impl Span {
-    pub(crate) fn new(ln: usize, col: usize) -> Span {
-        Span { ln, col }
+    pub(crate) fn new(start: usize, end: usize) -> Span {
+        Span { start, end }
     }
 }
 //FIXME: Add enum and struct
@@ -289,7 +289,7 @@ pub(crate) enum ActualType {
     UserEnum,
 }
 
-// OR
+//TODO:
 pub struct StructuralType {
     pub(crate) id: usize,
     // pub(crate) ty: ActualType,
@@ -297,8 +297,7 @@ pub struct StructuralType {
     // pub(crate) cond: Vec<crate::parser::symbols::Cond>,
     // Box<ActualType>?
     pub(crate) children: Vec<u32>,
-    // 64,000 fields????
-    pub(crate) total_fields: u16,
+    pub(crate) total_fields: i128,
 }
 
 //TODO: IS THIS
