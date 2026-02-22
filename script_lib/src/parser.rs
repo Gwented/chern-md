@@ -148,7 +148,7 @@ fn parse_bind_section(
 
     let symbol = Symbol::Bind(Bind::new(name_id));
 
-    sym_table.store_bind(symbol, name_id);
+    sym_table.store_basic(symbol, name_id);
 
     Ok(())
 }
@@ -207,7 +207,7 @@ fn parse_var_section(
     let type_def = TypeDef::new(id, type_id, args, conds);
 
     // Maybe just match?
-    table.store_symbol(Symbol::Definition(type_def), id, type_id, raw_type);
+    table.store_complex(Symbol::Definition(type_def), id, type_id, raw_type);
 
     Ok(())
 }
@@ -302,7 +302,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
 }
 
 fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
-    let id = ctx.expect_id(TokenKind::Id, Branch::VarInnerArgs)?;
+    let id = ctx.expect_id(TokenKind::Id, Branch::VarTypeArgs)?;
 
     //TODO: ODD HANDLING
     InnerArgs::try_from(interner.search(id as usize)).or(Err(Token::Illegal(id)))
@@ -457,7 +457,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
         }
         t => {
             let fmt_tok = format!("'{}'", t.kind());
-            ctx.report_template("a range or numeric literal", &fmt_tok, Branch::Var);
+            ctx.report_template("a (range) or number", &fmt_tok, Branch::Var);
             return Err(t);
         }
     };
@@ -471,14 +471,16 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
     dbg!("here");
 
     if start > end {
-        ctx.report_template(
-            "a valid range",
-            "a start '{start}' greater than the end {end}'",
-            Branch::VarCond,
-        );
+        let fmt_msg = format!("a start of '{start}' which is greater than the end '{end}'.");
+
+        ctx.report_template("a valid range", &fmt_msg, Branch::VarCond);
     }
 
-    ctx.expect_basic(TokenKind::CParen, Branch::VarCond, None)?;
+    let rng = ctx.expect_basic(
+        TokenKind::CParen,
+        Branch::VarCond,
+        Some("\nConditions must be closed with a ')'. [old]"),
+    )?;
 
     Ok(Cond::Range(start, end))
 }

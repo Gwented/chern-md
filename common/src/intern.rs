@@ -1,4 +1,3 @@
-use crate::primitives::PrimitiveKeywords;
 use std::{collections::HashMap, path::Path};
 
 const PRMITIVES_ARRAY: [&str; 29] = [
@@ -19,7 +18,7 @@ const PRMITIVES_ARRAY: [&str; 29] = [
     "sized", // 14
     "unsized",
     "char",
-    "str",
+    "str", // 17
     "bool",
     "nil", // 19
     "BigInt",

@@ -3,7 +3,7 @@
 // Or maybe just a flat table of type defs in a new type that IS the struct/enum for ease of use?
 @def
     var->
-        name: str(Len(~8), !IsEmpty)
+        name: str(Len(4..=5
         floor: Set<u32>
     /*nest->
         .person:= {

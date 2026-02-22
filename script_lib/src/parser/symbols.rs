@@ -72,11 +72,11 @@ impl SymbolTable {
         type_id as u32
     }
 
-    pub(crate) fn store_bind(&mut self, symbol: Symbol, name_id: u32) {
+    pub(crate) fn store_basic(&mut self, symbol: Symbol, name_id: u32) {
         self.symbols.insert(name_id, symbol);
     }
 
-    pub(crate) fn store_symbol(
+    pub(crate) fn store_complex(
         &mut self,
         symbol: Symbol,
         name_id: u32,

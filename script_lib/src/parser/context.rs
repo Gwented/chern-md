@@ -15,7 +15,6 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub(crate) fn peek(&self) -> &SpannedToken {
-        // dbg!(&self.tokens[self.pos - 2]);
         &self.tokens[self.pos]
     }
 
@@ -23,15 +22,11 @@ impl<'a> Context<'a> {
         &self.tokens[self.pos + dest]
     }
 
-    // pub(crate) fn skip(&mut self, dest: usize) -> &SpannedToken {
-    //     self.pos += dest;
-    //     &self.tokens[self.pos + dest]
-    // }
-
     pub(crate) fn peek_kind(&self) -> TokenKind {
         self.tokens[self.pos].token.kind()
     }
 
+    // Inlined several times to avoid cloning.
     pub(crate) fn advance(&mut self) -> &SpannedToken {
         let t = &self.tokens[self.pos];
         self.pos += 1;
@@ -44,7 +39,8 @@ impl<'a> Context<'a> {
     //FIXME: GET RID OF THIS
     //May want to return Option<usize>. Or get rid of it.
     //This is a horrible dependency
-    //Add an Option<&str> side note.
+    //Add an Option<&str> side note.                                    Maybe Option<u32>
+    //Intended because I need it
     pub(crate) fn expect_id(&mut self, expected: TokenKind, branch: Branch) -> Result<u32, Token> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
@@ -88,8 +84,7 @@ impl<'a> Context<'a> {
     //
     // }
 
-    //FIX:
-    //Maybe this method should just be more composite inherently, or have a more composite version
+    /// Intended for basic errors that need little context after
     pub(crate) fn expect_basic(
         &mut self,
         expected: TokenKind,
@@ -102,9 +97,6 @@ impl<'a> Context<'a> {
         if found.token.kind() != expected {
             let ln = found.span.ln();
             let col = found.span.col();
-
-            //TODO: TEMP ERR MSG
-            //NEEDS IDS
 
             let msg = format!(
                 "(in {})\n[{}:{}] Expected '{}' but found '{}'. {}",
@@ -127,6 +119,72 @@ impl<'a> Context<'a> {
         Ok(found.token.clone())
     }
 
+    pub(crate) fn report_verbose(&mut self, emsg: &str, branch: Branch) {
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
+
+        let ln = found.span.ln();
+        let col = found.span.col();
+
+        let msg = format!("(in {})\n[{}:{}] {}", branch, ln, col, emsg,);
+
+        self.recover();
+
+        let report = Diagnostic::new(msg, Branch::VarTypeArgs);
+
+        self.err_vec.borrow_mut().push(report);
+        todo!()
+    }
+
+    pub(crate) fn expect_verbose(
+        &mut self,
+        expected: TokenKind,
+    ) -> Result<(), (Option<u32>, SpannedToken)> {
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
+
+        if found.token.kind() != expected {
+            let name_id: Option<u32> = match found.token {
+                Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
+                _ => None,
+            };
+
+            self.recover();
+
+            return Err((name_id, found.clone()));
+        }
+
+        Ok(())
+    }
+
+    /// Intended to take down horrific dependency
+    pub(crate) fn expect_verbose_id(
+        &mut self,
+        expected: TokenKind,
+    ) -> Result<(), (Option<u32>, SpannedToken)> {
+        let found = &self.tokens[self.pos];
+        self.pos += 1;
+
+        if found.token.kind() != expected {
+            let name_id: Option<u32> = match found.token {
+                Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
+                _ => None,
+            };
+
+            self.recover();
+
+            return Err((name_id, found.clone()));
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn report_direct(&mut self, msg: &str, branch: Branch) {
+        let report = Diagnostic::new(msg.to_string(), branch);
+        self.err_vec.borrow_mut().push(report);
+    }
+
+    /// Intended for composable but more detailed errors
     pub(crate) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
         let found = &self.tokens[self.pos];
         self.pos += 1;
@@ -141,11 +199,12 @@ impl<'a> Context<'a> {
 
         self.recover();
 
-        let report = Diagnostic::new(msg, Branch::VarInnerArgs);
+        let report = Diagnostic::new(msg, Branch::VarTypeArgs);
 
         self.err_vec.borrow_mut().push(report);
     }
 
+    //TODO: Branch specific behavior
     pub(crate) fn recover(&mut self) {
         dbg!(self.pos, self.tokens.len());
         if self.pos < self.tokens.len() && self.peek_kind() != TokenKind::EOF {

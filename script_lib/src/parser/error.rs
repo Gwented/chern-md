@@ -21,7 +21,7 @@ pub(crate) enum Branch {
     Var,
     // Test variants
     VarCond,
-    VarInnerArgs,
+    VarTypeArgs,
     // Test variants
     Nest,
     ComplexRules,
@@ -34,7 +34,7 @@ impl Display for Branch {
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
             Branch::VarCond => write!(f, "var [conditions]"),
-            Branch::VarInnerArgs => write!(f, "var [args]"),
+            Branch::VarTypeArgs => write!(f, "var [args]"),
             Branch::Nest => write!(f, "nest"),
             Branch::ComplexRules => write!(f, "complex_rules"),
         }
