@@ -1,20 +1,19 @@
-@def
-    var->
-        floor: "DOES ANYONE HAVE BEGINNER THOUGHTS?"
+// There is no technical debt
+@defvar-> gr:
     /*nest->
         .person:= {
             names: List<str>
             floor: Set<u32>
         }*/
-@end
 
+@end
 // IF this file is found it will override. I think.
 
-person:= {
+/*person:= {
     name: "Floor"
     age: 20
     car:= {
         name: "Car"
         age: 6
     }
-}
+}*/

@@ -11,7 +11,8 @@ const RED: &str = "\x1b[31m";
 const ORANGE: &str = "\x1b[33m";
 const NC: &str = "\x1b[0m";
 
-const TOTAL_SEPARATORS: usize = 40;
+/// Amount of '-' to print for multiple error separation
+const TOTAL_SEPARATORS: usize = 80;
 
 //TODO: May give it the interner directly
 #[derive(Debug)]
@@ -37,7 +38,11 @@ impl<'a> Context<'a> {
         interner: &Intern,
     ) -> Result<u32, Token> {
         let found = &self.tokens[self.pos];
-        self.pos += 1;
+
+        // Leads to EOF being skipped and index out of bounds unless this is done.
+        if self.peek_kind() != TokenKind::EOF {
+            self.pos += 1;
+        }
 
         // Maybe just check each individually first so we know it is invalid after.
         let id_opt = match found.token {
@@ -106,8 +111,9 @@ impl<'a> Context<'a> {
         Ok(found.token.clone())
     }
 
+    /// ALWAYS advance before using this or ensure an advance happened before
     pub(crate) fn report_verbose(&mut self, msg: &str, branch: Branch) {
-        let found = &self.tokens[self.pos];
+        let found = &self.tokens[self.pos - 1];
 
         // MAJOR BUG: EOF is never stopped here
         let (ln, col, segment) = self.get_location(&found.span);
@@ -238,6 +244,9 @@ impl<'a> Context<'a> {
             }
         }
 
+        // Needs offset or will print span.end when span.start is more informational
+        col -= span.end - span.start;
+
         let seg_end = self.get_line_end(seg_start);
 
         let segment = &self.original_text[seg_start..seg_end];
@@ -325,9 +334,16 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub(crate) fn peek(&self) -> &SpannedToken {
+    fn peek(&self) -> &SpannedToken {
         dbg!(&self.tokens[self.pos]);
         &self.tokens[self.pos]
+    }
+
+    pub(crate) fn peek_tok(&mut self) -> Token {
+        self.tokens
+            .get(self.pos)
+            .map(|t| t.token)
+            .unwrap_or(Token::EOF)
     }
 
     pub(crate) fn peek_ahead(&self, dest: usize) -> &SpannedToken {
@@ -335,11 +351,20 @@ impl<'a> Context<'a> {
     }
 
     pub(crate) fn peek_kind(&self) -> TokenKind {
-        self.tokens[self.pos].token.kind()
+        self.tokens
+            .get(self.pos)
+            .map(|t| t.token.kind())
+            .unwrap_or(TokenKind::EOF)
     }
 
     // Inlined several times to avoid cloning.
-    pub(crate) fn advance(&mut self) -> &SpannedToken {
+    pub(crate) fn advance_tok(&mut self) -> Token {
+        let t = self.tokens[self.pos].token;
+        self.pos += 1;
+        t
+    }
+
+    fn advance(&mut self) -> &SpannedToken {
         let t = &self.tokens[self.pos];
         self.pos += 1;
         t

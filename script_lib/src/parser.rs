@@ -34,18 +34,19 @@ pub fn parse(
         }
 
         // Should this be cloned?
-        let tok = ctx.peek().clone();
+        let tok = ctx.peek_tok();
 
-        if let Token::Id(id) = tok.token {
+        if let Token::Id(id) = tok {
             let section = interner.search(id as usize);
-            dbg!(section, &tok.token);
+            dbg!(section, &tok);
         }
 
-        match &tok.token {
-            Token::Id(id) => match *id {
+        match tok {
+            Token::Id(id) => match id {
                 id if id == PrimitiveKeywords::Bind as u32 => {
                     // BUG: Consumes EOF but
-                    ctx.advance();
+                    ctx.advance_tok();
+
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
                         "Expected a '->' after section `bind`, found ",
@@ -61,7 +62,7 @@ pub fn parse(
                 id if id == PrimitiveKeywords::Var as u32 => {
                     // Will index out of bounds without match because
                     // errors cannot propogate from here in the scenario 'var-'
-                    ctx.advance();
+                    ctx.advance_tok();
 
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
@@ -73,15 +74,10 @@ pub fn parse(
                     )
                     .ok();
 
-                    dbg!("hello?");
-
-                    //BUG: Cannot safely peek due to check being done here
-
-                    while let Token::Id(current_id) = ctx.peek().token {
+                    while let Token::Id(current_id) = ctx.peek_tok() {
                         //FIX: TECHNICAL DEBT
-                        if ctx.peek().token.kind() == TokenKind::EOF
-                            || interner.is_section(current_id)
-                        {
+                        dbg!(&ctx.tokens[ctx.pos - 1]);
+                        if ctx.peek_kind() == TokenKind::EOF || interner.is_section(current_id) {
                             break;
                         }
 
@@ -89,7 +85,7 @@ pub fn parse(
                     }
                 }
                 id if id == PrimitiveKeywords::Nest as u32 => {
-                    ctx.advance();
+                    ctx.advance_tok();
 
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
@@ -102,7 +98,7 @@ pub fn parse(
                     .ok();
                 }
                 id if id == PrimitiveKeywords::ComplexRules as u32 => {
-                    ctx.advance();
+                    ctx.advance_tok();
 
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
@@ -117,7 +113,7 @@ pub fn parse(
                 id => {
                     //FIX: CHECK FOR SIMILARITY
                     //WHAT IF IT WAS A MACRO?
-                    ctx.advance();
+                    ctx.advance_tok();
 
                     let name_id = interner.search(id as usize);
                     let fmsg = format!("identifier \"{name_id}\"");
@@ -136,9 +132,9 @@ pub fn parse(
             t => {
                 match t {
                     Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
-                        ctx.advance();
+                        ctx.advance_tok();
 
-                        let name = interner.search(*id as usize);
+                        let name = interner.search(id as usize);
                         let fmsg = format!("{} \"{}\"", t.kind(), name);
 
                         ctx.report_template(
@@ -148,8 +144,7 @@ pub fn parse(
                         );
                     }
                     _ => {
-                        ctx.advance();
-
+                        ctx.advance_tok();
                         let fmsg = format!("'{}'", t.kind());
                         ctx.report_template(
                             "a section or type definition",
@@ -231,12 +226,12 @@ fn parse_var_section(
     let mut conds: Vec<Cond> = Vec::new();
 
     if ctx.peek_kind() == TokenKind::OParen {
-        ctx.advance();
+        ctx.advance_tok();
         let new_cond = parse_cond(ctx, interner)?;
         conds.push(new_cond);
 
         while ctx.peek_kind() == TokenKind::Comma {
-            ctx.advance();
+            ctx.advance_tok();
             let new_cond = parse_cond(ctx, interner)?;
             conds.push(new_cond);
         }
@@ -254,13 +249,13 @@ fn parse_var_section(
     let mut args: Vec<InnerArgs> = Vec::new();
 
     while ctx.peek_kind() == TokenKind::HashSymbol {
-        ctx.advance();
+        ctx.advance_tok();
         let arg = parse_arg(ctx, interner)?;
         args.push(arg);
     }
 
     if ctx.peek_kind() == TokenKind::Comma {
-        ctx.advance();
+        ctx.advance_tok();
     }
 
     let type_id = table.reserve_id();
@@ -282,12 +277,12 @@ fn parse_var_section(
 //FIXME: Give ActualType the function instead
 //The ActualType should USE the ReservedKeyword to GET the type to avoid misdirection
 fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token> {
-    match ctx.peek().token {
+    match ctx.peek_tok() {
         Token::Id(id) => match PrimitiveKeywords::try_from(id) {
             //FIX: Specific error messages for data structure errors
             Ok(help_us_all) => match help_us_all {
                 PrimitiveKeywords::List => {
-                    ctx.advance();
+                    ctx.advance_tok();
                     let ty = parse_array(ctx, interner)?;
 
                     let array = ActualType::List(Box::new(ty));
@@ -295,7 +290,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                     Ok(array)
                 }
                 PrimitiveKeywords::Set => {
-                    ctx.advance();
+                    ctx.advance_tok();
                     let ty = parse_array(ctx, interner)?;
 
                     let set = ActualType::Set(Box::new(ty));
@@ -303,7 +298,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                     Ok(set)
                 }
                 PrimitiveKeywords::Map => {
-                    ctx.advance();
+                    ctx.advance_tok();
                     let (key, val) = parse_map(ctx, interner)?;
 
                     let map = ActualType::Map(Box::new(key), Box::new(val));
@@ -314,8 +309,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                     if ctx.peek_kind() == TokenKind::EOF {
                         panic!("Eof");
                     }
-                    dbg!(&ctx.peek());
-                    ctx.advance();
+                    ctx.advance_tok();
                     type_res
                 }
             },
@@ -328,6 +322,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                     // Please no more expected but found please please palsea
                     format!("Expected a type, found identifier \"{name}\"");
                 //FIX: CHECK IF WE WE GOT WAS SIMILAR TO something?
+                ctx.advance_tok();
                 ctx.report_verbose(&msg, Branch::Var);
 
                 // A little weird since internally, this is meaningless
@@ -335,7 +330,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
             }
         },
         Token::QuestionMark => {
-            ctx.advance();
+            ctx.advance_tok();
             Ok(ActualType::Any(None))
         }
         // parse
@@ -351,13 +346,15 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
         Token::Literal(id) => {
             let name = interner.search(id as usize);
 
+            ctx.advance_tok();
             let fmt_tok = format!("{} \"{name}\"", TokenKind::Literal);
             ctx.report_template("a type after identifier", &fmt_tok, Branch::Var);
 
             Err(Token::Literal(id))
         }
         Token::EOF => {
-            ctx.report_verbose("Found <eof> while parsing type", Branch::Var);
+            ctx.advance_tok();
+            ctx.report_verbose("Expected type, found '<eof>'", Branch::Var);
             Err(Token::EOF)
         }
         t => {
@@ -427,7 +424,7 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
 
     //Bold
     if ctx.peek_kind() == TokenKind::Comma {
-        ctx.advance();
+        ctx.advance_tok();
     }
 
     let val = parse_type(ctx, interner)?;
@@ -446,17 +443,17 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
 
 //TODO: Incredible name.
 fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
-    match ctx.peek().token {
+    match ctx.peek_tok() {
         Token::Id(id) => {
             let name = interner.search(id as usize);
 
             match name {
                 "Len" => {
-                    ctx.advance();
+                    ctx.advance_tok();
                     return handle_len_func(ctx, interner);
                 } // "IsEmpty" =>
                 "IsEmpty" => {
-                    ctx.advance();
+                    ctx.advance_tok();
                     return Ok(Cond::IsEmpty);
                 }
                 // Notations
@@ -482,7 +479,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
         }
         Token::ExclamationPoint => {
             //TODO: Probably should just use booleans this is a bit much
-            ctx.advance();
+            ctx.advance_tok();
 
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
@@ -512,9 +509,9 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
     )?;
     let mut start: usize = 0;
 
-    let end_id = match ctx.peek().token {
+    let end_id = match ctx.peek_tok() {
         Token::Tilde => {
-            ctx.advance();
+            ctx.advance_tok();
             ctx.expect_id_verbose(
                 TokenKind::Number,
                 "Expected a number after '~', found '",
@@ -524,7 +521,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
             )?
         }
         Token::Number(id) => {
-            ctx.advance();
+            ctx.advance_tok();
             let raw_num = interner.search(id as usize);
 
             start = match raw_num.parse::<usize>() {
@@ -551,7 +548,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
             )?
         }
         Token::Id(id) | Token::Literal(id) => {
-            let err_tok = ctx.peek().token;
+            let err_tok = ctx.peek_tok();
             let name = interner.search(id as usize);
 
             let fmt_tok = format!("{} \"{}\" while parsing condition.", err_tok.kind(), name);
@@ -571,14 +568,17 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
         .parse()
         //TODO: report this
         .or_else(|_| {
-            ctx.report_verbose("pkill", Branch::VarCond);
+            ctx.report_verbose(
+                //FIX:
+                "Expected valid number, found something else...",
+                Branch::VarCond,
+            );
             //FIX: Illegal tokens don't do anything
             return Err(Token::Illegal(end_id));
         })?;
 
     if start > end {
         let msg = format!("The range '{start}..={end}' is invalid. Cannot have end > start.");
-
         ctx.report_verbose(&msg, Branch::VarCond);
     }
 

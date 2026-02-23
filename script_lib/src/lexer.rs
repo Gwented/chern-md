@@ -2,19 +2,21 @@ use common::intern::Intern;
 
 use crate::token::{Span, SpannedToken, Token};
 
+/// Known size in bytes for `@def` and `@end`
+const DEFINITION_SIZE: usize = 4;
+
 // Possible issues?
 pub struct Lexer<'a> {
     bytes: &'a [u8],
     pos: usize,
 }
 
-//FIX: Should not read to string
+//FIX: Should not read to string due to it being able to be in the file itself
 impl Lexer<'_> {
     pub fn new(bytes: &[u8]) -> Lexer<'_> {
         Lexer { bytes, pos: 0 }
     }
 
-    //FIXME: What if @end is forgotten?
     pub fn tokenize(&mut self, interner: &mut Intern) -> (usize, Vec<SpannedToken>) {
         let mut tokens: Vec<SpannedToken> = Vec::new();
 
@@ -23,13 +25,13 @@ impl Lexer<'_> {
         // In case of in md file definition
         let mut start_offset: usize = 0;
 
-        let mut has_def = false;
+        let mut in_def = false;
 
         loop {
             self.skip_whitespace();
 
             //FIXME: EOF is always at a new line
-            if self.peek() == b'\0' || self.peek() == b'$' {
+            if self.peek() == b'\0' || illegal_toks > 5 {
                 tokens.push(SpannedToken {
                     token: Token::EOF,
                     span: Span::new(self.pos, self.pos),
@@ -38,23 +40,20 @@ impl Lexer<'_> {
                 break;
             }
 
+            //WARN: Ascii only
             let byte = self.peek();
+
+            dbg!(byte as char);
 
             match byte {
                 b if b.is_ascii_alphabetic() || b == b'_' => {
-                    eprintln!(
-                        "Peeking byte {} char {} start",
-                        self.peek(),
-                        self.peek() as char
-                    );
+                    // eprintln!(
+                    //     "Peeking byte {} char {} start",
+                    //     self.peek(),
+                    //     self.peek() as char
+                    // );
 
                     tokens.push(self.read_id(interner));
-
-                    eprintln!(
-                        "Peeking byte {} char {} end",
-                        self.peek(),
-                        self.peek() as char
-                    );
                 }
                 b if b.is_ascii_digit() => {
                     tokens.push(self.read_num(interner));
@@ -148,21 +147,21 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'@' => {
-                    // Allows for same behavior even in file and serialized data definition
+                    // Allows for same behavior even in file with serialized data
                     if self.is_def_start() {
-                        has_def = true;
-                        // Known size of type def in bytes for '@def' and '@end'
-                        self.pos += 4;
+                        in_def = true;
+                        self.pos += DEFINITION_SIZE;
                     } else if self.is_def_end() {
-                        has_def = false;
-                        //TODO: Starting point set method needed. Maybe not.
-                        start_offset = self.pos + 4;
-                        dbg!(start_offset);
+                        in_def = false;
+
                         tokens.push(SpannedToken {
                             token: Token::EOF,
-                            span: Span::new(self.pos, self.pos),
+                            // Needs - 1 because span is inclusive exclusive
+                            // due to how bytes are seen
+                            span: Span::new(self.pos, self.pos + DEFINITION_SIZE - 1),
                         });
 
+                        start_offset = self.pos + DEFINITION_SIZE;
                         break;
                     } else {
                         todo!("Implement unwind");
@@ -174,9 +173,9 @@ impl Lexer<'_> {
                             token: Token::Illegal(id),
                             span: Span::new(self.pos, self.pos),
                         });
-                    }
 
-                    self.advance();
+                        self.advance();
+                    }
                 }
                 b'.' => {
                     let (ln, col) = (self.pos, self.pos);
@@ -305,12 +304,12 @@ impl Lexer<'_> {
                 }
             }
         }
-        //FIXME: Definition needs to be uncommented
-        // if has_def {
-        //     panic!("Definition not ended with @end");
-        // }
-        dbg!(&tokens);
-        dbg!(start_offset);
+
+        //FIXME:
+        if in_def {
+            eprintln!("Missing `@end`");
+        }
+
         (start_offset, tokens)
     }
 
@@ -453,7 +452,7 @@ impl Lexer<'_> {
     }
 
     //FIX: IS THIS REQUIRED NOW?
-    fn is_def_start(&mut self) -> bool {
+    fn is_def_start(&self) -> bool {
         if self.pos + 3 > self.bytes.len() {
             return false;
         }
