@@ -1,6 +1,6 @@
 // There is no technical debt
 @defvar->
-    x: i3 #warb
+    x i3 #warb
     /*nest->
         .person:= {
             names: List<str>

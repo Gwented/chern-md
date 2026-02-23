@@ -225,7 +225,8 @@ fn parse_var_section(
         None,
         Branch::VarType,
         interner,
-    )?;
+    )
+    .ok();
 
     let raw_type = parse_type(ctx, interner)?;
 
