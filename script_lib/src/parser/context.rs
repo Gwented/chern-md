@@ -12,11 +12,14 @@ const ORANGE: &str = "\x1b[33m";
 const NC: &str = "\x1b[0m";
 
 /// Amount of '-' to print for multiple error separation
-const TOTAL_SEPARATORS: usize = 80;
+const TOTAL_SEPARATORS: usize = 60;
 
-//TODO: May give it the interner directly
+/// Testing something
+const MAX_TOLERANCE: u8 = 0;
+
 #[derive(Debug)]
 pub struct Context<'a> {
+    pub(crate) tolerance: u8,
     pub(crate) original_text: &'a [u8],
     pub(crate) tokens: &'a [SpannedToken],
     pub(crate) pos: usize,
@@ -40,6 +43,7 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
 
         // Leads to EOF being skipped and index out of bounds unless this is done.
+        // TODO: See if changes fixed this bug
         if self.peek_kind() != TokenKind::EOF {
             self.pos += 1;
         }
@@ -61,17 +65,17 @@ impl<'a> Context<'a> {
         let msg = if let Some(id) = id_opt {
             let name_id = interner.search(id as usize);
 
-            format!("(in {branch})\n[{ln}:{col}] {bmsg} \"{name_id}\"{amsg}\n\n{segment}",)
+            format!("(in {branch})\n{bmsg} \"{name_id}\"{amsg}\n|\n|[{ln}:{col}]\n{segment}",)
         } else {
             format!(
-                "(in {branch})\n[{ln}:{col}] {bmsg}'{}'{amsg}\n\n{segment}",
+                "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|[{ln}:{col}]\n{segment}",
                 found.token.kind()
             )
         };
 
         self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
-        self.recover();
+        self.recover(branch);
 
         Err(found.token)
     }
@@ -96,14 +100,19 @@ impl<'a> Context<'a> {
             let separator = "-".repeat(TOTAL_SEPARATORS);
 
             let msg = format!(
-                "(in {branch})\n Expected '{expected}', found '{}'. {}\n\n[{ln}:{col}]\n{segment}\n{separator}",
+                "(in {branch})\n Expected '{expected}', found '{}'. {}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
                 found.token.kind(),
                 extra.unwrap_or_default()
             );
 
             self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
-            self.recover();
+            self.tolerance += 1;
+
+            if self.tolerance >= MAX_TOLERANCE {
+                self.recover(branch);
+                self.tolerance = 0;
+            }
 
             return Err(found.token);
         }
@@ -119,9 +128,15 @@ impl<'a> Context<'a> {
         let (ln, col, segment) = self.get_location(&found.span);
 
         let separator = "-".repeat(TOTAL_SEPARATORS);
-        let msg = format!("(in {branch})\n{msg}\n|\n[{ln}:{col}]\n{segment}\n{separator}");
 
-        self.recover();
+        let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}");
+
+        self.tolerance += 1;
+
+        if self.tolerance > MAX_TOLERANCE {
+            self.recover(branch);
+            self.tolerance = 0;
+        }
 
         let report = Diagnostic::new(msg, branch);
 
@@ -175,19 +190,24 @@ impl<'a> Context<'a> {
             // WARN:
 
             format!(
-                "(in {branch})\n{bmsg}{} \"{name_id}\"{amsg}\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                "(in {branch})\n{bmsg}{} \"{name_id}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
                 found.token.kind()
             )
         } else {
             format!(
-                "(in {branch})\n{bmsg}'{}'{amsg}\n\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
                 found.token.kind()
             )
         };
 
         self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
-        self.recover();
+        self.tolerance += 1;
+
+        if self.tolerance > MAX_TOLERANCE {
+            self.recover(branch);
+            self.tolerance = 0;
+        }
 
         Err(found.token)
     }
@@ -202,10 +222,12 @@ impl<'a> Context<'a> {
         let separator = "-".repeat(TOTAL_SEPARATORS);
 
         let msg = format!(
-            "(in {branch})\n Expected {emsg}, found {fmsg}\n\n[{ln}:{col}]\n{segment}\n{separator}",
+            "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
         );
 
-        self.recover();
+        if self.tolerance > 10 {
+            self.recover(branch);
+        }
 
         let report = Diagnostic::new(msg, Branch::VarTypeArgs);
 
@@ -268,6 +290,8 @@ impl<'a> Context<'a> {
 
         let spaces = " ".repeat(space_offset);
 
+        //FIX: VIOLATES SRP JAVA EE PSPRIBOOT
+
         let fmt_segment = format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}");
 
         (ln, col, fmt_segment)
@@ -276,7 +300,6 @@ impl<'a> Context<'a> {
     fn get_line_end(&self, start: usize) -> usize {
         for i in start..self.original_text.len() {
             let b = self.original_text[i];
-            dbg!(b as char);
 
             if b == b'\r' && self.original_text.get(i + 1).copied() == Some(b'\n') {
                 return i;
@@ -318,21 +341,47 @@ impl<'a> Context<'a> {
     }
 
     //TODO: Branch specific behavior
-    fn recover(&mut self) {
+    //WARN: WATCH THIS CLOSELY
+    fn recover(&mut self, branch: Branch) {
+        let target = self.match_target(branch);
         //FIX: SEE IF SELF.POS CHECK IS STILL NEEDED. WAS REMOVED.
         if self.peek_kind() != TokenKind::EOF {
             while self.pos < self.tokens.len() + 2
-                && self.peek_ahead(1).token.kind() != TokenKind::EOF
+                && self.peek_kind() != TokenKind::EOF
                 && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow
                 && self.peek_ahead(1).token.kind() != TokenKind::Colon
+                && self.peek_kind() != target
             {
-                // dbg!(self.peek_ahead(1).token.kind());
-                dbg!("Recovering in");
                 self.advance();
             }
-            // dbg!("Recovered");
         }
     }
+
+    //TEST:
+    // MAKE THEM APPLY SOFTMAX FUNCTIONS BY SCANNING PAST TOKENS TO PICK MOST PROBABLY TOKEN
+    fn match_target(&self, branch: Branch) -> TokenKind {
+        match branch {
+            Branch::Searching => TokenKind::Id,
+            Branch::Bind => TokenKind::Colon,
+            Branch::Var => TokenKind::OParen,
+            Branch::VarType => TokenKind::HashSymbol,
+            // Or OParen
+            Branch::VarCond => TokenKind::CParen,
+            // Or Comma
+            Branch::VarTypeArgs => TokenKind::HashSymbol,
+            Branch::Nest => todo!(),
+            Branch::ComplexRules => todo!(),
+        }
+    }
+
+    // const EULERS_NUMBER: f32 = 2.71828;
+    //
+    // // Wait I don't have probabilities
+    // fn softmax(&self) {
+    //     let mut n = 0;
+    //
+    //     for tok in self.tokens.iter().map(|t| t.token).into_iter() {}
+    // }
 
     fn peek(&self) -> &SpannedToken {
         dbg!(&self.tokens[self.pos]);

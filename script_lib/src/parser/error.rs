@@ -12,12 +12,13 @@ pub struct Diagnostic {
     // pub(crate) help: Option<String>
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Branch {
     Searching,
     Bind,
     Var,
     // Test variants
+    VarType,
     VarCond,
     VarTypeArgs,
     // Test variants
@@ -31,6 +32,7 @@ impl Display for Branch {
             Branch::Searching => write!(f, "searching..."),
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
+            Branch::VarType => write!(f, "var [type]"),
             Branch::VarCond => write!(f, "var [conditions]"),
             Branch::VarTypeArgs => write!(f, "var [args]"),
             Branch::Nest => write!(f, "nest"),

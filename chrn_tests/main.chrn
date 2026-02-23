@@ -1,14 +1,13 @@
 // There is no technical debt
-@defvar-> gr:
+@defvar->
+    x: i3 #warb
     /*nest->
         .person:= {
             names: List<str>
             floor: Set<u32>
         }*/
-
 @end
-// IF this file is found it will override. I think.
-
+ IM LOST
 /*person:= {
     name: "Floor"
     age: 20

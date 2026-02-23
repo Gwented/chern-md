@@ -61,6 +61,7 @@ pub enum PrimitiveKeywords {
     Nest = 27,
     ComplexRules = 28,
 }
+//FIX: Maybe should reserve function names for checks
 
 impl TryFrom<u32> for PrimitiveKeywords {
     type Error = ();
