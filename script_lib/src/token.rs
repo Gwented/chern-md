@@ -1,6 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
-
-use crate::parser::symbols::Symbol;
+use std::fmt::Display;
 
 //FIXME: Change to span of bytes
 #[derive(Debug, Clone)]
@@ -41,6 +39,7 @@ pub(crate) enum Token {
     VerticalBar,
     //FIXME: INTERN THIS
     Illegal(u32),
+    Poison,
     EOF,
 }
 
@@ -56,6 +55,7 @@ impl Token {
             Token::CCurlyBracket => TokenKind::CCurlyBracket,
             Token::QuestionMark => TokenKind::QuestionMark,
             Token::Equals => TokenKind::Equals,
+            Token::Poison => TokenKind::Poison,
             Token::OAngleBracket => TokenKind::OAngleBracket,
             Token::CAngleBracket => TokenKind::CAngleBracket,
             Token::Comma => TokenKind::Comma,
@@ -179,6 +179,7 @@ pub(crate) enum TokenKind {
     VerticalBar,
     //TODO: Include branch or specific state of lexer. Maybe.
     Illegal,
+    Poison,
     EOF,
 }
 
@@ -238,6 +239,7 @@ impl Display for TokenKind {
             TokenKind::Set => write!(f, "Set"),
             TokenKind::Map => write!(f, "Map"),
             TokenKind::Any => write!(f, "Any"),
+            TokenKind::Poison => write!(f, "<poisoned>"),
             TokenKind::UserType => write!(f, "User type"),
         }
     }

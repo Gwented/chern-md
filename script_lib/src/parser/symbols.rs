@@ -76,7 +76,7 @@ impl SymbolTable {
         self.symbols.insert(name_id, symbol);
     }
 
-    pub(crate) fn store_complex(
+    pub(crate) fn store_symbol(
         &mut self,
         symbol: Symbol,
         name_id: u32,

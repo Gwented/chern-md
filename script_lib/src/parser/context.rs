@@ -14,8 +14,16 @@ const NC: &str = "\x1b[0m";
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
-/// Testing something
-const MAX_TOLERANCE: u8 = 0;
+/// This must remain greater than 1 or everything will break. This was the goal.
+/// Check if recover not peeking causes crash without this or if it's just the tree walking
+///
+/// The EOF issue is because of tokens now being able to just ignore EOF and force crashes,
+/// but it's from there being no unified agreement on if it's EOF, quit. I will speak with the
+/// workers.
+///
+/// It actually does what it's supposed to do now that poisoned as be sprinkled
+/// The point of this is to act as retry logic so it stops hallucinating. Especially EOF
+const MAX_TOLERANCE: u8 = 3;
 
 #[derive(Debug)]
 pub struct Context<'a> {
@@ -65,10 +73,10 @@ impl<'a> Context<'a> {
         let msg = if let Some(id) = id_opt {
             let name_id = interner.search(id as usize);
 
-            format!("(in {branch})\n{bmsg} \"{name_id}\"{amsg}\n|\n|[{ln}:{col}]\n{segment}",)
+            format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n|\n|[{ln}:{col}]\n|\n{segment}",)
         } else {
             format!(
-                "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|[{ln}:{col}]\n{segment}",
+                "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|[{ln}:{col}]\n|\n{segment}",
                 found.token.kind()
             )
         };
@@ -88,13 +96,15 @@ impl<'a> Context<'a> {
         extra: Option<&str>,
     ) -> Result<Token, Token> {
         let found = &self.tokens[self.pos];
+        dbg!(&found);
 
         // Leads to EOF being skipped and index out of bounds unless this is done.
         if self.peek_kind() != TokenKind::EOF {
             self.pos += 1;
         }
 
-        if found.token.kind() == expected {
+        // Are we serious?
+        if found.token.kind() != expected {
             let (ln, col, segment) = self.get_location(&found.span);
 
             let separator = "-".repeat(TOTAL_SEPARATORS);
@@ -184,13 +194,13 @@ impl<'a> Context<'a> {
         };
 
         let msg = if let Some(id) = id_opt {
-            let name_id = interner.search(id as usize);
+            let name = interner.search(id as usize);
 
             // New line is after since no help would space it out by default
             // WARN:
 
             format!(
-                "(in {branch})\n{bmsg}{} \"{name_id}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
                 found.token.kind()
             )
         } else {
@@ -204,7 +214,7 @@ impl<'a> Context<'a> {
 
         self.tolerance += 1;
 
-        if self.tolerance > MAX_TOLERANCE {
+        if self.tolerance >= MAX_TOLERANCE {
             self.recover(branch);
             self.tolerance = 0;
         }
@@ -225,7 +235,9 @@ impl<'a> Context<'a> {
             "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
         );
 
-        if self.tolerance > 10 {
+        self.tolerance += 1;
+
+        if self.tolerance > MAX_TOLERANCE {
             self.recover(branch);
         }
 
@@ -366,7 +378,7 @@ impl<'a> Context<'a> {
             Branch::Var => TokenKind::OParen,
             Branch::VarType => TokenKind::HashSymbol,
             // Or OParen
-            Branch::VarCond => TokenKind::CParen,
+            Branch::VarCond => TokenKind::Comma,
             // Or Comma
             Branch::VarTypeArgs => TokenKind::HashSymbol,
             Branch::Nest => todo!(),
@@ -406,7 +418,6 @@ impl<'a> Context<'a> {
             .unwrap_or(TokenKind::EOF)
     }
 
-    // Inlined several times to avoid cloning.
     pub(crate) fn advance_tok(&mut self) -> Token {
         let t = self.tokens[self.pos].token;
         self.pos += 1;

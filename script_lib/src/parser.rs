@@ -205,7 +205,7 @@ fn parse_bind_section(
 
 fn parse_var_section(
     ctx: &mut Context,
-    table: &mut SymbolTable,
+    sym_table: &mut SymbolTable,
     interner: &Intern,
 ) -> Result<(), Token> {
     let id = ctx.expect_id_verbose(
@@ -218,17 +218,16 @@ fn parse_var_section(
 
     ctx.expect_verbose(
         TokenKind::Colon,
-        //TODO: Have a 'help' option that goes under the span shown, just a small example.
         "Expected ':' after identifier to declare type, found ",
         "",
         //WARN: LIAR
         None,
         Branch::VarType,
         interner,
-    )
-    .ok();
+    )?;
 
-    let raw_type = parse_type(ctx, interner)?;
+    // Still watching
+    let type_res = parse_type(ctx, interner);
 
     let mut conds: Vec<Cond> = Vec::new();
 
@@ -243,6 +242,7 @@ fn parse_var_section(
             conds.push(new_cond);
         }
 
+        // watching...
         ctx.expect_verbose(
             TokenKind::CParen,
             "Expected ')' at end of condition, found ",
@@ -267,12 +267,14 @@ fn parse_var_section(
         ctx.advance_tok();
     }
 
-    let type_id = table.reserve_id();
+    let raw_type = type_res?;
+
+    let type_id = sym_table.reserve_id();
 
     let type_def = TypeDef::new(id, type_id, args, conds);
 
     // Maybe just match?
-    table.store_complex(Symbol::Definition(type_def), id, type_id, raw_type);
+    sym_table.store_symbol(Symbol::Definition(type_def), id, type_id, raw_type);
 
     Ok(())
 }
@@ -294,12 +296,13 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                     ctx.advance_tok();
                     let ty = parse_array(ctx, interner)?;
 
-                    let array = ActualType::List(Box::new(ty));
+                    let list = ActualType::List(Box::new(ty));
 
-                    Ok(array)
+                    Ok(list)
                 }
                 PrimitiveKeywords::Set => {
                     ctx.advance_tok();
+
                     let ty = parse_array(ctx, interner)?;
 
                     let set = ActualType::Set(Box::new(ty));
@@ -308,19 +311,30 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                 }
                 PrimitiveKeywords::Map => {
                     ctx.advance_tok();
+
                     let (key, val) = parse_map(ctx, interner)?;
 
                     let map = ActualType::Map(Box::new(key), Box::new(val));
+
                     Ok(map)
                 }
-                _ => {
-                    //TODO: Handle this
-                    let type_res = ActualType::try_from(id).or(Err(Token::Illegal(id)));
-                    if ctx.peek_kind() == TokenKind::EOF {
-                        panic!("Eof");
-                    }
+                p => {
+                    //TODO: Can this fail?
+                    let ty = ActualType::try_from(id).or_else(|_| {
+                        ctx.advance_tok();
+
+                        let name = interner.search(id as usize);
+
+                        let msg = format!(
+                            "Expected compatible type, found primitive \"{name}\", Branch::VarType"
+                        );
+                        ctx.report_verbose(&msg, Branch::VarType);
+                        Err(Token::Poison)
+                    })?;
+
                     ctx.advance_tok();
-                    type_res
+
+                    Ok(ty)
                 }
             },
             Err(_) => {
@@ -356,21 +370,22 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
 
             ctx.advance_tok();
             let fmt_tok = format!("{} \"{name}\"", TokenKind::Literal);
-            ctx.report_template("a type after identifier", &fmt_tok, Branch::VarType);
+            ctx.report_template("a type", &fmt_tok, Branch::VarType);
 
             Err(Token::Literal(id))
         }
-        // Token::EOF => {
-        //     ctx.advance_tok();
-        //     ctx.report_verbose("Expected type, found '<eof>'", Branch::VarType);
-        //     Err(Token::EOF)
-        // }
+        Token::EOF => {
+            ctx.advance_tok();
+            ctx.report_verbose("Expected type, found '<eof>'", Branch::VarType);
+            Err(Token::EOF)
+        }
+        Token::Poison => Err(Token::Poison),
         t => {
             //FIX: I FORGOT.  Forgot what??? I actually don't know.
 
             ctx.advance_tok();
             let fmt_tok = format!("'{}'", t.kind());
-            ctx.report_template("a type after identifier", &fmt_tok, Branch::VarType);
+            ctx.report_template("a type", &fmt_tok, Branch::VarType);
 
             Err(t)
         }
@@ -389,7 +404,9 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
     //FIX: ODD HANDLING
     InnerArgs::try_from(interner.search(id as usize)).or_else(|invalid_id| {
         let msg = format!("The argument \"#{invalid_id}\" does not exist.");
+
         ctx.report_verbose(&msg, Branch::VarTypeArgs);
+
         return Err(Token::Illegal(id));
     })
 }
@@ -398,7 +415,7 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
     //TODO: Probably should just separate func for Sets
     ctx.expect_verbose(
         TokenKind::OAngleBracket,
-        "A '<' is required to hold a type of `List` or `Set`, found ",
+        "A '<' is required to hold types with a `List` or `Set`, found ",
         "",
         None,
         Branch::VarType,
@@ -406,7 +423,11 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
     )
     .ok();
 
-    let ty = parse_type(ctx, interner)?;
+    let ty = parse_type(ctx, interner);
+
+    if ty.as_ref().is_err_and(|err| err.kind() == TokenKind::EOF) {
+        return Err(Token::EOF);
+    }
 
     ctx.expect_verbose(
         TokenKind::CAngleBracket,
@@ -415,10 +436,9 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
         None,
         Branch::VarType,
         interner,
-    )
-    .ok();
+    )?;
 
-    Ok(ty)
+    ty
 }
 
 fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, ActualType), Token> {
@@ -433,14 +453,29 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
     )
     .ok();
 
-    let key = parse_type(ctx, interner)?;
+    let possible_key = parse_type(ctx, interner);
 
-    //Bold
+    if possible_key
+        .as_ref()
+        .is_err_and(|err| err.kind() == TokenKind::EOF)
+    {
+        return Err(Token::EOF);
+    }
+
+    //Not that bold
+    //FIX: Expect this
     if ctx.peek_kind() == TokenKind::Comma {
         ctx.advance_tok();
     }
 
-    let val = parse_type(ctx, interner)?;
+    let possible_val = parse_type(ctx, interner);
+
+    if possible_val
+        .as_ref()
+        .is_err_and(|err| err.kind() == TokenKind::EOF)
+    {
+        return Err(Token::EOF);
+    }
 
     ctx.expect_verbose(
         TokenKind::CAngleBracket,
@@ -451,6 +486,9 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
         interner,
     )
     .ok();
+
+    let key = possible_key.or_else(|_| Err(Token::Poison))?;
+    let val = possible_val.or_else(|_| Err(Token::Poison))?;
 
     Ok((key, val))
 }
@@ -479,7 +517,8 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
                         Branch::VarCond,
                     );
 
-                    Err(Token::Literal(id))
+                    //WARN:
+                    Err(Token::Poison)
                 }
             }
         }
@@ -489,7 +528,8 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
             let fmt_tok = format!("{} \"{name}\"", TokenKind::Literal);
             ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
 
-            Err(Token::Literal(id))
+            //WARN:
+            Err(Token::Poison)
         }
         Token::ExclamationPoint => {
             //TODO: Probably should just use booleans this is a bit much
@@ -497,8 +537,8 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
 
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
-                    "a condition",
-                    "another '!'. Boolean logic can only be one condition deep",
+                    "a valid condition",
+                    "another '!'. `Not` can only be used once.",
                     Branch::VarCond,
                 );
             }
@@ -516,10 +556,13 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
 }
 
 fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
-    ctx.expect_basic(
+    ctx.expect_verbose(
         TokenKind::OParen,
+        "Missing '(' before `Len()`, found ",
+        "",
+        None,
         Branch::VarCond,
-        Some("Could not find open parenthesis of 'Len' function."),
+        interner,
     )?;
 
     let mut start: usize = 0;
@@ -530,8 +573,8 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
 
             ctx.expect_id_verbose(
                 TokenKind::Number,
-                "Expected a number after '~', found '",
-                "' within `Len()`. Use '(~x1)' or '(x1..=x2)' to define a range.",
+                "Expected a number after '~', found ",
+                " within `Len()`. Use '(~x1)' or '(x1..=x2)' to define a range.",
                 Branch::VarCond,
                 interner,
             )?
@@ -549,17 +592,22 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
                 }
             };
 
-            ctx.expect_basic(
+            ctx.expect_verbose(
                 TokenKind::DotRange,
+                "Expected (range), found ",
+                "",
+                Some("Use 'Len(~x1)' or 'Len(x1..=x2)' to define a range."),
                 Branch::VarCond,
-                Some("Use '~x1' or '(x1..=x2)' to define a range."),
+                interner,
             )
             .ok();
 
+            let user_help = format!(". |e.g. {start}..=other|");
+
             ctx.expect_id_verbose(
                 TokenKind::Number,
-                "",
-                " was given but a number is required at the end of a range. |e.g. 0..=5|",
+                "Expected a number at the end of (range), found ",
+                &user_help,
                 Branch::VarCond,
                 interner,
             )?
@@ -568,6 +616,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
             let err_tok = ctx.peek_tok();
             let name = interner.search(id as usize);
 
+            //WARN: I think this should be advanced?
             let fmt_tok = format!("{} \"{}\" while parsing condition.", err_tok.kind(), name);
             ctx.report_template("a (range) or number", &fmt_tok, Branch::VarCond);
             return Err(err_tok);
@@ -591,7 +640,8 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
                 Branch::VarCond,
             );
             //FIX: Illegal tokens don't do anything
-            return Err(Token::Illegal(end_id));
+            //WARN:
+            return Err(Token::Poison);
         })?;
 
     if start > end {
@@ -603,7 +653,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
         TokenKind::CParen,
         "Expected ')' after `Len()`, found ",
         "",
-        Some("Individual type conditions must be closed with a ')' |e.g. `(Len(~4))` |"),
+        Some("Individual type conditions must be closed with ')' |e.g. `(Len(~4))` |"),
         Branch::VarCond,
         interner,
     )
