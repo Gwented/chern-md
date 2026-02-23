@@ -1,6 +1,5 @@
 pub mod lexer;
 pub mod parser;
-pub mod storage;
 pub mod token;
 
 #[cfg(test)]
@@ -30,16 +29,13 @@ mod tests {
     fn parse_test() {
         let path = "../chrn_tests/main.chrn";
         let text = fs::read_to_string(path).unwrap();
-        let 𝑓 = 4;
-        let f = 4;
-        let oomp = f + 𝑓;
         let mut interner = Intern::new();
 
         let (start_offset, toks) = Lexer::new(text.as_bytes()).tokenize(&mut interner);
 
         let table = parser::parse(text.as_bytes(), &toks, &mut interner);
 
-        dbg!(start_offset, table);
-        panic!("I'm panicking");
+        // dbg!(start_offset, table);
+        // panic!("I'm panicking");
     }
 }

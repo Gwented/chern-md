@@ -6,9 +6,11 @@ use crate::{
     parser::error::{Branch, Diagnostic},
     token::{Span, SpannedToken, Token, TokenKind},
 };
-//WARN: I don't know if this is ok
+//FIX: ANSI terminal specific
 const RED: &str = "\x1b[31m";
+const ORANGE: &str = "\x1b[33m";
 const NC: &str = "\x1b[0m";
+
 const TOTAL_SEPARATORS: usize = 40;
 
 //TODO: May give it the interner directly
@@ -62,8 +64,6 @@ impl<'a> Context<'a> {
             )
         };
 
-        //FIX: Need byte ranges
-
         self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
 
         self.recover();
@@ -79,16 +79,19 @@ impl<'a> Context<'a> {
         extra: Option<&str>,
     ) -> Result<Token, Token> {
         let found = &self.tokens[self.pos];
-        self.pos += 1;
 
-        if found.token.kind() != expected {
+        // Leads to EOF being skipped and index out of bounds unless this is done.
+        if self.peek_kind() != TokenKind::EOF {
+            self.pos += 1;
+        }
+
+        if found.token.kind() == expected {
             let (ln, col, segment) = self.get_location(&found.span);
 
             let separator = "-".repeat(TOTAL_SEPARATORS);
 
-            // (in {branch})\n{msg}\n|\n[{ln}:{col}]\n{segment}\n{separator}
             let msg = format!(
-                "(in {branch})\n Expected '{expected}', found '{}'. {}\n|\n[{ln}:{col}]\n{segment}\n{separator}",
+                "(in {branch})\n Expected '{expected}', found '{}'. {}\n\n[{ln}:{col}]\n{segment}\n{separator}",
                 found.token.kind(),
                 extra.unwrap_or_default()
             );
@@ -105,8 +108,8 @@ impl<'a> Context<'a> {
 
     pub(crate) fn report_verbose(&mut self, msg: &str, branch: Branch) {
         let found = &self.tokens[self.pos];
-        self.pos += 1;
 
+        // MAJOR BUG: EOF is never stopped here
         let (ln, col, segment) = self.get_location(&found.span);
 
         let separator = "-".repeat(TOTAL_SEPARATORS);
@@ -121,17 +124,24 @@ impl<'a> Context<'a> {
 
     /// Fully curated version of `expect_basic`
     //TODO: Primitive type recognition for printing all errors
+
+    //
+    //FIX: BECOME MORE CONTEXT AWARE IN HELP FROM INSIDE
     pub(crate) fn expect_verbose(
         &mut self,
         expected: TokenKind,
         bmsg: &str,
         amsg: &str,
-        branch: Branch,
         help: Option<&str>,
+        branch: Branch,
         interner: &Intern,
     ) -> Result<Token, Token> {
         let found = &self.tokens[self.pos];
-        self.pos += 1;
+
+        // Leads to EOF being skipped and index out of bounds unless this is done.
+        if self.peek_kind() != TokenKind::EOF {
+            self.pos += 1;
+        }
 
         let id_opt = match found.token {
             Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
@@ -146,16 +156,25 @@ impl<'a> Context<'a> {
 
         let separator = "-".repeat(TOTAL_SEPARATORS);
 
+        let help = if let Some(msg) = help {
+            format!("{ORANGE}Help{NC}: {msg}\n")
+        } else {
+            "".to_string()
+        };
+
         let msg = if let Some(id) = id_opt {
             let name_id = interner.search(id as usize);
 
+            // New line is after since no help would space it out by default
+            // WARN:
+
             format!(
-                "(in {branch})\n {bmsg}{} \"{name_id}\"{amsg}\n|\n[{ln}:{col}]\n{segment}\n{separator}",
+                "(in {branch})\n{bmsg}{} \"{name_id}\"{amsg}\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
                 found.token.kind()
             )
         } else {
             format!(
-                "(in {branch})\n[{ln}:{col}] {bmsg}'{}'{amsg}\n|\n[{ln}:{col}]\n{segment}\n{separator}",
+                "(in {branch})\n{bmsg}'{}'{amsg}\n\n[{ln}:{col}]\n{segment}\n{help}{separator}",
                 found.token.kind()
             )
         };
@@ -167,23 +186,17 @@ impl<'a> Context<'a> {
         Err(found.token)
     }
 
-    /// Intended to take down horrific dependency
-    // pub(crate) fn report_direct(&mut self, msg: &str, branch: Branch) {
-    //     let report = Diagnostic::new(msg.to_string(), branch);
-    //     self.err_vec.borrow_mut().push(report);
-    // }
-
-    /// More composable "Expected but found" error
+    /// More composable "Expected but found" error.
+    /// [...] Expected [emsg], found [fmsg]
     pub(crate) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
-        //BUG: POSSIBLY FIXED OF WRONG LN AND COL PRINT
-        let found = &self.tokens[self.pos - 2];
+        let found = &self.tokens[self.pos - 1];
 
         let (ln, col, segment) = self.get_location(&found.span);
 
         let separator = "-".repeat(TOTAL_SEPARATORS);
 
         let msg = format!(
-            "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n[{ln}:{col}]\n{segment}\n{separator}",
+            "(in {branch})\n Expected {emsg}, found {fmsg}\n\n[{ln}:{col}]\n{segment}\n{separator}",
         );
 
         self.recover();
@@ -197,7 +210,10 @@ impl<'a> Context<'a> {
     fn get_location(&self, span: &Span) -> (usize, usize, String) {
         let mut ln = 1;
         let mut col = 1;
-        dbg!(span);
+
+        for (i, t) in self.tokens.iter().enumerate() {
+            println!("index {i}: {t:?}");
+        }
 
         let mut b: u8;
 
@@ -226,20 +242,25 @@ impl<'a> Context<'a> {
 
         let segment = &self.original_text[seg_start..seg_end];
 
+        //FIX:
         let segment = str::from_utf8(segment)
             .expect("[temp] Invalid UTF-8 although would be impossible after lexer");
 
-        // `Span` range is inclusive exclusive so final character is missed otherwise
+        // Span range is inclusive exclusive so final character is missed otherwise
+        // Has no other mathematical outside of this
         let span_diff_offset = span.end - span.start + 1;
 
-        let spaces = " ".repeat(segment.len() - span_diff_offset);
-
-        // Same offset reason.
         let arrows = "^".repeat(span_diff_offset);
 
-        let fmt_segment = format!("{segment}\n{spaces}{RED}{arrows}{NC}");
-        // FIX: col stops at span.end not span.start
-        //                                                    help: ^^
+        // Spaces need to be proportional to the current line's size therefore it must
+        // stay inside the range. THIS SHOULD HAVE BEEN OBVIOUS.
+        // WARN: UTF-8 issues possible
+        let space_offset = self.original_text[seg_start..span.start].len();
+
+        let spaces = " ".repeat(space_offset);
+
+        let fmt_segment = format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}");
+
         (ln, col, fmt_segment)
     }
 
@@ -289,8 +310,8 @@ impl<'a> Context<'a> {
 
     //TODO: Branch specific behavior
     fn recover(&mut self) {
-        dbg!(self.pos, self.tokens.len());
-        if self.pos < self.tokens.len() && self.peek_kind() != TokenKind::EOF {
+        //FIX: SEE IF SELF.POS CHECK IS STILL NEEDED. WAS REMOVED.
+        if self.peek_kind() != TokenKind::EOF {
             while self.pos < self.tokens.len() + 2
                 && self.peek_ahead(1).token.kind() != TokenKind::EOF
                 && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow

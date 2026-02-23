@@ -207,6 +207,7 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'"' => {
+                    //FIX:
                     self.advance();
                     tokens.push(self.read_quotes(interner));
                 }
@@ -379,9 +380,11 @@ impl Lexer<'_> {
         }
     }
 
+    //FIX: Currently fixing quote offset with - 1 but should likely just return start, end, tok
     fn read_quotes(&mut self, interner: &mut Intern) -> SpannedToken {
         let mut path: Vec<u8> = Vec::with_capacity(10);
-        let start = self.pos;
+        //WARN:
+        let start = self.pos - 1;
 
         //FIXME: Could be more escapes
         let escape_sequences = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
@@ -409,7 +412,8 @@ impl Lexer<'_> {
             }
         }
 
-        let end = self.pos;
+        //WARN:
+        let end = self.pos - 1;
 
         //TODO: Cleaner handle of failure to close string
         if self.pos == self.bytes.len() {

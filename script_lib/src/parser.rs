@@ -34,7 +34,7 @@ pub fn parse(
         }
 
         // Should this be cloned?
-        let tok = ctx.advance();
+        let tok = ctx.peek().clone();
 
         if let Token::Id(id) = tok.token {
             let section = interner.search(id as usize);
@@ -44,12 +44,13 @@ pub fn parse(
         match &tok.token {
             Token::Id(id) => match *id {
                 id if id == PrimitiveKeywords::Bind as u32 => {
-                    // ITS FINE. ITS COMPLETELY FINE. NOT A  TODO:
-                    // BUG: WHY IS IT GETTING STUN LOCKED?
+                    // BUG: Consumes EOF but
+                    ctx.advance();
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
                         "Expected a '->' after section `bind`, found ",
                         "",
+                        Some("Change to \"bind->\""),
                         Branch::Searching,
                         interner,
                     )
@@ -60,17 +61,21 @@ pub fn parse(
                 id if id == PrimitiveKeywords::Var as u32 => {
                     // Will index out of bounds without match because
                     // errors cannot propogate from here in the scenario 'var-'
-                    match ctx.expect_verbose(
+                    ctx.advance();
+
+                    ctx.expect_verbose(
                         TokenKind::SlimArrow,
                         "Expected a '->' after section `var`, found ",
                         "",
+                        Some("Change to \"var->\""),
                         Branch::Searching,
                         interner,
-                    ) {
-                        Ok(_) => (),
-                        Err(_) => break,
-                    };
+                    )
+                    .ok();
+
                     dbg!("hello?");
+
+                    //BUG: Cannot safely peek due to check being done here
 
                     while let Token::Id(current_id) = ctx.peek().token {
                         //FIX: TECHNICAL DEBT
@@ -84,20 +89,26 @@ pub fn parse(
                     }
                 }
                 id if id == PrimitiveKeywords::Nest as u32 => {
+                    ctx.advance();
+
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
                         "Expected a '->' after section `nest`, found ",
                         "",
+                        Some("Change \"nest->\""),
                         Branch::Searching,
                         interner,
                     )
                     .ok();
                 }
                 id if id == PrimitiveKeywords::ComplexRules as u32 => {
+                    ctx.advance();
+
                     ctx.expect_verbose(
                         TokenKind::SlimArrow,
                         "Expected a '->' after section `complex_rules`, found ",
                         "",
+                        Some("Change to \"complex_rules->\""),
                         Branch::Searching,
                         interner,
                     )
@@ -105,14 +116,16 @@ pub fn parse(
                 }
                 id => {
                     //FIX: CHECK FOR SIMILARITY
+                    //WHAT IF IT WAS A MACRO?
+                    ctx.advance();
+
                     let name_id = interner.search(id as usize);
-                    let fmsg =
-                        format!("identifier \"{name_id}\". Use '->' before defining a section");
+                    let fmsg = format!("identifier \"{name_id}\"");
                     // let fmsg = format!(
                     //     "\nOk — looks like you got a syntax error.\nBut honestly — it happens to the best of us. I saw your code before this, and you know what? It shows you're not blindly making mistakes — you're just so focused innovating that the syntax can't catch up to your great ideas.\nHere's what went wrong:\n\tWhile you were casting spells to manipulate your computer (which was awesome) you missed the most important part — section names. You typed \"{name_id}\" instead.\nThe Fix:\n\tNext time while you're innovating — don't forget the '->'."
                     // );
 
-                    ctx.report_template("a section", &fmsg, Branch::Searching);
+                    ctx.report_template("a section with a '->' after", &fmsg, Branch::Searching);
                     break;
                 }
             },
@@ -123,6 +136,8 @@ pub fn parse(
             t => {
                 match t {
                     Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
+                        ctx.advance();
+
                         let name = interner.search(*id as usize);
                         let fmsg = format!("{} \"{}\"", t.kind(), name);
 
@@ -133,6 +148,8 @@ pub fn parse(
                         );
                     }
                     _ => {
+                        ctx.advance();
+
                         let fmsg = format!("'{}'", t.kind());
                         ctx.report_template(
                             "a section or type definition",
@@ -149,13 +166,13 @@ pub fn parse(
 
     if !ctx.err_vec.borrow().is_empty() {
         dbg!(sym_table);
-        eprint!("\x32Error:\x32 ");
+        eprint!("\x1b[31mError\x1b[0m: ");
         for err in ctx.err_vec.borrow().iter() {
             eprintln!("{}\n", err.msg);
         }
 
-        panic!("I'm new to thinking. Does anyone have beginner thoughts?");
-        // std::process::exit(1);
+        // panic!("I'm new to thinking. Does anyone have beginner thoughts?");
+        std::process::exit(1);
     }
 
     sym_table
@@ -201,10 +218,11 @@ fn parse_var_section(
     ctx.expect_verbose(
         TokenKind::Colon,
         //TODO: Have a 'help' option that goes under the span shown, just a small example.
-        "Use a ':' after ",
-        " to declare it's type.",
-        Branch::Var,
+        "Expected colon after identifier, found ",
+        "",
+        //WARN: LIAR
         None,
+        Branch::Var,
         interner,
     )?;
 
@@ -225,7 +243,9 @@ fn parse_var_section(
         ctx.expect_verbose(
             TokenKind::CParen,
             "Expected ')' at end of condition, found ",
-            ". Is there a missing comma?",
+            "",
+            // FIX: CONTEXT AWARE
+            None,
             Branch::VarCond,
             interner,
         )?;
@@ -372,8 +392,9 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
     //TODO: Probably should just separate func for Sets
     ctx.expect_verbose(
         TokenKind::OAngleBracket,
-        "A '<' is required to hold a type in `List` or `Set`, found ",
+        "A '<' is required to hold a type of `List` or `Set`, found ",
         "",
+        None,
         Branch::Var,
         interner,
     )?;
@@ -384,6 +405,7 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
         TokenKind::CAngleBracket,
         "Expected a '>' to close `List` or `Set`, found ",
         "",
+        None,
         Branch::Var,
         interner,
     )?;
@@ -396,6 +418,7 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
         TokenKind::OAngleBracket,
         "Expected a '<' after `Map`, found",
         "",
+        None,
         Branch::Var,
         interner,
     )?;
@@ -413,6 +436,7 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
         TokenKind::CAngleBracket,
         "Expected a '>' to close `Map`, found ",
         "",
+        None,
         Branch::Var,
         interner,
     )?;
@@ -463,7 +487,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
                     "a condition",
-                    "another '!'. Boolean logic can only be one condition deep.",
+                    "another '!'. Boolean logic can only be one condition deep",
                     Branch::VarCond,
                 );
             }
@@ -560,8 +584,9 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
 
     ctx.expect_verbose(
         TokenKind::CParen,
-        "Missing ')' after defining `Len()`, found ",
+        "Expeceted ')' after defining `Len()`, found ",
         "",
+        Some("Individual conditions must be closed with a ')' |e.g. `(Len(~4))` |"),
         Branch::VarCond,
         interner,
     )?;

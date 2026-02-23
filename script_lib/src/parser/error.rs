@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use crate::token::SpannedToken;
-
 // Has a lifetime because of previous clone concerns in instantiation
 #[derive(Debug)]
 // Turn to, Type, ie. expected. Have general, expected, found, branch, pre_tok parts.
