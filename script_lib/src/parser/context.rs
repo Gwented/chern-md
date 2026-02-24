@@ -1,6 +1,6 @@
-use std::cell::RefCell;
+use std::io::IsTerminal;
 
-use common::{intern::Intern, primitives::PrimitiveKeywords};
+use common::intern::Intern;
 
 use crate::{
     parser::error::{Branch, Diagnostic},
@@ -14,30 +14,35 @@ const NC: &str = "\x1b[0m";
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
-/// This must remain greater than 1 or everything will break. This was the goal.
-/// Check if recover not peeking causes crash without this or if it's just the tree walking
-///
-/// The EOF issue is because of tokens now being able to just ignore EOF and force crashes,
-/// but it's from there being no unified agreement on if it's EOF, quit. I will speak with the
-/// workers.
-///
-/// It actually does what it's supposed to do now that poisoned as be sprinkled
-/// The point of this is to act as retry logic so it stops hallucinating. Especially EOF
-const MAX_TOLERANCE: u8 = 3;
+//UNUSED:
+const MAX_RETRIES: u8 = 0;
 
 #[derive(Debug)]
 pub struct Context<'a> {
-    pub(crate) tolerance: u8,
+    //TEST:
+    pub(crate) retries: u8,
+    //TEST:
     pub(crate) original_text: &'a [u8],
     pub(crate) tokens: &'a [SpannedToken],
     pub(crate) pos: usize,
-    // Needs RefCell for recursion
-    pub(crate) err_vec: RefCell<Vec<Diagnostic>>,
-    // pub(crate) warn_vec: Vec<ParseError<'a>>,
-    // or could just have a level with diagnostic
+    pub(crate) err_vec: Vec<Diagnostic>,
+    pub(crate) can_color: bool, // or could just have a level with diagnostic
 }
 
+// Make more composable or something
+// Make "missing" report that covers common wrong characters to help parser in data structures
 impl<'a> Context<'a> {
+    pub fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
+        Context {
+            retries: 0,
+            original_text,
+            tokens,
+            pos: 0,
+            err_vec: Vec::new(),
+            can_color: std::io::stdout().is_terminal(),
+        }
+    }
+
     //Configuration for expected and found being disabled
     pub(crate) fn expect_id_verbose(
         &mut self,
@@ -51,10 +56,10 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
 
         // Leads to EOF being skipped and index out of bounds unless this is done.
-        // TODO: See if changes fixed this bug
-        if self.peek_kind() != TokenKind::EOF {
-            self.pos += 1;
-        }
+        // WARN: This is a fail safe for logic errors
+        // if self.peek_kind() != TokenKind::EOF {
+        // }
+        self.pos += 1;
 
         // Maybe just check each individually first so we know it is invalid after.
         let id_opt = match found.token {
@@ -81,55 +86,19 @@ impl<'a> Context<'a> {
             )
         };
 
-        self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
+        self.err_vec.push(Diagnostic::new(msg, branch));
 
-        self.recover(branch);
+        self.retries += 1;
+
+        if self.retries > MAX_RETRIES {
+            self.recover(branch);
+            self.retries = 0;
+        }
 
         Err(found.token)
     }
 
     /// Intended for basic errors that need little context after
-    pub(crate) fn expect_basic(
-        &mut self,
-        expected: TokenKind,
-        branch: Branch,
-        extra: Option<&str>,
-    ) -> Result<Token, Token> {
-        let found = &self.tokens[self.pos];
-        dbg!(&found);
-
-        // Leads to EOF being skipped and index out of bounds unless this is done.
-        if self.peek_kind() != TokenKind::EOF {
-            self.pos += 1;
-        }
-
-        // Are we serious?
-        if found.token.kind() != expected {
-            let (ln, col, segment) = self.get_location(&found.span);
-
-            let separator = "-".repeat(TOTAL_SEPARATORS);
-
-            let msg = format!(
-                "(in {branch})\n Expected '{expected}', found '{}'. {}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
-                found.token.kind(),
-                extra.unwrap_or_default()
-            );
-
-            self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
-
-            self.tolerance += 1;
-
-            if self.tolerance >= MAX_TOLERANCE {
-                self.recover(branch);
-                self.tolerance = 0;
-            }
-
-            return Err(found.token);
-        }
-
-        Ok(found.token.clone())
-    }
-
     /// ALWAYS advance before using this or ensure an advance happened before
     pub(crate) fn report_verbose(&mut self, msg: &str, branch: Branch) {
         let found = &self.tokens[self.pos - 1];
@@ -141,23 +110,16 @@ impl<'a> Context<'a> {
 
         let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}");
 
-        self.tolerance += 1;
-
-        if self.tolerance > MAX_TOLERANCE {
-            self.recover(branch);
-            self.tolerance = 0;
-        }
+        self.recover(branch);
 
         let report = Diagnostic::new(msg, branch);
 
-        self.err_vec.borrow_mut().push(report);
+        self.err_vec.push(report);
     }
 
     /// Fully curated version of `expect_basic`
     //TODO: Primitive type recognition for printing all errors
 
-    //
-    //FIX: BECOME MORE CONTEXT AWARE IN HELP FROM INSIDE
     pub(crate) fn expect_verbose(
         &mut self,
         expected: TokenKind,
@@ -170,56 +132,58 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
 
         // Leads to EOF being skipped and index out of bounds unless this is done.
-        if self.peek_kind() != TokenKind::EOF {
-            self.pos += 1;
-        }
+        // WARN: This is a fail safe for logic errors
+        // if self.peek_kind() != TokenKind::EOF {
+        // }
+        self.pos += 1;
 
         let id_opt = match found.token {
             Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
             _ => None,
         };
 
-        if found.token.kind() == expected {
-            return Ok(found.token);
+        // Should this be reversed?
+        if found.token.kind() != expected {
+            let (ln, col, segment) = self.get_location(&found.span);
+
+            let separator = "-".repeat(TOTAL_SEPARATORS);
+
+            let help = if let Some(msg) = help {
+                format!("{ORANGE}Help{NC}: {msg}\n")
+            } else {
+                "".to_string()
+            };
+
+            let msg = if let Some(id) = id_opt {
+                let name = interner.search(id as usize);
+
+                // New line is after since no help would space it out by default
+                // WARN:
+
+                format!(
+                    "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                    found.token.kind()
+                )
+            } else {
+                format!(
+                    "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                    found.token.kind()
+                )
+            };
+
+            self.err_vec.push(Diagnostic::new(msg, branch));
+
+            self.retries += 1;
+
+            if self.retries > MAX_RETRIES {
+                self.recover(branch);
+                self.retries = 0;
+            }
+
+            return Err(found.token);
         }
 
-        let (ln, col, segment) = self.get_location(&found.span);
-
-        let separator = "-".repeat(TOTAL_SEPARATORS);
-
-        let help = if let Some(msg) = help {
-            format!("{ORANGE}Help{NC}: {msg}\n")
-        } else {
-            "".to_string()
-        };
-
-        let msg = if let Some(id) = id_opt {
-            let name = interner.search(id as usize);
-
-            // New line is after since no help would space it out by default
-            // WARN:
-
-            format!(
-                "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
-                found.token.kind()
-            )
-        } else {
-            format!(
-                "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
-                found.token.kind()
-            )
-        };
-
-        self.err_vec.borrow_mut().push(Diagnostic::new(msg, branch));
-
-        self.tolerance += 1;
-
-        if self.tolerance >= MAX_TOLERANCE {
-            self.recover(branch);
-            self.tolerance = 0;
-        }
-
-        Err(found.token)
+        Ok(found.token)
     }
 
     /// More composable "Expected but found" error.
@@ -235,15 +199,16 @@ impl<'a> Context<'a> {
             "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
         );
 
-        self.tolerance += 1;
+        self.retries += 1;
 
-        if self.tolerance > MAX_TOLERANCE {
+        if self.retries > MAX_RETRIES {
             self.recover(branch);
+            self.retries = 0;
         }
 
         let report = Diagnostic::new(msg, Branch::VarTypeArgs);
 
-        self.err_vec.borrow_mut().push(report);
+        self.err_vec.push(report);
     }
 
     //FIX: Should likely return helper struct of `Segment`
@@ -296,13 +261,10 @@ impl<'a> Context<'a> {
         let arrows = "^".repeat(span_diff_offset);
 
         // Spaces need to be proportional to the current line's size therefore it must
-        // stay inside the range. THIS SHOULD HAVE BEEN OBVIOUS.
-        // WARN: UTF-8 issues possible
+        // stay inside the range.
         let space_offset = self.original_text[seg_start..span.start].len();
 
         let spaces = " ".repeat(space_offset);
-
-        //FIX: VIOLATES SRP JAVA EE PSPRIBOOT
 
         let fmt_segment = format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}");
 
@@ -320,36 +282,8 @@ impl<'a> Context<'a> {
             }
         }
 
+        //WARN: I don't remember why I returned this
         self.original_text.len()
-    }
-
-    /// Is inteded to override recursive information loss for better errors.
-    pub(crate) fn try_rewind(&mut self, cap: usize) -> Option<PrimitiveKeywords> {
-        for i in 1..=cap {
-            if self.pos - i < self.tokens.len() {
-                return None;
-            }
-            dbg!("Descending");
-            dbg!(self.pos);
-
-            panic!("Made it?");
-            let tok = self.tokens[self.pos - i].token;
-
-            match tok {
-                Token::Id(id) => {
-                    let res = PrimitiveKeywords::try_from(id);
-
-                    if res.is_ok() {
-                        panic!("Found it");
-                        res.ok();
-                    }
-                }
-                _ => (),
-            }
-        }
-        panic!("Isnta");
-
-        None
     }
 
     //TODO: Branch specific behavior
@@ -362,15 +296,13 @@ impl<'a> Context<'a> {
                 && self.peek_kind() != TokenKind::EOF
                 && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow
                 && self.peek_ahead(1).token.kind() != TokenKind::Colon
-                && self.peek_kind() != target
+                && self.peek_ahead(1).token.kind() != target
             {
                 self.advance();
             }
         }
     }
 
-    //TEST:
-    // MAKE THEM APPLY SOFTMAX FUNCTIONS BY SCANNING PAST TOKENS TO PICK MOST PROBABLY TOKEN
     fn match_target(&self, branch: Branch) -> TokenKind {
         match branch {
             Branch::Searching => TokenKind::Id,
@@ -386,18 +318,52 @@ impl<'a> Context<'a> {
         }
     }
 
-    // const EULERS_NUMBER: f32 = 2.71828;
+    // Use a match branch to get an ignore list and branch specific calculations,
+    // Apply weight.
+    // This model should generate help based off of the branch and last 10 tokens.
+    // pub(crate) fn softmax(&self, branch: Branch) -> TokenKind {
+    //     let len = self.tokens.len() as f64;
     //
-    // // Wait I don't have probabilities
-    // fn softmax(&self) {
-    //     let mut n = 0;
+    //     let mut tok_probs: HashMap<TokenKind, f64> = HashMap::with_capacity(30);
     //
-    //     for tok in self.tokens.iter().map(|t| t.token).into_iter() {}
+    //     for tok in self.tokens.iter().map(|t| t.token.kind()).into_iter() {
+    //         if let Some(v) = tok_probs.get_mut(&tok) {
+    //             dbg!(tok);
+    //             *v += 1.0;
+    //         } else {
+    //             tok_probs.insert(tok, 1.0);
+    //         }
+    //     }
+    //
+    //     // Um
+    //     let mut sum = 0.0;
+    //     let mut largest_prob = 0.0;
+    //
+    //     let mut expected_token = TokenKind::EOF;
+    //
+    //     // Softmax counterproductive here since meant to make high results higher
+    //     for key_kind in tok_probs.keys().copied() {
+    //         let mut prob = tok_probs.get(&key_kind).copied().unwrap_or_default();
+    //         sum += prob;
+    //
+    //         prob = (prob.exp()) / len;
+    //
+    //         if prob > largest_prob {
+    //             largest_prob = prob;
+    //             expected_token = key_kind;
+    //         }
+    //     }
+    //
+    //     println!("Most probable token: {expected_token}. sum={sum}");
+    //
+    //     expected_token
     // }
 
-    fn peek(&self) -> &SpannedToken {
-        dbg!(&self.tokens[self.pos]);
-        &self.tokens[self.pos]
+    pub(crate) fn peek_tok_prev(&mut self, distance: usize) -> Token {
+        self.tokens
+            .get(self.pos - distance)
+            .map(|t| t.token)
+            .unwrap_or(Token::EOF)
     }
 
     pub(crate) fn peek_tok(&mut self) -> Token {

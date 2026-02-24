@@ -1,7 +1,13 @@
 // There is no technical debt
-@defvar->
-    i32: i32,
-    hi: hi (Len(2..=2..))
+@def
+なぜできないのか？
+    var->
+            let: i32
+            //let: List<Map<List<List<List<List<List<List<i32>>>>>>, i32>
+            // Poison the data structures more
+                //list: List<List<List<List<List<List<List<List<Map<Map<Set<Set<i32>>>>>>>>>>
+                //list: List<List<List<<List<List<st<List<io<List<List<Map<Map<Set<Set<i32>>>>>>>>>>>>>>>>
+                wist: 
     /*nest->
         .person:= {
             names: List<str>

@@ -3,16 +3,14 @@ pub mod error;
 pub mod symbols;
 
 use crate::parser::error::Branch;
-use common::intern::Intern;
-use common::primitives::PrimitiveKeywords;
-use std::cell::RefCell;
-
 use crate::parser::symbols::{Bind, Cond, SymbolTable, TypeDef};
 use crate::token::{ActualType, InnerArgs};
 use crate::{
     parser::{context::Context, symbols::Symbol},
     token::{SpannedToken, Token, TokenKind},
 };
+use common::intern::Intern;
+use common::primitives::PrimitiveKeywords;
 
 pub fn parse(
     original_text: &[u8],
@@ -21,16 +19,10 @@ pub fn parse(
 ) -> SymbolTable {
     let mut sym_table = SymbolTable::new();
 
-    let mut ctx = Context {
-        tolerance: 0,
-        original_text,
-        tokens: &tokens[..],
-        pos: 0,
-        err_vec: RefCell::new(Vec::new()),
-    };
+    let mut ctx = Context::new(original_text, tokens);
 
     while ctx.pos < ctx.tokens.len() {
-        if ctx.err_vec.borrow().len() > 7 {
+        if ctx.err_vec.len() > 10 {
             break;
         }
 
@@ -93,7 +85,7 @@ pub fn parse(
                         TokenKind::SlimArrow,
                         "Expected a '->' after section `nest`, found ",
                         "",
-                        Some("Change \"nest->\""),
+                        Some("Change to \"nest->\""),
                         Branch::Searching,
                         interner,
                     )
@@ -129,8 +121,6 @@ pub fn parse(
             },
             // Token::Illegal(_) => todo!(),
             Token::EOF => break,
-            // Currently assmung all errors that are propogated are program ending by default
-            // since...
             t => {
                 match t {
                     Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
@@ -161,14 +151,14 @@ pub fn parse(
         }
     }
 
-    if !ctx.err_vec.borrow().is_empty() {
+    if !ctx.err_vec.is_empty() {
         dbg!(sym_table);
         //TODO: Ok I don't actually have the file path
 
         //FIX: ANSI
         eprint!("\x1b[31mError\x1b[0m: ");
 
-        for err in ctx.err_vec.borrow().iter() {
+        for err in ctx.err_vec.iter() {
             eprintln!("{}\n", err.msg);
         }
 
@@ -179,8 +169,6 @@ pub fn parse(
     sym_table
 }
 
-//TODO: Just return id
-//And error need to return something useful eventually to know that we have to error
 fn parse_bind_section(
     ctx: &mut Context,
     sym_table: &mut SymbolTable,
@@ -226,7 +214,6 @@ fn parse_var_section(
         interner,
     )?;
 
-    // Still watching
     let type_res = parse_type(ctx, interner);
 
     let mut conds: Vec<Cond> = Vec::new();
@@ -242,7 +229,6 @@ fn parse_var_section(
             conds.push(new_cond);
         }
 
-        // watching...
         ctx.expect_verbose(
             TokenKind::CParen,
             "Expected ')' at end of condition, found ",
@@ -273,7 +259,6 @@ fn parse_var_section(
 
     let type_def = TypeDef::new(id, type_id, args, conds);
 
-    // Maybe just match?
     sym_table.store_symbol(Symbol::Definition(type_def), id, type_id, raw_type);
 
     Ok(())
@@ -291,9 +276,10 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
     match ctx.peek_tok() {
         Token::Id(id) => match PrimitiveKeywords::try_from(id) {
             //FIX: Specific error messages for data structure errors
-            Ok(help_us_all) => match help_us_all {
+            Ok(p) => match p {
                 PrimitiveKeywords::List => {
                     ctx.advance_tok();
+
                     let ty = parse_array(ctx, interner)?;
 
                     let list = ActualType::List(Box::new(ty));
@@ -342,9 +328,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
 
                 // let primitive = ctx.try_rewind(10);
 
-                let msg =
-                    // Please no more expected but found please please palsea
-                    format!("Expected a type, found identifier \"{name}\"");
+                let msg = format!("Expected a type, found identifier \"{name}\"");
                 //FIX: CHECK IF WE WE GOT WAS SIMILAR TO something?
                 ctx.advance_tok();
                 ctx.report_verbose(&msg, Branch::VarType);
@@ -357,37 +341,50 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
             ctx.advance_tok();
             Ok(ActualType::Any(None))
         }
-        // parse
-        // Specific error messages here to say types were misplaeced?
-        // Token::Comma => todo!(),
-        // Token::OParen => todo!(),
-        // gorp
-        // Token::Percent => todo!(),
-        // Token::Dot => todo!(),
-        // Token::VerticalBar => todo!(),
-        Token::Literal(id) => {
+        Token::Literal(id) | Token::Number(id) => {
             let name = interner.search(id as usize);
 
+            let kind = ctx.peek_kind();
+
             ctx.advance_tok();
-            let fmt_tok = format!("{} \"{name}\"", TokenKind::Literal);
+            let fmt_tok = format!("{} \"{name}\"", kind);
             ctx.report_template("a type", &fmt_tok, Branch::VarType);
 
             Err(Token::Literal(id))
         }
         Token::EOF => {
+            //FIX: TEMP FIX SINCE ARROWS ARE NOT DYNAMIC
             ctx.advance_tok();
+
             ctx.report_verbose("Expected type, found '<eof>'", Branch::VarType);
+
             Err(Token::EOF)
         }
-        Token::Poison => Err(Token::Poison),
+        Token::Poison => {
+            panic!();
+            parse_type(ctx, interner);
+        }
+        Token::SlimArrow => todo!(),
+        Token::DotRange => todo!(),
+        Token::Slash => todo!(),
+        Token::HashSymbol => todo!(),
+        Token::Percent => todo!(),
+        Token::Colon => todo!(),
+        Token::OParen => todo!(),
+        Token::CParen => todo!(),
+        Token::Hyphen => todo!(),
+        Token::ExclamationPoint => todo!(),
+        Token::Asterisk => todo!(),
+        Token::DoubleQuotes => todo!(),
+        Token::Dot => todo!(),
+        Token::VerticalBar => todo!(),
+        Token::Illegal(_) => todo!(),
         t => {
-            //FIX: I FORGOT.  Forgot what??? I actually don't know.
-
             ctx.advance_tok();
             let fmt_tok = format!("'{}'", t.kind());
             ctx.report_template("a type", &fmt_tok, Branch::VarType);
 
-            Err(t)
+            Err(Token::Poison)
         }
     }
 }
@@ -401,7 +398,6 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
         interner,
     )?;
 
-    //FIX: ODD HANDLING
     InnerArgs::try_from(interner.search(id as usize)).or_else(|invalid_id| {
         let msg = format!("The argument \"#{invalid_id}\" does not exist.");
 
@@ -415,7 +411,7 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
     //TODO: Probably should just separate func for Sets
     ctx.expect_verbose(
         TokenKind::OAngleBracket,
-        "A '<' is required to hold types with a `List` or `Set`, found ",
+        "A '<' is required for a `List` or `Set` to take in a type, found ",
         "",
         None,
         Branch::VarType,
@@ -423,11 +419,7 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
     )
     .ok();
 
-    let ty = parse_type(ctx, interner);
-
-    if ty.as_ref().is_err_and(|err| err.kind() == TokenKind::EOF) {
-        return Err(Token::EOF);
-    }
+    let ty = parse_type(ctx, interner)?;
 
     ctx.expect_verbose(
         TokenKind::CAngleBracket,
@@ -436,9 +428,10 @@ fn parse_array(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token
         None,
         Branch::VarType,
         interner,
-    )?;
+    )
+    .ok();
 
-    ty
+    Ok(ty)
 }
 
 fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, ActualType), Token> {
@@ -453,14 +446,7 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
     )
     .ok();
 
-    let possible_key = parse_type(ctx, interner);
-
-    if possible_key
-        .as_ref()
-        .is_err_and(|err| err.kind() == TokenKind::EOF)
-    {
-        return Err(Token::EOF);
-    }
+    let key = parse_type(ctx, interner)?;
 
     //Not that bold
     //FIX: Expect this
@@ -468,14 +454,7 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
         ctx.advance_tok();
     }
 
-    let possible_val = parse_type(ctx, interner);
-
-    if possible_val
-        .as_ref()
-        .is_err_and(|err| err.kind() == TokenKind::EOF)
-    {
-        return Err(Token::EOF);
-    }
+    let val = parse_type(ctx, interner)?;
 
     ctx.expect_verbose(
         TokenKind::CAngleBracket,
@@ -487,8 +466,8 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
     )
     .ok();
 
-    let key = possible_key.or_else(|_| Err(Token::Poison))?;
-    let val = possible_val.or_else(|_| Err(Token::Poison))?;
+    // let key = key_res.or_else(|_| Err(Token::Poison))?;
+    // let val = val_res.or_else(|_| Err(Token::Poison))?;
 
     Ok((key, val))
 }
@@ -538,7 +517,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
                     "a valid condition",
-                    "another '!'. `Not` can only be used once.",
+                    "another '!'. `Not` can only be used once in a single statement.",
                     Branch::VarCond,
                 );
             }
@@ -634,12 +613,13 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
         .parse()
         //TODO: report this
         .or_else(|_| {
+            let msg = format!("Expected valid number, found {end}");
+
             ctx.report_verbose(
                 //FIX:
-                "Expected valid number, found something else...",
+                &msg,
                 Branch::VarCond,
             );
-            //FIX: Illegal tokens don't do anything
             //WARN:
             return Err(Token::Poison);
         })?;

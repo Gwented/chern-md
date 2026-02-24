@@ -7,6 +7,7 @@ pub struct SpannedToken {
     pub(crate) span: Span,
 }
 
+// WARN: TEMP
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Token {
     Id(u32),
@@ -118,7 +119,7 @@ impl Token {
 //     }
 // }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub(crate) enum TokenKind {
     Id,
     Literal,

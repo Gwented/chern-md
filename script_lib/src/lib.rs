@@ -6,9 +6,11 @@ pub mod token;
 #[cfg(test)]
 mod tests {
 
+    use std::fs;
+
     use common::intern::Intern;
 
-    use crate::lexer::Lexer;
+    use crate::{lexer::Lexer, parser::context::Context};
 
     use super::*;
 

@@ -47,11 +47,11 @@ impl Lexer<'_> {
 
             match byte {
                 b if b.is_ascii_alphabetic() || b == b'_' => {
-                    // eprintln!(
-                    //     "Peeking byte {} char {} start",
-                    //     self.peek(),
-                    //     self.peek() as char
-                    // );
+                    eprintln!(
+                        "Peeking byte {} char {} start",
+                        self.peek(),
+                        self.peek() as char
+                    );
 
                     tokens.push(self.read_id(interner));
                 }
@@ -310,6 +310,8 @@ impl Lexer<'_> {
             eprintln!("Missing `@end`");
         }
 
+        unimplemented!();
+
         (start_offset, tokens)
     }
 
@@ -417,6 +419,7 @@ impl Lexer<'_> {
         //TODO: Cleaner handle of failure to close string
         if self.pos == self.bytes.len() {
             let resp_id = interner.intern("Failed to close string literal and found <eof>");
+
             return SpannedToken {
                 token: Token::Illegal(resp_id),
                 span: Span::new(start, end),
