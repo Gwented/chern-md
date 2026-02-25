@@ -11,3 +11,5 @@ What if the errors intuitively understood primitives?
 
 What if the errors had their own weight's and bias's that were put through a softmax function after
 training off of the source code that impacted how the program would run?
+
+Id reader broke

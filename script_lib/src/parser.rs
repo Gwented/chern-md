@@ -119,7 +119,15 @@ pub fn parse(
                     break;
                 }
             },
-            // Token::Illegal(_) => todo!(),
+            Token::Illegal(id) => {
+                ctx.advance_tok();
+
+                let err_str = interner.search(id as usize);
+
+                let msg = format!("Found illegal token {err_str}");
+
+                ctx.report_verbose(&msg, Branch::Broken);
+            }
             Token::EOF => break,
             t => {
                 match t {
@@ -145,7 +153,6 @@ pub fn parse(
                         );
                     }
                 }
-
                 break;
             }
         }
@@ -181,8 +188,6 @@ fn parse_bind_section(
         Branch::Bind,
         interner,
     )?;
-
-    dbg!(interner.search(name_id as usize));
 
     let symbol = Symbol::Bind(Bind::new(name_id));
 
@@ -272,10 +277,10 @@ fn parse_var_section(
 
 //FIXME: Give ActualType the function instead
 //The ActualType should USE the ReservedKeyword to GET the type to avoid misdirection
+//Or not I don't know
 fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token> {
     match ctx.peek_tok() {
         Token::Id(id) => match PrimitiveKeywords::try_from(id) {
-            //FIX: Specific error messages for data structure errors
             Ok(p) => match p {
                 PrimitiveKeywords::List => {
                     ctx.advance_tok();
@@ -329,7 +334,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                 // let primitive = ctx.try_rewind(10);
 
                 let msg = format!("Expected a type, found identifier \"{name}\"");
-                //FIX: CHECK IF WE WE GOT WAS SIMILAR TO something?
+                //FIX: CHECK IF WE WE WE WE GOT WAS SIMILAR TO something?
                 ctx.advance_tok();
                 ctx.report_verbose(&msg, Branch::VarType);
 
@@ -353,7 +358,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
             Err(Token::Literal(id))
         }
         Token::EOF => {
-            //FIX: TEMP FIX SINCE ARROWS ARE NOT DYNAMIC
+            //FIX: Points to EOF since it is technically the error.
             ctx.advance_tok();
 
             ctx.report_verbose("Expected type, found '<eof>'", Branch::VarType);
@@ -361,18 +366,13 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
             Err(Token::EOF)
         }
         Token::Poison => {
-            panic!();
-            parse_type(ctx, interner);
+            panic!("Touched <poison>");
         }
         Token::SlimArrow => todo!(),
-        Token::DotRange => todo!(),
         Token::Slash => todo!(),
         Token::HashSymbol => todo!(),
         Token::Percent => todo!(),
         Token::Colon => todo!(),
-        Token::OParen => todo!(),
-        Token::CParen => todo!(),
-        Token::Hyphen => todo!(),
         Token::ExclamationPoint => todo!(),
         Token::Asterisk => todo!(),
         Token::DoubleQuotes => todo!(),

@@ -82,43 +82,6 @@ impl Token {
     }
 }
 
-//FIX: Should turn into impl method since I need the interner
-// impl Display for Token {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             // Token::Id(_) => write!(f, "identifier"),
-//             // Token::Literal(_) => write!(f, "literal"),
-//             Token::Number(num) => write!(f, "{num}"),
-//             Token::OBracket => write!(f, "["),
-//             Token::CBracket => write!(f, "]"),
-//             Token::OCurlyBracket => write!(f, "}}"),
-//             Token::CCurlyBracket => write!(f, "{{"),
-//             Token::QuestionMark => write!(f, "?"),
-//             Token::Equals => write!(f, "="),
-//             Token::OAngleBracket => write!(f, "<"),
-//             Token::CAngleBracket => write!(f, ">"),
-//             Token::Comma => write!(f, ","),
-//             Token::SlimArrow => write!(f, "->"),
-//             Token::Slash => write!(f, "/"),
-//             Token::HashSymbol => write!(f, "#"),
-//             Token::Percent => write!(f, "%"),
-//             Token::Colon => write!(f, ":"),
-//             Token::OParen => write!(f, "("),
-//             Token::CParen => write!(f, ")"),
-//             Token::Hyphen => write!(f, "-"),
-//             Token::ExclamationPoint => write!(f, "!"),
-//             Token::Asterisk => write!(f, "*"),
-//             Token::DoubleQuotes => write!(f, "\""),
-//             Token::Tilde => write!(f, "~"),
-//             Token::Dot => write!(f, "."),
-//             Token::VerticalBar => write!(f, "|"),
-//             // Token::Illegal(_) => write!(f, "Illegal"),
-//             Token::EOF => write!(f, "<eof>"),
-//             _ => unreachable!(),
-//         }
-//     }
-// }
-
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub(crate) enum TokenKind {
     Id,

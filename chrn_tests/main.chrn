@@ -1,19 +1,24 @@
-// There is no technical debt
-@def
-なぜできないのか？
+@def 
+    bind-> "./このレストランはお客さんに brain stops here"
+    var->
+        hi: i32
+
+@end
+
+//ね//var->hi:i32さ
+//"\ねaね"
     var->
             let: i32
             //let: List<Map<List<List<List<List<List<List<i32>>>>>>, i32>
             // Poison the data structures more
                 //list: List<List<List<List<List<List<List<List<Map<Map<Set<Set<i32>>>>>>>>>>
                 //list: List<List<List<<List<List<st<List<io<List<List<Map<Map<Set<Set<i32>>>>>>>>>>>>>>>>
-                wist: 
+                wist: i32
     /*nest->
         .person:= {
             names: List<str>
             floor: Set<u32>
         }*/
-@end
  IM LOST
 /*person:= {
     name: "Floor"
@@ -22,4 +27,4 @@
         name: "Car"
         age: 6
     }
-}*/
+}*なぜできないのか？

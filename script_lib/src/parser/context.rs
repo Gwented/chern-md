@@ -187,6 +187,7 @@ impl<'a> Context<'a> {
     }
 
     /// More composable "Expected but found" error.
+    /// ALWAYS advance before using this
     /// [...] Expected [emsg], found [fmsg]
     pub(crate) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
         let found = &self.tokens[self.pos - 1];
@@ -244,11 +245,15 @@ impl<'a> Context<'a> {
         }
 
         // Needs offset or will print span.end when span.start is more informational
+        // if col == 0 {
         col -= span.end - span.start;
+        // }
 
         let seg_end = self.get_line_end(seg_start);
 
         let segment = &self.original_text[seg_start..seg_end];
+
+        dbg!(str::from_utf8(segment).unwrap());
 
         //FIX:
         let segment = str::from_utf8(segment)
@@ -289,6 +294,10 @@ impl<'a> Context<'a> {
     //TODO: Branch specific behavior
     //WARN: WATCH THIS CLOSELY
     fn recover(&mut self, branch: Branch) {
+        if branch == Branch::Broken {
+            return;
+        }
+
         let target = self.match_target(branch);
         //FIX: SEE IF SELF.POS CHECK IS STILL NEEDED. WAS REMOVED.
         if self.peek_kind() != TokenKind::EOF {
@@ -305,65 +314,16 @@ impl<'a> Context<'a> {
 
     fn match_target(&self, branch: Branch) -> TokenKind {
         match branch {
+            Branch::Broken => TokenKind::Illegal,
             Branch::Searching => TokenKind::Id,
             Branch::Bind => TokenKind::Colon,
             Branch::Var => TokenKind::OParen,
             Branch::VarType => TokenKind::HashSymbol,
-            // Or OParen
             Branch::VarCond => TokenKind::Comma,
-            // Or Comma
             Branch::VarTypeArgs => TokenKind::HashSymbol,
             Branch::Nest => todo!(),
             Branch::ComplexRules => todo!(),
         }
-    }
-
-    // Use a match branch to get an ignore list and branch specific calculations,
-    // Apply weight.
-    // This model should generate help based off of the branch and last 10 tokens.
-    // pub(crate) fn softmax(&self, branch: Branch) -> TokenKind {
-    //     let len = self.tokens.len() as f64;
-    //
-    //     let mut tok_probs: HashMap<TokenKind, f64> = HashMap::with_capacity(30);
-    //
-    //     for tok in self.tokens.iter().map(|t| t.token.kind()).into_iter() {
-    //         if let Some(v) = tok_probs.get_mut(&tok) {
-    //             dbg!(tok);
-    //             *v += 1.0;
-    //         } else {
-    //             tok_probs.insert(tok, 1.0);
-    //         }
-    //     }
-    //
-    //     // Um
-    //     let mut sum = 0.0;
-    //     let mut largest_prob = 0.0;
-    //
-    //     let mut expected_token = TokenKind::EOF;
-    //
-    //     // Softmax counterproductive here since meant to make high results higher
-    //     for key_kind in tok_probs.keys().copied() {
-    //         let mut prob = tok_probs.get(&key_kind).copied().unwrap_or_default();
-    //         sum += prob;
-    //
-    //         prob = (prob.exp()) / len;
-    //
-    //         if prob > largest_prob {
-    //             largest_prob = prob;
-    //             expected_token = key_kind;
-    //         }
-    //     }
-    //
-    //     println!("Most probable token: {expected_token}. sum={sum}");
-    //
-    //     expected_token
-    // }
-
-    pub(crate) fn peek_tok_prev(&mut self, distance: usize) -> Token {
-        self.tokens
-            .get(self.pos - distance)
-            .map(|t| t.token)
-            .unwrap_or(Token::EOF)
     }
 
     pub(crate) fn peek_tok(&mut self) -> Token {

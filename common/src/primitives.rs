@@ -1,34 +1,32 @@
-// const PRMITIVES_ARRAY: [&str; 29] = [
-//     "i8",
-//     "u8",
-//     "i16",
-//     "u16",
-//     "f16", // 4
-//     "i32",
-//     "u32",
-//     "f32",
-//     "i64",
-//     "u64", // 9
-//     "f64",
-//     "i128",
-//     "u128",
-//     "f128",
-//     "sized", // 14
-//     "unsized",
-//     "char",
-//     "str",
-//     "bool",
-//     "nil", // 19
-//     "BigInt",
-//     "BigFloat",
-//     "List",
-//     "Map",
-//     "Set", // 24
-//     "bind",
-//     "var", // 26
-//     "nest",
-//     "complex_rules", // 28
-// ];
+// i8
+// u8
+// i16
+// u16
+// f16
+// i32
+// u32
+// f32
+// i64
+// u64
+// f64
+// i128
+// u128
+// f128
+// sized
+// unsized
+// char
+// str
+// bool
+// nil
+// BigInt
+// BigFloat
+// List
+// Map
+// Set
+// bind
+// var
+// nest
+// complex_rules
 
 pub enum PrimitiveKeywords {
     I8 = 0,

@@ -6,48 +6,114 @@ pub mod token;
 #[cfg(test)]
 mod tests {
 
-    use std::fs;
-
     use common::intern::Intern;
 
-    use crate::{lexer::Lexer, parser::context::Context};
-
-    use super::*;
+    use crate::{
+        lexer::Lexer,
+        parser::{
+            self,
+            symbols::{Cond, Symbol},
+        },
+        token::{ActualType, InnerArgs},
+    };
 
     #[test]
     fn lex_tok_test() {
-        let text = r#"bind->"./some/path""#;
+        let text = r#"bind-> "./some/path""#;
 
         let mut interner = Intern::new();
         let (start_offset, toks) = Lexer::new(text.as_bytes()).tokenize(&mut interner);
 
-        assert_eq!(
-            0, start_offset,
-            "start_offset without `@def` failed in lex_tok_test"
-        );
+        assert_eq!(0, start_offset, "start_offset without `@def` failed");
         assert_eq!(4, toks.len(), "Token length exceeded 4 in lex_tok_test");
         // assert_eq!(vec![Token], toks.len(), "");
     }
 
-    // #[test]
-    // fn parse_test() {
-    //     let text = "@defvar->map:Map<i32 u32>@end{test_word}";
-    //
-    //     let mut interner = Intern::new();
-    //
-    //     let bytes = text.as_bytes();
-    //
-    //     let (start_offset, _) = Lexer::new(bytes).tokenize(&mut interner);
-    //
-    //     // assert_eq!("hi", &text[start_offset..]);
-    //     // assert_eq!(start_offset, text.len() - test_word.len());
-    // }
+    //utf8 broke
+
+    #[test]
+    fn primitives_test() {
+        // let text = "
+        // i8 u8 i16 u16 f16 i32 u32 f32 i64
+        // u64 f64 i128 u128 f128 sized unsized
+        // char str bool nil BigInt BigFloat List
+        // Map Set bind var nest complex_rules";
+
+        let interner = Intern::new();
+
+        assert_eq!("i8", interner.search(0));
+        assert_eq!("u8", interner.search(1));
+        assert_eq!("i16", interner.search(2));
+        assert_eq!("u16", interner.search(3));
+        assert_eq!("f16", interner.search(4));
+        assert_eq!("i32", interner.search(5));
+        assert_eq!("u32", interner.search(6));
+        assert_eq!("f32", interner.search(7));
+        assert_eq!("i64", interner.search(8));
+        assert_eq!("u64", interner.search(9));
+        assert_eq!("f64", interner.search(10));
+        assert_eq!("i128", interner.search(11));
+        assert_eq!("u128", interner.search(12));
+        assert_eq!("f128", interner.search(13));
+        assert_eq!("sized", interner.search(14));
+        assert_eq!("unsized", interner.search(15));
+        assert_eq!("char", interner.search(16));
+        assert_eq!("str", interner.search(17));
+        assert_eq!("bool", interner.search(18));
+        assert_eq!("nil", interner.search(19));
+        assert_eq!("BigInt", interner.search(20));
+        assert_eq!("BigFloat", interner.search(21));
+        assert_eq!("List", interner.search(22));
+        assert_eq!("Map", interner.search(23));
+        assert_eq!("Set", interner.search(24));
+        assert_eq!("bind", interner.search(25));
+        assert_eq!("var", interner.search(26));
+        assert_eq!("nest", interner.search(27));
+        assert_eq!("complex_rules", interner.search(28));
+    }
+
+    #[test]
+    fn parse_test() {
+        let text = r#"
+            bind->"./some/寒しい/path"
+            var-> name: str(IsEmpty, Len(~5)) #warn
+            "#;
+
+        let mut interner = Intern::new();
+
+        let bytes = text.as_bytes();
+
+        let (_, toks) = Lexer::new(bytes).tokenize(&mut interner);
+
+        let sym_table = parser::parse(bytes, &toks, &mut interner);
+
+        for symbol in sym_table.symbols().values() {
+            match symbol {
+                Symbol::Bind(bind) => {
+                    assert_eq!(interner.search(bind.id as usize), "./some/寒しい/path");
+                }
+                Symbol::Definition(type_def) => {
+                    assert_eq!(interner.search(type_def.id as usize), "name");
+                    assert_eq!(
+                        *sym_table.search_type(type_def.type_id as usize),
+                        ActualType::Str
+                    );
+
+                    assert_eq!(2, type_def.cond.len());
+                    assert_eq!(true, matches!(type_def.cond[0], Cond::IsEmpty));
+                    assert_eq!(true, matches!(type_def.cond[1], Cond::Range(0, 5)));
+
+                    assert_eq!(type_def.args[0], InnerArgs::Warn);
+                    assert_eq!(1, type_def.args.len());
+                }
+            }
+        }
+    }
 
     #[test]
     fn start_offset_test() {
-        let test_word = "hi";
-
-        let text = format!("@defvar->map:Map<i32 u32>@end{test_word}");
+        // 24
+        let text = format!("@def var-> int: i32 @endhi");
 
         let mut interner = Intern::new();
 
@@ -55,7 +121,7 @@ mod tests {
 
         let (start_offset, _) = Lexer::new(bytes).tokenize(&mut interner);
 
-        assert_eq!("hi", &text[start_offset..], "_GNU_SOURCE");
-        assert_eq!(start_offset, text.len() - test_word.len(), "windows.h");
+        assert_eq!("hi", &text[start_offset..]);
+        assert_eq!(start_offset, 24, "windows.h");
     }
 }
