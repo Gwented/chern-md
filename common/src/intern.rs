@@ -44,7 +44,7 @@ pub struct Intern {
 
 //TODO: CONCERNING INTRINSIC VALUES
 impl Intern {
-    pub fn new() -> Intern {
+    pub fn init() -> Intern {
         let mut interner = Intern {
             map: HashMap::with_capacity(PRMITIVES_ARRAY.len()),
             stored: Vec::with_capacity(PRMITIVES_ARRAY.len()),

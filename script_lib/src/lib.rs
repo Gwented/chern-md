@@ -1,6 +1,7 @@
 pub mod color;
 pub mod lexer;
 pub mod parser;
+pub mod storage;
 pub mod token;
 
 #[cfg(test)]
@@ -14,19 +15,36 @@ mod tests {
             self,
             symbols::{Cond, Symbol},
         },
+        storage::FileLoader,
         token::{ActualType, InnerArgs},
     };
 
     #[test]
     fn lex_tok_test() {
+        // let text = r#"bind-> "./some/path""#;
         let text = r#"bind-> "./some/path""#;
+        dbg!(&text);
 
-        let mut interner = Intern::new();
-        let (start_offset, toks) = Lexer::new(text.as_bytes()).tokenize(&mut interner);
+        let (cfg, start_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+
+        let mut interner = Intern::init();
+
+        let toks = Lexer::new(&cfg).tokenize(&mut interner);
 
         assert_eq!(0, start_offset, "start_offset without `@def` failed");
         assert_eq!(4, toks.len(), "Token length exceeded 4 in lex_tok_test");
         // assert_eq!(vec![Token], toks.len(), "");
+    }
+
+    #[test]
+    fn lex_tok_test_rev() {
+        // let text = r#"bind-> "./some/path""#;
+        let text = r#"@defbind-> "./some/path""#;
+        dbg!(&text);
+
+        let opt = FileLoader::new(text.as_bytes()).load_config();
+
+        assert_eq!(opt, None);
     }
 
     //utf8 broke
@@ -39,7 +57,7 @@ mod tests {
         // char str bool nil BigInt BigFloat List
         // Map Set bind var nest complex_rules";
 
-        let interner = Intern::new();
+        let interner = Intern::init();
 
         assert_eq!("i8", interner.search(0));
         assert_eq!("u8", interner.search(1));
@@ -79,11 +97,11 @@ mod tests {
             var-> name: str(IsEmpty, Len(~5)) #warn
             "#;
 
-        let mut interner = Intern::new();
+        let mut interner = Intern::init();
 
         let bytes = text.as_bytes();
 
-        let (_, toks) = Lexer::new(bytes).tokenize(&mut interner);
+        let toks = Lexer::new(bytes).tokenize(&mut interner);
 
         let sym_table = parser::parse(bytes, &toks, &mut interner);
 
@@ -115,11 +133,7 @@ mod tests {
         // 24
         let text = format!("@def var-> int: i32 @endhi");
 
-        let mut interner = Intern::new();
-
-        let bytes = text.as_bytes();
-
-        let (start_offset, _) = Lexer::new(bytes).tokenize(&mut interner);
+        let (_, start_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
 
         assert_eq!("hi", &text[start_offset..]);
         assert_eq!(start_offset, 24, "windows.h");

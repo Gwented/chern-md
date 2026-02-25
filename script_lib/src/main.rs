@@ -1,25 +1,27 @@
 use std::fs;
 
-use common::intern::Intern;
+use common::intern::{self, Intern};
 use script_lib::{
     lexer::Lexer,
     parser::{self},
+    storage::{self, FileLoader},
 };
 
 fn main() {
-    // Missing open/close/small part of declaration spanned
-    // row * col * 84 = 2
     let path = "./chrn_tests/main.chrn";
-    // FIX: Lexer needs to be redone
-    let text = fs::read_to_string(path).unwrap();
 
-    let mut interner = Intern::new();
+    let file = std::fs::File::open(path).unwrap();
 
-    let text_bytes = text.as_bytes();
+    let (data, _) = match FileLoader::new(file).load_config() {
+        Some((data, offset)) => (data, offset),
+        None => panic!("Failed to use FileLoader."),
+    };
 
-    let (start_offset, toks) = Lexer::new(text_bytes).tokenize(&mut interner);
+    let mut interner = Intern::init();
 
-    let table = parser::parse(text_bytes, &toks, &mut interner);
+    let toks = Lexer::new(&data).tokenize(&mut interner);
 
-    dbg!(start_offset, table);
+    let table = parser::parse(&data, &toks, &mut interner);
+
+    dbg!(table);
 }

@@ -1,5 +1,5 @@
-@def 
-    bind-> "./このレストランはお客さんに brain stops here"
+@def
+    bind-> " stops here"
     var->
         hi: i32
 

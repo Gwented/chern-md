@@ -1,20 +1,16 @@
 use common::intern::Intern;
 
-use crate::token::{Span, SpannedToken, Token, TokenKind};
+use crate::token::{Span, SpannedToken, Token};
 
 /// Known size in bytes for `@def` and `@end`
 const DEFINITION_SIZE: usize = 4;
 
-// Possible issues?
 pub struct Lexer<'a> {
     bytes: &'a [u8],
     pos: usize,
-    // Need utf-8 pos
     pos_utf8: usize,
 }
 
-//FIX: Should not read to string due to it being able to be in the file itself
-//Needs buffer
 impl Lexer<'_> {
     pub fn new(bytes: &[u8]) -> Lexer<'_> {
         Lexer {
@@ -25,15 +21,13 @@ impl Lexer<'_> {
         }
     }
 
-    pub fn tokenize(&mut self, interner: &mut Intern) -> (usize, Vec<SpannedToken>) {
+    pub fn tokenize(&mut self, interner: &mut Intern) -> Vec<SpannedToken> {
         let mut tokens: Vec<SpannedToken> = Vec::new();
 
         // For threshold of illegal tokens before just giving up. Likely 8 cap.
         let mut illegal_toks: u8 = 0;
 
         // In case of in md file definition
-        let mut start_offset: usize = 0;
-
         let mut in_def = false;
 
         loop {
@@ -170,7 +164,7 @@ impl Lexer<'_> {
                             span: Span::new(self.pos_utf8, self.pos_utf8 + DEFINITION_SIZE - 1),
                         });
 
-                        start_offset = self.pos + DEFINITION_SIZE;
+                        // start_offset = self.pos + DEFINITION_SIZE;
                         break;
                     } else {
                         tokens.push(self.recover_illegal(interner));
@@ -298,7 +292,7 @@ impl Lexer<'_> {
             // panic!();
         }
 
-        (start_offset, tokens)
+        tokens
     }
 
     fn read_id(&mut self, interner: &mut Intern) -> SpannedToken {
