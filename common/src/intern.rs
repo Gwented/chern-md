@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
-const PRMITIVES_ARRAY: [&str; 29] = [
+// This thing scares me
+const PRMITIVES_ARRAY: [&str; 31] = [
     "i8",
     "u8",
     "i16",
@@ -30,11 +31,12 @@ const PRMITIVES_ARRAY: [&str; 29] = [
     "var", // 26
     "nest",
     "complex_rules", // 28
+    "Len",
+    "IsEmpty",
 ];
 
 // I'm scared
 // Also the interner shouldn't own this
-// Also add null
 
 pub struct Intern {
     map: HashMap<String, u32>,

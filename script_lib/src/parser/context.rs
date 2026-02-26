@@ -11,22 +11,24 @@ const RED: &str = "\x1b[31m";
 const ORANGE: &str = "\x1b[33m";
 const NC: &str = "\x1b[0m";
 
+//TODO: A struct that contains something like the branch, and error type instead of params
+
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
 //UNUSED:
-const MAX_RETRIES: u8 = 0;
+const MAX_RETRIES: u8 = 1;
 
 #[derive(Debug)]
 pub struct Context<'a> {
     //TEST:
-    pub(crate) retries: u8,
+    pub(crate) should_exit: bool,
     //TEST:
     pub(crate) original_text: &'a [u8],
     pub(crate) tokens: &'a [SpannedToken],
     pub(crate) pos: usize,
     pub(crate) err_vec: Vec<Diagnostic>,
-    pub(crate) can_color: bool, // or could just have a level with diagnostic
+    pub(crate) can_color: bool,
 }
 
 // Make more composable or something
@@ -34,7 +36,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     pub fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
         Context {
-            retries: 0,
+            should_exit: false,
             original_text,
             tokens,
             pos: 0,
@@ -77,7 +79,6 @@ impl<'a> Context<'a> {
 
         let msg = if let Some(id) = id_opt {
             let name_id = interner.search(id as usize);
-
             format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n|\n|[{ln}:{col}]\n|\n{segment}",)
         } else {
             format!(
@@ -88,11 +89,11 @@ impl<'a> Context<'a> {
 
         self.err_vec.push(Diagnostic::new(msg, branch));
 
-        self.retries += 1;
-
-        if self.retries > MAX_RETRIES {
+        if self.should_exit {
             self.recover(branch);
-            self.retries = 0;
+            self.should_exit = false;
+        } else {
+            self.should_exit = true;
         }
 
         Err(found.token)
@@ -110,7 +111,12 @@ impl<'a> Context<'a> {
 
         let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}");
 
-        self.recover(branch);
+        if self.should_exit {
+            self.recover(branch);
+            self.should_exit = false;
+        } else {
+            self.should_exit = true;
+        }
 
         let report = Diagnostic::new(msg, branch);
 
@@ -173,11 +179,11 @@ impl<'a> Context<'a> {
 
             self.err_vec.push(Diagnostic::new(msg, branch));
 
-            self.retries += 1;
-
-            if self.retries > MAX_RETRIES {
+            if self.should_exit {
                 self.recover(branch);
-                self.retries = 0;
+                self.should_exit = false;
+            } else {
+                self.should_exit = true;
             }
 
             return Err(found.token);
@@ -200,11 +206,11 @@ impl<'a> Context<'a> {
             "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
         );
 
-        self.retries += 1;
-
-        if self.retries > MAX_RETRIES {
+        if self.should_exit {
             self.recover(branch);
-            self.retries = 0;
+            self.should_exit = false;
+        } else {
+            self.should_exit = true;
         }
 
         let report = Diagnostic::new(msg, Branch::VarTypeArgs);
@@ -213,6 +219,7 @@ impl<'a> Context<'a> {
     }
 
     //FIX: Should likely return helper struct of `Segment`
+    // Responsibility of UTF-8 correction in formatting
     fn get_location(&self, span: &Span) -> (usize, usize, String) {
         let mut ln = 1;
         let mut col = 1;
@@ -225,10 +232,17 @@ impl<'a> Context<'a> {
 
         let mut seg_start = 0;
 
+        // TODO:
+        // Read as char
         for i in 0..span.end {
-            b = self.original_text[i];
+            b = if self.original_text[i].is_ascii() {
+                self.original_text[i]
+            } else {
+                todo!("UTF-8 only supported inside of literal");
+            };
 
             //TODO: See if this works on windows
+            //I still haven't checked.
             if b == b'\r' && self.original_text.get(i + 1).copied() == Some(b'\n') {
                 ln += 1;
                 // Offset to skip new line since cannot alter for loop counter directly
@@ -245,9 +259,8 @@ impl<'a> Context<'a> {
         }
 
         // Needs offset or will print span.end when span.start is more informational
-        // if col == 0 {
+        // FIX: Span needs to be handled or arrows break
         col -= span.end - span.start;
-        // }
 
         let seg_end = self.get_line_end(seg_start);
 
@@ -255,12 +268,15 @@ impl<'a> Context<'a> {
 
         dbg!(str::from_utf8(segment).unwrap());
 
-        //FIX:
+        //FIX: Should calculate by characters for UTF-1000
         let segment = str::from_utf8(segment)
             .expect("[temp] Invalid UTF-8 although would be impossible after lexer");
 
         // Span range is inclusive exclusive so final character is missed otherwise
         // Has no other mathematical outside of this
+        // TODO: Span end and span start need to be translated somehow into
+        // what the utf-9 billion character would want
+        // Maybe just paint from the span byte onwards by ensuring it's decoded?
         let span_diff_offset = span.end - span.start + 1;
 
         let arrows = "^".repeat(span_diff_offset);
@@ -271,7 +287,12 @@ impl<'a> Context<'a> {
 
         let spaces = " ".repeat(space_offset);
 
-        let fmt_segment = format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}");
+        // Tape
+        let fmt_segment = if self.can_color {
+            format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}")
+        } else {
+            format!("\t{segment}\n\t{spaces}{arrows}")
+        };
 
         (ln, col, fmt_segment)
     }
@@ -294,6 +315,7 @@ impl<'a> Context<'a> {
     //TODO: Branch specific behavior
     //WARN: WATCH THIS CLOSELY
     fn recover(&mut self, branch: Branch) {
+        //TAPE
         if branch == Branch::Broken {
             return;
         }
@@ -324,6 +346,16 @@ impl<'a> Context<'a> {
             Branch::Nest => todo!(),
             Branch::ComplexRules => todo!(),
         }
+    }
+
+    //TEST:
+    pub(crate) fn exit_if(&mut self, branch: Branch) -> Result<(), Token> {
+        if self.should_exit {
+            self.recover(branch);
+            return Err(Token::Poison);
+        }
+
+        Ok(())
     }
 
     pub(crate) fn peek_tok(&mut self) -> Token {

@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::parser::symbols::Cond;
+
 //FIXME: Change to span of bytes
 #[derive(Debug, Clone)]
 pub struct SpannedToken {
@@ -13,23 +15,26 @@ pub(crate) enum Token {
     Id(u32),
     Literal(u32),
     Number(u32),
+    Illegal(u32),
+    OParen,
+    CParen,
     OBracket,
     CBracket,
     OCurlyBracket,
     CCurlyBracket,
-    QuestionMark,
-    Equals,
     OAngleBracket,
     CAngleBracket,
+    QuestionMark,
+    Equals,
+    Colon,
+    // This name NEEDS to be changed
+    Walrus,
     Comma,
     SlimArrow,
     DotRange,
     Slash,
     HashSymbol,
     Percent,
-    Colon,
-    OParen,
-    CParen,
     Hyphen,
     // At,
     ExclamationPoint,
@@ -39,7 +44,6 @@ pub(crate) enum Token {
     Dot,
     VerticalBar,
     //FIXME: INTERN THIS
-    Illegal(u32),
     Poison,
     EOF,
 }
@@ -57,6 +61,7 @@ impl Token {
             Token::QuestionMark => TokenKind::QuestionMark,
             Token::Equals => TokenKind::Equals,
             Token::Poison => TokenKind::Poison,
+            Token::Walrus => TokenKind::Walrus,
             Token::OAngleBracket => TokenKind::OAngleBracket,
             Token::CAngleBracket => TokenKind::CAngleBracket,
             Token::Comma => TokenKind::Comma,
@@ -87,33 +92,33 @@ pub(crate) enum TokenKind {
     Id,
     Literal,
     // START OF TYPES
-    I8,
-    U8,
-    I16,
-    U16,
-    F16,
-    I32,
-    U32,
-    F32,
-    I64,
-    U64,
-    F64,
-    I128,
-    U128,
-    F128,
-    Sized,
-    Unsized,
-    Str,
-    BigInt,
-    BigFloat,
-    List,
-    Set,
-    Map,
-    // QUESTIONABLE
-    Any,
-    //
-    Type,
-    UserType,
+    // I8,
+    // U8,
+    // I16,
+    // U16,
+    // F16,
+    // I32,
+    // U32,
+    // F32,
+    // I64,
+    // U64,
+    // F64,
+    // I128,
+    // U128,
+    // F128,
+    // Sized,
+    // Unsized,
+    // Str,
+    // BigInt,
+    // BigFloat,
+    // List,
+    // Set,
+    // Map,
+    // // QUESTIONABLE
+    // Any,
+    // //
+    // Type,
+    // UserType,
     // END OF TYPES
     Number,
     OBracket,
@@ -122,6 +127,7 @@ pub(crate) enum TokenKind {
     CCurlyBracket,
     QuestionMark,
     Equals,
+    Walrus,
     OAngleBracket,
     CAngleBracket,
     Comma,
@@ -173,38 +179,39 @@ impl Display for TokenKind {
             TokenKind::Hyphen => write!(f, "-"),
             TokenKind::ExclamationPoint => write!(f, "!"),
             TokenKind::Asterisk => write!(f, "*"),
+            TokenKind::Walrus => write!(f, ":="),
             TokenKind::DoubleQuotes => write!(f, "\""),
             TokenKind::Tilde => write!(f, "~"),
             TokenKind::Dot => write!(f, "."),
             TokenKind::VerticalBar => write!(f, "|"),
             TokenKind::Illegal => write!(f, "illegal"),
             TokenKind::EOF => write!(f, "<eof>"),
-            TokenKind::I8 => write!(f, "i8"),
-            TokenKind::U8 => write!(f, "u8"),
-            TokenKind::I16 => write!(f, "i16"),
-            TokenKind::U16 => write!(f, "u16"),
-            TokenKind::F16 => write!(f, "f16"),
-            TokenKind::I32 => write!(f, "i32"),
-            TokenKind::U32 => write!(f, "u32"),
-            TokenKind::F32 => write!(f, "f32"),
-            TokenKind::I64 => write!(f, "i64"),
-            TokenKind::U64 => write!(f, "u64"),
-            TokenKind::F64 => write!(f, "f64"),
-            TokenKind::I128 => write!(f, "i128"),
-            TokenKind::U128 => write!(f, "u128"),
-            TokenKind::F128 => write!(f, "f128"),
-            TokenKind::Sized => write!(f, "sized"),
-            TokenKind::Unsized => write!(f, "unsized"),
-            TokenKind::Str => write!(f, "str"),
-            TokenKind::BigInt => write!(f, "BigInt"),
-            TokenKind::BigFloat => write!(f, "BigFloat"),
-            TokenKind::Type => write!(f, "type"),
-            TokenKind::List => write!(f, "List"),
-            TokenKind::Set => write!(f, "Set"),
-            TokenKind::Map => write!(f, "Map"),
-            TokenKind::Any => write!(f, "Any"),
+            // TokenKind::I8 => write!(f, "i8"),
+            // TokenKind::U8 => write!(f, "u8"),
+            // TokenKind::I16 => write!(f, "i16"),
+            // TokenKind::U16 => write!(f, "u16"),
+            // TokenKind::F16 => write!(f, "f16"),
+            // TokenKind::I32 => write!(f, "i32"),
+            // TokenKind::U32 => write!(f, "u32"),
+            // TokenKind::F32 => write!(f, "f32"),
+            // TokenKind::I64 => write!(f, "i64"),
+            // TokenKind::U64 => write!(f, "u64"),
+            // TokenKind::F64 => write!(f, "f64"),
+            // TokenKind::I128 => write!(f, "i128"),
+            // TokenKind::U128 => write!(f, "u128"),
+            // TokenKind::F128 => write!(f, "f128"),
+            // TokenKind::Sized => write!(f, "sized"),
+            // TokenKind::Unsized => write!(f, "unsized"),
+            // TokenKind::Str => write!(f, "str"),
+            // TokenKind::BigInt => write!(f, "BigInt"),
+            // TokenKind::BigFloat => write!(f, "BigFloat"),
+            // TokenKind::Type => write!(f, "type"),
+            // TokenKind::List => write!(f, "List"),
+            // TokenKind::Set => write!(f, "Set"),
+            // TokenKind::Map => write!(f, "Map"),
+            // TokenKind::Any => write!(f, "Any"),
+            // TokenKind::UserType => write!(f, "User type"),
             TokenKind::Poison => write!(f, "<poisoned>"),
-            TokenKind::UserType => write!(f, "User type"),
         }
     }
 }
@@ -251,29 +258,25 @@ pub(crate) enum ActualType {
     Map(Box<ActualType>, Box<ActualType>),
     // TODO: Figure out if this should be an 'init' type of type
     Any(Option<Box<ActualType>>),
-    UserStruct,
-    UserEnum,
 }
 
-//TODO:
-pub struct StructuralType {
-    pub(crate) id: usize,
-    // pub(crate) ty: ActualType,
-    // pub(crate) args: Vec<InnerArgs>,
-    // pub(crate) cond: Vec<crate::parser::symbols::Cond>,
-    // Box<ActualType>?
-    pub(crate) children: Vec<u32>,
-    pub(crate) total_fields: i128,
+pub(crate) enum Type {
+    // Should primitives arrays?
+    Primitives(ActualType),
+    Structure(Template),
 }
 
-//TODO: IS THIS
-// pub struct UserStruct {
-//     type_defs: Vec<TypeDef>,
-// }
-//
-// pub struct UserEnum {
-//     variants: Vec<usize>,
-// }
+//TODO: A better name
+pub struct Template {
+    pub(crate) id: u32,
+    pub(crate) args: Vec<InnerArgs>,
+    pub(crate) conds: Vec<Cond>,
+    // Fields can be variants or separate strugg <-- Sgwom
+    pub(crate) fields: Vec<(u32, u32)>,
+    // Should it just be ids, or ids and type ids?
+}
+
+pub struct DeclarativelyEnumerativeType {}
 
 //FIXME: Change match to actual enum name
 impl TryFrom<u32> for ActualType {

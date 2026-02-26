@@ -1,10 +1,8 @@
-use std::fs;
-
-use common::intern::{self, Intern};
+use common::intern::Intern;
 use script_lib::{
     lexer::Lexer,
     parser::{self},
-    storage::{self, FileLoader},
+    storage::FileLoader,
 };
 
 fn main() {
@@ -14,8 +12,20 @@ fn main() {
 
     let (data, _) = match FileLoader::new(file).load_config() {
         Some((data, offset)) => (data, offset),
-        None => panic!("Failed to use FileLoader."),
+        None => panic!("Missing entry point (probably)."),
     };
+
+    // dbg!(&data);
+
+    // let data = "
+    // @def
+    //     bind-> \"stops here\"
+    //     var->
+    //         Glorp: i32 (Len(~5  ))
+    //     @end"
+    //     .as_bytes();
+    // dbg!(&str::from_utf8(&data).unwrap());
+    // dbg!(&data.len());
 
     let mut interner = Intern::init();
 

@@ -3,7 +3,7 @@ pub mod error;
 pub mod symbols;
 
 use crate::parser::error::Branch;
-use crate::parser::symbols::{Bind, Cond, SymbolTable, TypeDef};
+use crate::parser::symbols::{Bind, Cond, FuncArgs, FunctionDef, SymbolTable, TypeDef};
 use crate::token::{ActualType, InnerArgs};
 use crate::{
     parser::{context::Context, symbols::Symbol},
@@ -211,7 +211,7 @@ fn parse_var_section(
 
     ctx.expect_verbose(
         TokenKind::Colon,
-        "Expected ':' after identifier to declare type, found ",
+        "Expected ':' after identifier to declare a type, found ",
         "",
         //WARN: LIAR
         None,
@@ -223,20 +223,22 @@ fn parse_var_section(
 
     let mut conds: Vec<Cond> = Vec::new();
 
-    if ctx.peek_kind() == TokenKind::OParen {
+    if ctx.peek_kind() == TokenKind::OBracket {
         ctx.advance_tok();
+
         let new_cond = parse_cond(ctx, interner)?;
         conds.push(new_cond);
 
         while ctx.peek_kind() == TokenKind::Comma {
             ctx.advance_tok();
+
             let new_cond = parse_cond(ctx, interner)?;
             conds.push(new_cond);
         }
 
         ctx.expect_verbose(
-            TokenKind::CParen,
-            "Expected ')' at end of condition, found ",
+            TokenKind::CBracket,
+            "Expected ']' at end of condition, found ",
             "",
             // FIX: CONTEXT AWARE
             None,
@@ -280,8 +282,8 @@ fn parse_var_section(
 //Or not I don't know
 fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token> {
     match ctx.peek_tok() {
-        Token::Id(id) => match PrimitiveKeywords::try_from(id) {
-            Ok(p) => match p {
+        Token::Id(id) => match PrimitiveKeywords::from_id(id) {
+            Some(p) => match p {
                 PrimitiveKeywords::List => {
                     ctx.advance_tok();
 
@@ -328,7 +330,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                     Ok(ty)
                 }
             },
-            Err(_) => {
+            None => {
                 let name = interner.search(id as usize);
 
                 // let primitive = ctx.try_rewind(10);
@@ -339,7 +341,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
                 ctx.report_verbose(&msg, Branch::VarType);
 
                 // A little weird since internally, this is meaningless
-                Err(Token::Illegal(id))
+                Err(Token::Poison)
             }
         },
         Token::QuestionMark => {
@@ -378,7 +380,6 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<ActualType, Token>
         Token::DoubleQuotes => todo!(),
         Token::Dot => todo!(),
         Token::VerticalBar => todo!(),
-        Token::Illegal(_) => todo!(),
         t => {
             ctx.advance_tok();
             let fmt_tok = format!("'{}'", t.kind());
@@ -450,9 +451,15 @@ fn parse_map(ctx: &mut Context, interner: &Intern) -> Result<(ActualType, Actual
 
     //Not that bold
     //FIX: Expect this
-    if ctx.peek_kind() == TokenKind::Comma {
-        ctx.advance_tok();
-    }
+
+    ctx.expect_verbose(
+        TokenKind::Comma,
+        "Expecpted a ',' to separate types within `Map`, found ",
+        "",
+        None,
+        Branch::VarType,
+        interner,
+    )?;
 
     let val = parse_type(ctx, interner)?;
 
@@ -478,28 +485,65 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
         Token::Id(id) => {
             let name = interner.search(id as usize);
 
-            match name {
-                "Len" => {
-                    ctx.advance_tok();
-                    return handle_len_func(ctx, interner);
-                } // "IsEmpty" =>
-                "IsEmpty" => {
-                    ctx.advance_tok();
-                    return Ok(Cond::IsEmpty);
-                }
-                // Notations
-                n => {
-                    let fmt_tok = format!("\"{n}\"");
-                    ctx.report_template(
-                        "a condition after declared type",
-                        &fmt_tok,
-                        Branch::VarCond,
-                    );
+            match PrimitiveKeywords::from_id(id) {
+                Some(prim) => match prim {
+                    //TODO: Get arguments
+                    PrimitiveKeywords::Len => {
+                        ctx.advance_tok();
 
-                    //WARN:
-                    Err(Token::Poison)
+                        let args = handle_len_func(ctx, interner)?;
+                        Ok(Cond::Func(FunctionDef::new(id, args)))
+                    }
+                    PrimitiveKeywords::IsEmpty => {
+                        ctx.advance_tok();
+                        // TODO: Ok this needs to be fixed now.
+                        ctx.expect_verbose(
+                            TokenKind::OParen,
+                            "Expected a '(' to call function `IsEmpty`, found ",
+                            "",
+                            None,
+                            Branch::VarType,
+                            interner,
+                        )?;
+
+                        ctx.expect_verbose(
+                            TokenKind::CParen,
+                            "Expected a ')' to call function `IsEmpty`, found",
+                            "",
+                            None,
+                            Branch::VarType,
+                            interner,
+                        )?;
+
+                        Ok(Cond::Func(FunctionDef::new(id, Vec::new())))
+                    }
+                    _ => {
+                        // Function similar check?
+                        ctx.advance_tok();
+
+                        let msg = format!("Expected a valid condition, found \"{name}\"");
+                        ctx.report_verbose(&msg, Branch::VarCond);
+
+                        Err(Token::Poison)
+                    }
+                },
+                None => {
+                    unimplemented!("No custom functions");
+                    // Cond::Function(FunctionDef::new(id)),
                 }
             }
+            // // Notations
+            // n => {
+            //     let fmt_tok = format!("\"{n}\"");
+            //     ctx.report_template(
+            //         "a condition after declared type",
+            //         &fmt_tok,
+            //         Branch::VarCond,
+            //     );
+            //
+            //     //WARN:
+            //     Err(Token::Poison)
+            // }
         }
         Token::Literal(id) | Token::Number(id) => {
             let name = interner.search(id as usize);
@@ -526,23 +570,26 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
             Ok(Cond::Not(Box::new(wrapped)))
         }
         t => {
+            ctx.advance_tok();
+
             let fmt_tok = format!("'{}'", t.kind());
-            ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
+            ctx.report_template("a valid condition", &fmt_tok, Branch::VarCond);
 
             Err(t)
         }
     }
 }
 
-fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
+fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>, Token> {
     ctx.expect_verbose(
         TokenKind::OParen,
-        "Missing '(' before `Len()`, found ",
+        "Missing '(' within function `Len()`, found ",
         "",
         None,
         Branch::VarCond,
         interner,
-    )?;
+    )
+    .ok();
 
     let mut start: usize = 0;
 
@@ -573,7 +620,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
 
             ctx.expect_verbose(
                 TokenKind::DotRange,
-                "Expected (range), found ",
+                "(range) missing within parameters, found ",
                 "",
                 Some("Use 'Len(~x1)' or 'Len(x1..=x2)' to define a range."),
                 Branch::VarCond,
@@ -592,17 +639,25 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
             )?
         }
         Token::Id(id) | Token::Literal(id) => {
-            let err_tok = ctx.peek_tok();
+            let err_tok = ctx.advance_tok();
             let name = interner.search(id as usize);
 
             //WARN: I think this should be advanced?
             let fmt_tok = format!("{} \"{}\" while parsing condition.", err_tok.kind(), name);
+
             ctx.report_template("a (range) or number", &fmt_tok, Branch::VarCond);
             return Err(err_tok);
         }
         t => {
+            ctx.advance_tok();
             let fmt_tok = format!("'{}'", t.kind());
-            ctx.report_template("a (range) or number", &fmt_tok, Branch::VarCond);
+
+            // TODO: How would a range be hinted here?
+            ctx.report_template(
+                "a valid (range) or number in parameters",
+                &fmt_tok,
+                Branch::VarCond,
+            );
             return Err(t);
         }
     };
@@ -613,7 +668,9 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
         .parse()
         //TODO: report this
         .or_else(|_| {
-            let msg = format!("Expected valid number, found {end}");
+            let msg = format!(
+                "[Internal] Failed to parse value '{end}'. Although shouldn't be possible."
+            );
 
             ctx.report_verbose(
                 //FIX:
@@ -639,13 +696,15 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> 
     )
     .ok();
 
-    Ok(Cond::Range(start, end))
+    ctx.exit_if(Branch::VarType)?;
+
+    Ok(vec![FuncArgs::Num(start), FuncArgs::Num(end)])
 }
 
-fn parse_nest_section(ctx: &mut Context, interner: &mut Intern) -> Result<Symbol, ()> {
+fn parse_nest_section(ctx: &mut Context, interner: &mut Intern) -> Result<Symbol, Token> {
     todo!()
 }
 
-fn parse_complex_section(ctx: &mut Context, interner: &mut Intern) -> Result<Symbol, ()> {
+fn parse_complex_section(ctx: &mut Context, interner: &mut Intern) -> Result<Symbol, Token> {
     todo!()
 }

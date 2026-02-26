@@ -1,15 +1,8 @@
-Err messages need to be more composable for any use case
-Make errors less static<<<
-Errors.
-We make errors now.
-How do we make errors better?
-Lets add primitive recognition to errors.
-We need more errors
-Matchable errors if a specific token is of note
-
 What if the errors intuitively understood primitives?
 
 What if the errors had their own weight's and bias's that were put through a softmax function after
 training off of the source code that impacted how the program would run?
 
 Id reader broke
+
+THE ERRORS ARE HALLUCINATING

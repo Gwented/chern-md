@@ -7,13 +7,13 @@ pub mod token;
 #[cfg(test)]
 mod tests {
 
-    use common::intern::Intern;
+    use common::{intern::Intern, primitives::PrimitiveKeywords};
 
     use crate::{
         lexer::Lexer,
         parser::{
             self,
-            symbols::{Cond, Symbol},
+            symbols::{Cond, FuncArgs, FunctionDef, Symbol},
         },
         storage::FileLoader,
         token::{ActualType, InnerArgs},
@@ -59,7 +59,7 @@ mod tests {
 
         let interner = Intern::init();
 
-        assert_eq!("i8", interner.search(0));
+        assert_eq!("i8", interner.search(PrimitiveKeywords::I8 as usize));
         assert_eq!("u8", interner.search(1));
         assert_eq!("i16", interner.search(2));
         assert_eq!("u16", interner.search(3));
@@ -88,13 +88,15 @@ mod tests {
         assert_eq!("var", interner.search(26));
         assert_eq!("nest", interner.search(27));
         assert_eq!("complex_rules", interner.search(28));
+        assert_eq!("Len", interner.search(29));
+        assert_eq!("IsEmpty", interner.search(30));
     }
 
     #[test]
     fn parse_test() {
         let text = r#"
             bind->"./some/寒しい/path"
-            var-> name: str(IsEmpty, Len(~5)) #warn
+            var-> name: str[IsEmpty(), Len(~5)] #warn
             "#;
 
         let mut interner = Intern::init();
@@ -118,12 +120,22 @@ mod tests {
                     );
 
                     assert_eq!(2, type_def.cond.len());
-                    assert_eq!(true, matches!(type_def.cond[0], Cond::IsEmpty));
-                    assert_eq!(true, matches!(type_def.cond[1], Cond::Range(0, 5)));
+
+                    let is_empty_func =
+                        FunctionDef::new(PrimitiveKeywords::IsEmpty as u32, Vec::new());
+
+                    let len_func = FunctionDef::new(
+                        PrimitiveKeywords::Len as u32,
+                        vec![FuncArgs::Num(0), FuncArgs::Num(5)],
+                    );
+
+                    assert_eq!(true, matches!(&type_def.cond[0], is_empty_func));
+                    assert_eq!(true, matches!(&type_def.cond[1], len_func));
 
                     assert_eq!(type_def.args[0], InnerArgs::Warn);
                     assert_eq!(1, type_def.args.len());
                 }
+                Symbol::Function(function_def) => todo!(),
             }
         }
     }

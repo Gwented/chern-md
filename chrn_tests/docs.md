@@ -28,7 +28,14 @@ Maybe inference only works if there is one of one type?
 
 (may remove)-> Can be used in struct definition to perform the same check, but also allows for the name after for clarity.
 
+-- After instruction.
 `!?`: Self declaring type inference that then alters props file.
+!!?: Ignores the identifier or something...
+invalid()
+NO ALIASES PLEASE NO
+!!!?: const ptr to a const char as a constexpr
+--
+
 
 `~`: Approximation operator acts as a range. Equivalent to: 0 <= x <= 6, 0..=6.
 

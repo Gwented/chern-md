@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, ErrorKind, Read};
+use std::io::{BufRead, BufReader, Read};
 
 // I didn't want to do this but it has state
 const DEFINITION_SIZE: usize = 4;
@@ -17,7 +17,7 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    //TODO: Swap to err
+    //TODO: Should return Result Vec usize string
     pub fn load_config(&mut self) -> Option<(Vec<u8>, usize)> {
         // Doesn't NEED definition but will error if declared and not closed
         // TODO: Add read limit.
@@ -72,7 +72,6 @@ impl<R: Read> FileLoader<R> {
         // TODO: Assert this...
 
         if !requires_def {
-            dbg!(str::from_utf8(self.handle.buffer()).unwrap(), self.pos);
             Some((self.handle.buffer()[..self.pos].to_vec(), 0))
         } else {
             None
@@ -118,7 +117,6 @@ impl<R: Read> FileLoader<R> {
                 self.advance();
             }
         }
-        // To get rid of leftover */
         self.skip(2);
     }
 

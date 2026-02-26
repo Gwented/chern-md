@@ -7,17 +7,39 @@ use crate::token::{ActualType, InnerArgs};
 #[derive(Debug)]
 pub enum Symbol {
     Definition(TypeDef),
+    Function(FunctionDef),
     Bind(Bind),
+}
+
+#[derive(Debug)]
+pub(crate) struct FunctionDef {
+    id: u32,
+    args: Vec<FuncArgs>,
+}
+
+impl FunctionDef {
+    pub(crate) fn new(id: u32, args: Vec<FuncArgs>) -> FunctionDef {
+        FunctionDef { id, args }
+    }
+}
+
+/// I have no comment on this.
+#[derive(Debug)]
+pub(crate) enum FuncArgs {
+    Id(u32),
+    Num(usize),
 }
 
 #[derive(Debug)]
 pub struct SymbolTable {
     //Can just be a vec?
     symbols: HashMap<u32, Symbol>,
+    // Rename registered something?
     type_ids: Vec<ActualType>,
     pos: usize,
 }
 
+//TODO: Worst struct in this entire project
 impl SymbolTable {
     // In case table has something else added
     pub(crate) fn new() -> SymbolTable {
@@ -110,7 +132,8 @@ pub(crate) enum Cond {
     // FIX: Possibly NEEDS usize but unsure
     // Should probably just be usize
     // Unsure whether to remove range or len
-    Range(usize, usize),
+    // Range(usize, usize),
+    Func(FunctionDef),
     // Probably should just attach bool
     IsEmpty,
     Len(usize),

@@ -12,6 +12,11 @@ pub struct Diagnostic {
     // pub(crate) help: Option<String>
 }
 
+// pub(crate) enum ErrorType {
+//     TypeErr,
+//
+// }
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Branch {
     Broken,
@@ -34,9 +39,9 @@ impl Display for Branch {
             Branch::Searching => write!(f, "searching..."),
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
-            Branch::VarType => write!(f, "var [type]"),
-            Branch::VarCond => write!(f, "var [conditions]"),
-            Branch::VarTypeArgs => write!(f, "var [args]"),
+            Branch::VarType => write!(f, "var[type]"),
+            Branch::VarCond => write!(f, "var[conditions]"),
+            Branch::VarTypeArgs => write!(f, "var[args]"),
             Branch::Nest => write!(f, "nest"),
             Branch::ComplexRules => write!(f, "complex_rules"),
         }
