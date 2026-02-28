@@ -1,6 +1,6 @@
 use crate::{
-    parser::symbols::{Symbol, SymbolTable, TypeDef},
-    token::{ActualType, Template},
+    parser::symbols::{Symbol, SymbolId, SymbolTable, TypeDef, TypeIdent},
+    token::ActualType,
 };
 
 // Should this just be the primitive keywords type?
@@ -25,14 +25,17 @@ use crate::{
 //     }
 // }
 
-pub(crate) fn search_as_template(sym_table: &SymbolTable, name_id: u32) -> Result<u32, &Symbol> {
+pub(crate) fn search_as_template(
+    sym_table: &SymbolTable,
+    sym_id: SymbolId,
+) -> Result<TypeIdent, &Symbol> {
     dbg!(sym_table.symbols());
-    dbg!(name_id);
-    let symbol = sym_table.search_symbol(name_id);
+    dbg!(sym_id);
+    let symbol = sym_table.search_symbol(sym_id.id);
 
     match symbol {
         Symbol::Definition(type_def) => {
-            let ty = sym_table.search_type(type_def.type_id as usize);
+            let ty = sym_table.search_type(type_def.type_id);
 
             if let ActualType::Template(template) = ty {
                 dbg!(template);
@@ -45,12 +48,50 @@ pub(crate) fn search_as_template(sym_table: &SymbolTable, name_id: u32) -> Resul
     }
 }
 
+pub(crate) fn search_template_id(
+    sym_table: &SymbolTable,
+    sym_id: SymbolId,
+) -> Result<TypeIdent, &Symbol> {
+    dbg!(sym_table.symbols());
+    dbg!(sym_id);
+
+    let symbol = sym_table.search_symbol(sym_id.id);
+
+    match symbol {
+        Symbol::Definition(type_def) => {
+            let ty = sym_table.search_type(type_def.type_id);
+
+            if let ActualType::Template(template) = ty {
+                return Ok(type_def.type_id);
+            }
+
+            return Err(symbol);
+        }
+        _ => Err(symbol),
+    }
+}
+
+// fn get_typedef_as_id(sym_table: &SymbolTable) -> TypeIdent {
+// }
+
 // May just return id
 pub(crate) fn search_as_typedef(
     sym_table: &SymbolTable,
     name_id: u32,
 ) -> Result<&TypeDef, &Symbol> {
     let symbol = sym_table.search_symbol(name_id);
+
+    match symbol {
+        Symbol::Definition(type_def) => Ok(type_def),
+        _ => Err(symbol),
+    }
+}
+
+pub(crate) fn search_as_typedef_mut(
+    sym_table: &mut SymbolTable,
+    sym_id: SymbolId,
+) -> Result<&mut TypeDef, &Symbol> {
+    let symbol = sym_table.search_symbol_mut(sym_id.id).unwrap();
 
     match symbol {
         Symbol::Definition(type_def) => Ok(type_def),

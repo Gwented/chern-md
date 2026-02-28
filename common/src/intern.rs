@@ -91,7 +91,7 @@ impl Intern {
         false
     }
 
-    // JavaJAVAJVAVJAVJAJV
+    // Should this be restricted to SymbolId?
     pub fn search(&self, index: usize) -> &str {
         &self.stored[index]
     }

@@ -1,15 +1,44 @@
 use std::collections::HashMap;
 
-use crate::token::{ActualType, Template};
+use crate::token::ActualType;
 
 //FIXME:
 //MOVE ALL TO COMMON
 
 #[derive(Debug)]
-pub enum Symbol {
+pub(crate) enum Symbol {
     Bind(Bind),
     Func(FunctionDef),
     Definition(TypeDef),
+}
+
+// Dog dog = new Dog();
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SymbolId {
+    pub(crate) id: u32,
+}
+
+impl SymbolId {
+    pub(crate) fn new(id: u32) -> SymbolId {
+        SymbolId { id }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TypeIdent {
+    pub(crate) id: u32,
+}
+
+impl TypeIdent {
+    pub(crate) fn new(id: u32) -> TypeIdent {
+        TypeIdent { id }
+    }
+}
+
+impl From<u32> for TypeIdent {
+    fn from(v: u32) -> Self {
+        TypeIdent::new(v)
+    }
 }
 
 #[derive(Debug)]
@@ -44,60 +73,60 @@ impl SymbolTable {
     }
 
     /// func is actually alright as a name
-    pub(crate) fn reserve_id(&mut self) -> u32 {
+    // pub(crate) fn reserve_id(&mut self) -> TypeIdent {
+    //     let type_id = self.pos;
+    //     self.type_ids.push(ActualType::Nil);
+    //     self.pos += 1;
+    //     TypeIdent::new(type_id as u32)
+    // }
+
+    pub(crate) fn store_basic(&mut self, symbol: Symbol, sym_id: SymbolId) {
+        self.symbols.insert(sym_id.id, symbol);
+    }
+
+    pub(crate) fn store_type(&mut self, actual_type: ActualType) -> TypeIdent {
         let type_id = self.pos;
-        self.type_ids.push(ActualType::Nil);
-        self.pos += 1;
-        type_id as u32
+        self.type_ids.push(actual_type);
+        TypeIdent::new(type_id as u32)
     }
 
-    pub(crate) fn store_basic(&mut self, symbol: Symbol, name_id: u32) {
-        self.symbols.insert(name_id, symbol);
-    }
-
-    pub(crate) fn store_type(&mut self, actual_type: ActualType, type_id: u32) {
-        self.type_ids[type_id as usize] = actual_type;
-    }
-
-    pub(crate) fn store_symbol(
-        &mut self,
-        name_id: u32,
-        type_id: u32,
-        raw_type: ActualType,
-        symbol: Symbol,
-    ) {
-        self.type_ids[type_id as usize] = raw_type;
-        self.symbols.insert(name_id, symbol);
+    pub(crate) fn store_symbol(&mut self, sym_id: SymbolId, type_id: TypeIdent, symbol: Symbol) {
+        // self.type_ids[type_id.id as usize] = raw_type;
+        self.symbols.insert(sym_id.id, symbol);
     }
 
     pub(crate) fn search_symbol(&self, name_id: u32) -> &Symbol {
         &self.symbols[&name_id]
     }
 
-    pub(crate) fn search_type(&self, type_id: usize) -> &ActualType {
-        &self.type_ids[type_id]
+    pub(crate) fn search_symbol_mut(&mut self, sym_id: u32) -> Option<&mut Symbol> {
+        self.symbols.get_mut(&sym_id)
     }
 
-    pub(crate) fn search_type_mut(&mut self, id: usize) -> &mut ActualType {
-        &mut self.type_ids[id]
+    pub(crate) fn search_type(&self, type_id: TypeIdent) -> &ActualType {
+        &self.type_ids[type_id.id as usize]
+    }
+
+    pub(crate) fn search_type_mut(&mut self, id: TypeIdent) -> &mut ActualType {
+        &mut self.type_ids[id.id as usize]
     }
 }
 
 /// I have no comment on this.
 #[derive(Debug)]
 pub(crate) enum FuncArgs {
-    Id(u32),
+    Id(SymbolId),
     Num(usize),
 }
 
 #[derive(Debug)]
 //FIX: Give interner a list of pathbufs
 pub struct Bind {
-    pub(crate) name_id: u32,
+    pub(crate) name_id: SymbolId,
 }
 
 impl Bind {
-    pub fn new(id: u32) -> Bind {
+    pub(crate) fn new(id: SymbolId) -> Bind {
         Bind { name_id: id }
     }
 }
@@ -105,16 +134,16 @@ impl Bind {
 #[derive(Debug)]
 pub struct TypeDef {
     // May be integer idk
-    pub(crate) name_id: u32,
-    pub(crate) type_id: u32,
+    pub(crate) name_id: SymbolId,
+    pub(crate) type_id: TypeIdent,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) cond: Vec<Cond>,
 }
 
 impl TypeDef {
     pub(crate) fn new(
-        name_id: u32,
-        type_id: u32,
+        name_id: SymbolId,
+        type_id: TypeIdent,
         args: Vec<InnerArgs>,
         cond: Vec<Cond>,
     ) -> TypeDef {
@@ -164,12 +193,12 @@ impl<'a> TryFrom<&'a str> for InnerArgs {
 
 #[derive(Debug)]
 pub(crate) struct FunctionDef {
-    pub(crate) name_id: u32,
+    pub(crate) name_id: SymbolId,
     pub(crate) args: Vec<FuncArgs>,
 }
 
 impl FunctionDef {
-    pub(crate) fn new(name_id: u32, args: Vec<FuncArgs>) -> FunctionDef {
+    pub(crate) fn new(name_id: SymbolId, args: Vec<FuncArgs>) -> FunctionDef {
         FunctionDef { name_id, args }
     }
 }

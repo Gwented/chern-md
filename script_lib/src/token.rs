@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::parser::symbols::{Cond, InnerArgs, TypeDef};
+use crate::parser::symbols::{Cond, InnerArgs, SymbolId, TypeDef, TypeIdent};
 
 #[derive(Debug, Clone)]
 pub struct SpannedToken {
@@ -249,12 +249,17 @@ pub(crate) enum ActualType {
     Str,
     BigInt,
     BigFloat,
+    // Template
     Template(Template),
+    // TypeDef
     Definition(TypeDef),
-    List(Box<ActualType>),
-    Set(Box<ActualType>),
-    Map(Box<ActualType>, Box<ActualType>),
-    Any(Option<Box<ActualType>>),
+    // ActualType
+    List(TypeIdent),
+    Set(TypeIdent),
+    // ActualType
+    Map(TypeIdent, TypeIdent),
+    // Activation from None
+    Any(Option<TypeIdent>),
 }
 
 impl ActualType {
@@ -364,18 +369,18 @@ impl Display for ActualTypeKind {
 
 #[derive(Debug)]
 pub struct Template {
-    pub(crate) symbol_id: u32,
+    pub(crate) symbol_id: TypeIdent,
     pub(crate) args: Vec<InnerArgs>,
     // May remove conditions
     pub(crate) conds: Vec<Cond>,
     // Fields can be variants or separate strugg <-- Sgwom
     //WARN: Maybe (u32, u32) can return
-    pub(crate) fields: Vec<u32>,
+    pub(crate) fields: Vec<SymbolId>,
     // Should it just be ids, or ids and type ids?
 }
 
 impl Template {
-    pub fn new(symbol_id: u32) -> Template {
+    pub fn new(symbol_id: TypeIdent) -> Template {
         Template {
             symbol_id,
             args: Vec::new(),
@@ -388,10 +393,10 @@ impl Template {
 // I DONT WANT TO MAKE THIS
 #[derive(Debug)]
 pub struct EnumTemplate {
-    pub(crate) id: u32,
+    pub(crate) id: SymbolId,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Cond>,
-    pub(crate) variants: Vec<u32>,
+    pub(crate) variants: Vec<SymbolId>,
 }
 
 //FIXME: Change match to actual enum name

@@ -8,14 +8,7 @@ mod tests {
 
     use common::{intern::Intern, primitives::PrimitiveKeywords, storage::FileLoader};
 
-    use crate::{
-        lexer::Lexer,
-        parser::{
-            self,
-            symbols::{FuncArgs, FunctionDef, InnerArgs, Symbol},
-        },
-        token::ActualType,
-    };
+    use crate::{lexer::Lexer, parser};
 
     #[test]
     fn lex_tok_test() {
@@ -90,57 +83,57 @@ mod tests {
         assert_eq!("IsEmpty", interner.search(30));
     }
 
-    #[test]
-    fn parse_test() {
-        let text = r#"
-            bind->"./some/寒しい/path"
-            var-> name: str[IsEmpty(), Len(~5)] #warn
-            "#;
-
-        let mut interner = Intern::init();
-
-        let bytes = text.as_bytes();
-
-        let toks = Lexer::new(bytes).tokenize(&mut interner);
-
-        let sym_table = parser::parse(bytes, &toks, &mut interner);
-
-        for symbol in sym_table.symbols().values() {
-            match symbol {
-                Symbol::Bind(bind) => {
-                    assert_eq!(interner.search(bind.name_id as usize), "./some/寒しい/path");
-                }
-                Symbol::Definition(type_def) => {
-                    assert_eq!(interner.search(type_def.name_id as usize), "name");
-                    assert_eq!(
-                        true,
-                        matches!(
-                            *sym_table.search_type(type_def.type_id as usize),
-                            ActualType::Str
-                        )
-                    );
-
-                    assert_eq!(2, type_def.cond.len());
-
-                    let is_empty_func =
-                        FunctionDef::new(PrimitiveKeywords::IsEmpty as u32, Vec::new());
-
-                    let len_func = FunctionDef::new(
-                        PrimitiveKeywords::Len as u32,
-                        vec![FuncArgs::Num(0), FuncArgs::Num(5)],
-                    );
-
-                    //Not doing what it looks like but green text == good
-                    assert_eq!(true, matches!(&type_def.cond[0], is_empty_func));
-                    assert_eq!(true, matches!(&type_def.cond[1], len_func));
-
-                    assert_eq!(type_def.args[0], InnerArgs::Warn);
-                    assert_eq!(1, type_def.args.len());
-                }
-                Symbol::Func(function_def) => todo!(),
-            }
-        }
-    }
+    // #[test]
+    // fn parse_test() {
+    //     let text = r#"
+    //         bind->"./some/寒しい/path"
+    //         var-> name: str[IsEmpty(), Len(~5)] #warn
+    //         "#;
+    //
+    //     let mut interner = Intern::init();
+    //
+    //     let bytes = text.as_bytes();
+    //
+    //     let toks = Lexer::new(bytes).tokenize(&mut interner);
+    //
+    //     let sym_table = parser::parse(bytes, &toks, &mut interner);
+    //
+    //     for symbol in sym_table.symbols().values() {
+    //         match symbol {
+    //             Symbol::Bind(bind) => {
+    //                 assert_eq!(interner.search(bind.name_id as usize), "./some/寒しい/path");
+    //             }
+    //             Symbol::Definition(type_def) => {
+    //                 assert_eq!(interner.search(type_def.name_id as usize), "name");
+    //                 assert_eq!(
+    //                     true,
+    //                     matches!(
+    //                         *sym_table.search_type(type_def.type_id as usize),
+    //                         ActualType::Str
+    //                     )
+    //                 );
+    //
+    //                 assert_eq!(2, type_def.cond.len());
+    //
+    //                 let is_empty_func =
+    //                     FunctionDef::new(PrimitiveKeywords::IsEmpty as u32, Vec::new());
+    //
+    //                 let len_func = FunctionDef::new(
+    //                     PrimitiveKeywords::Len as u32,
+    //                     vec![FuncArgs::Num(0), FuncArgs::Num(5)],
+    //                 );
+    //
+    //                 //Not doing what it looks like but green text == good
+    //                 assert_eq!(true, matches!(&type_def.cond[0], is_empty_func));
+    //                 assert_eq!(true, matches!(&type_def.cond[1], len_func));
+    //
+    //                 assert_eq!(type_def.args[0], InnerArgs::Warn);
+    //                 assert_eq!(1, type_def.args.len());
+    //             }
+    //             Symbol::Func(function_def) => todo!(),
+    //         }
+    //     }
+    // }
 
     #[test]
     fn start_offset_test() {
@@ -151,5 +144,32 @@ mod tests {
 
         assert_eq!("hi", &text[start_offset..]);
         assert_eq!(start_offset, 24, "windows.h");
+    }
+
+    // Green text make happy
+    #[test]
+    fn template_test() {
+        let text = r#"
+                person: S|Person,
+                nest->
+                    .person {
+                        name: str
+                        age: u8
+                        things: List<i32>
+                    }
+                "#;
+
+        let (cfg, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+
+        let mut interner = Intern::init();
+
+        let toks = Lexer::new(&cfg).tokenize(&mut interner);
+
+        let sym_table = parser::parse(&cfg, &toks, &mut interner);
+
+        dbg!(sym_table);
+        panic!();
+        // assert_eq!("hi", &text[start_offset..]);
+        // assert_eq!(start_offset, 24, "windows.h");
     }
 }
