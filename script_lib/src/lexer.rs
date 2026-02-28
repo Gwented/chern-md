@@ -177,10 +177,9 @@ impl Lexer<'_> {
                 }
                 b'.' => {
                     let (start, end) = (self.pos, self.pos);
-                    self.advance();
 
-                    if self.peek() == b'.' && self.peek_ahead(1) == b'=' {
-                        self.skip(1);
+                    if self.peek_ahead(1) == b'.' && self.peek_ahead(2) == b'=' {
+                        self.skip(2);
 
                         tokens.push(SpannedToken {
                             token: Token::DotRange,
@@ -198,6 +197,14 @@ impl Lexer<'_> {
                 b'#' => {
                     tokens.push(SpannedToken {
                         token: Token::HashSymbol,
+                        span: Span::new(self.pos, self.pos),
+                    });
+
+                    self.advance();
+                }
+                b'|' => {
+                    tokens.push(SpannedToken {
+                        token: Token::VerticalBar,
                         span: Span::new(self.pos, self.pos),
                     });
 
@@ -227,7 +234,6 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 b'=' => {
-                    //TODO: Walrus
                     tokens.push(SpannedToken {
                         token: Token::Equals,
                         span: Span::new(self.pos, self.pos),

@@ -1,8 +1,7 @@
 use std::fmt::Display;
 
-use crate::parser::symbols::Cond;
+use crate::parser::symbols::{Cond, InnerArgs, TypeDef};
 
-//FIXME: Change to span of bytes
 #[derive(Debug, Clone)]
 pub struct SpannedToken {
     pub(crate) token: Token,
@@ -43,7 +42,6 @@ pub(crate) enum Token {
     Tilde,
     Dot,
     VerticalBar,
-    //FIXME: INTERN THIS
     Poison,
     EOF,
 }
@@ -76,7 +74,6 @@ impl Token {
             Token::Hyphen => TokenKind::Hyphen,
             Token::ExclamationPoint => TokenKind::ExclamationPoint,
             Token::Asterisk => TokenKind::Asterisk,
-            //FIX: Not possible so may remove
             Token::DoubleQuotes => TokenKind::DoubleQuotes,
             Token::Tilde => TokenKind::Tilde,
             Token::Dot => TokenKind::Dot,
@@ -227,8 +224,8 @@ impl Span {
         Span { start, end }
     }
 }
-//FIXME: Add enum and struct
-#[derive(Debug, Clone, PartialEq, Eq)]
+
+#[derive(Debug)]
 pub(crate) enum ActualType {
     I8,
     U8,
@@ -251,34 +248,155 @@ pub(crate) enum ActualType {
     Char,
     Str,
     BigInt,
-    // Hex?
     BigFloat,
+    Template(Template),
+    Definition(TypeDef),
     List(Box<ActualType>),
     Set(Box<ActualType>),
     Map(Box<ActualType>, Box<ActualType>),
-    // TODO: Figure out if this should be an 'init' type of type
     Any(Option<Box<ActualType>>),
 }
 
-pub(crate) enum Type {
-    // Should primitives arrays?
-    Primitives(ActualType),
-    Structure(Template),
+impl ActualType {
+    pub(crate) fn kind(&self) -> ActualTypeKind {
+        match self {
+            ActualType::I8 => ActualTypeKind::I8,
+            ActualType::U8 => ActualTypeKind::U8,
+            ActualType::I16 => ActualTypeKind::I16,
+            ActualType::U16 => ActualTypeKind::U16,
+            ActualType::F16 => ActualTypeKind::F16,
+            ActualType::I32 => ActualTypeKind::I32,
+            ActualType::U32 => ActualTypeKind::U32,
+            ActualType::F32 => ActualTypeKind::F32,
+            ActualType::I64 => ActualTypeKind::I64,
+            ActualType::U64 => ActualTypeKind::U64,
+            ActualType::F64 => ActualTypeKind::F64,
+            ActualType::I128 => ActualTypeKind::I128,
+            ActualType::U128 => ActualTypeKind::U128,
+            ActualType::F128 => ActualTypeKind::F128,
+            ActualType::Sized => ActualTypeKind::Sized,
+            ActualType::Unsized => ActualTypeKind::Unsized,
+            ActualType::Bool => ActualTypeKind::Bool,
+            ActualType::Nil => ActualTypeKind::Nil,
+            ActualType::Char => ActualTypeKind::Char,
+            ActualType::Str => ActualTypeKind::Str,
+            ActualType::BigInt => ActualTypeKind::BigInt,
+            ActualType::BigFloat => ActualTypeKind::BigFloat,
+            ActualType::Template(template) => ActualTypeKind::Template,
+            ActualType::Definition(type_def) => ActualTypeKind::TypeDef,
+            ActualType::List(actual_type) => ActualTypeKind::List,
+            ActualType::Set(actual_type) => ActualTypeKind::Set,
+            ActualType::Map(actual_type, actual_type1) => ActualTypeKind::Map,
+            ActualType::Any(actual_type) => ActualTypeKind::Any,
+        }
+    }
 }
 
-//TODO: A better name
+pub(crate) enum ActualTypeKind {
+    I8,
+    U8,
+    I16,
+    U16,
+    F16,
+    I32,
+    U32,
+    F32,
+    I64,
+    U64,
+    F64,
+    I128,
+    U128,
+    F128,
+    Sized,
+    Unsized,
+    Str,
+    Char,
+    Nil,
+    Bool,
+    BigInt,
+    BigFloat,
+    List,
+    Set,
+    Map,
+    Any,
+    TypeDef,
+    Template,
+}
+
+//TEST:
+impl Display for ActualTypeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActualTypeKind::I8 => write!(f, "i8"),
+            ActualTypeKind::U8 => write!(f, "u8"),
+            ActualTypeKind::I16 => write!(f, "u16"),
+            ActualTypeKind::U16 => write!(f, "u16"),
+            ActualTypeKind::F16 => write!(f, "f16"),
+            ActualTypeKind::I32 => write!(f, "i32"),
+            ActualTypeKind::U32 => write!(f, "u32"),
+            ActualTypeKind::F32 => write!(f, "f32"),
+            ActualTypeKind::I64 => write!(f, "i64"),
+            ActualTypeKind::U64 => write!(f, "u64"),
+            ActualTypeKind::F64 => write!(f, "f64"),
+            ActualTypeKind::I128 => write!(f, "i128"),
+            ActualTypeKind::U128 => write!(f, "u128"),
+            ActualTypeKind::F128 => write!(f, "f128"),
+            ActualTypeKind::Sized => write!(f, "sized"),
+            ActualTypeKind::Unsized => write!(f, "unsized"),
+            ActualTypeKind::Str => write!(f, "str"),
+            ActualTypeKind::Char => write!(f, "char"),
+            ActualTypeKind::Nil => write!(f, "nil"),
+            ActualTypeKind::Bool => write!(f, "bool"),
+            ActualTypeKind::BigInt => write!(f, "BigInt"),
+            ActualTypeKind::BigFloat => write!(f, "BigFloat"),
+            ActualTypeKind::List => write!(f, "List"),
+            ActualTypeKind::Set => write!(f, "Set"),
+            ActualTypeKind::Map => write!(f, "Map"),
+            ActualTypeKind::Any => write!(f, "Any"),
+            ActualTypeKind::TypeDef => write!(f, "TypeDef"),
+            ActualTypeKind::Template => write!(f, "Template"),
+        }
+    }
+}
+
+// The weight of every enum grows heavy, I don't know what isn't an enum anymore.
+// Just one more enum.
+
+#[derive(Debug)]
 pub struct Template {
-    pub(crate) id: u32,
+    pub(crate) symbol_id: u32,
     pub(crate) args: Vec<InnerArgs>,
+    // May remove conditions
     pub(crate) conds: Vec<Cond>,
     // Fields can be variants or separate strugg <-- Sgwom
-    pub(crate) fields: Vec<(u32, u32)>,
+    //WARN: Maybe (u32, u32) can return
+    pub(crate) fields: Vec<u32>,
     // Should it just be ids, or ids and type ids?
 }
 
-pub struct DeclarativelyEnumerativeType {}
+impl Template {
+    pub fn new(symbol_id: u32) -> Template {
+        Template {
+            symbol_id,
+            args: Vec::new(),
+            conds: Vec::new(),
+            fields: Vec::new(),
+        }
+    }
+}
+
+// I DONT WANT TO MAKE THIS
+#[derive(Debug)]
+pub struct EnumTemplate {
+    pub(crate) id: u32,
+    pub(crate) args: Vec<InnerArgs>,
+    pub(crate) conds: Vec<Cond>,
+    pub(crate) variants: Vec<u32>,
+}
 
 //FIXME: Change match to actual enum name
+// No
+// PLEASE change this from a try_from
 impl TryFrom<u32> for ActualType {
     type Error = ();
 
@@ -311,30 +429,6 @@ impl TryFrom<u32> for ActualType {
             // 27 => Ok(ReservedKeyword::Nest),
             // 28 => Ok(ReservedKeyword::ComplexRules),
             _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum InnerArgs {
-    Warn,
-    Scientific,
-    Hex,
-    Binary,
-    Octo,
-}
-
-impl<'a> TryFrom<&'a str> for InnerArgs {
-    type Error = &'a str;
-
-    fn try_from(v: &'a str) -> Result<Self, Self::Error> {
-        match v {
-            "warn" => Ok(InnerArgs::Warn),
-            "scientific" => Ok(InnerArgs::Scientific),
-            "hex" => Ok(InnerArgs::Hex),
-            "binary" => Ok(InnerArgs::Binary),
-            "octo" => Ok(InnerArgs::Octo),
-            v => Err(v),
         }
     }
 }

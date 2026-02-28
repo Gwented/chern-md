@@ -1,22 +1,20 @@
 pub mod color;
 pub mod lexer;
 pub mod parser;
-pub mod storage;
 pub mod token;
 
 #[cfg(test)]
 mod tests {
 
-    use common::{intern::Intern, primitives::PrimitiveKeywords};
+    use common::{intern::Intern, primitives::PrimitiveKeywords, storage::FileLoader};
 
     use crate::{
         lexer::Lexer,
         parser::{
             self,
-            symbols::{Cond, FuncArgs, FunctionDef, Symbol},
+            symbols::{FuncArgs, FunctionDef, InnerArgs, Symbol},
         },
-        storage::FileLoader,
-        token::{ActualType, InnerArgs},
+        token::ActualType,
     };
 
     #[test]
@@ -44,7 +42,7 @@ mod tests {
 
         let opt = FileLoader::new(text.as_bytes()).load_config();
 
-        assert_eq!(opt, None);
+        assert_eq!(opt.is_err(), true);
     }
 
     //utf8 broke
@@ -110,13 +108,16 @@ mod tests {
         for symbol in sym_table.symbols().values() {
             match symbol {
                 Symbol::Bind(bind) => {
-                    assert_eq!(interner.search(bind.id as usize), "./some/寒しい/path");
+                    assert_eq!(interner.search(bind.name_id as usize), "./some/寒しい/path");
                 }
                 Symbol::Definition(type_def) => {
-                    assert_eq!(interner.search(type_def.id as usize), "name");
+                    assert_eq!(interner.search(type_def.name_id as usize), "name");
                     assert_eq!(
-                        *sym_table.search_type(type_def.type_id as usize),
-                        ActualType::Str
+                        true,
+                        matches!(
+                            *sym_table.search_type(type_def.type_id as usize),
+                            ActualType::Str
+                        )
                     );
 
                     assert_eq!(2, type_def.cond.len());
@@ -129,13 +130,14 @@ mod tests {
                         vec![FuncArgs::Num(0), FuncArgs::Num(5)],
                     );
 
+                    //Not doing what it looks like but green text == good
                     assert_eq!(true, matches!(&type_def.cond[0], is_empty_func));
                     assert_eq!(true, matches!(&type_def.cond[1], len_func));
 
                     assert_eq!(type_def.args[0], InnerArgs::Warn);
                     assert_eq!(1, type_def.args.len());
                 }
-                Symbol::Function(function_def) => todo!(),
+                Symbol::Func(function_def) => todo!(),
             }
         }
     }

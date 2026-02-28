@@ -1,11 +1,9 @@
 use std::fmt::Display;
 
-// Has a lifetime because of previous clone concerns in instantiation
 #[derive(Debug)]
-// Turn to, Type, ie. expected. Have general, expected, found, branch, pre_tok parts.
 // I'm new to thinking. Anyone have some beginner thoughts?
 pub struct Diagnostic {
-    // Maybe warns will exist at some point
+    //FIX:
     pub(crate) msg: String,
     pub(crate) branch: Branch,
     // Maybe help
@@ -29,20 +27,23 @@ pub(crate) enum Branch {
     VarTypeArgs,
     // Test variants
     Nest,
+    NestType,
     ComplexRules,
 }
 
 impl Display for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            //FIX: Fixing..
             Branch::Broken => write!(f, "abort"),
             Branch::Searching => write!(f, "searching..."),
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
-            Branch::VarType => write!(f, "var[type]"),
-            Branch::VarCond => write!(f, "var[conditions]"),
-            Branch::VarTypeArgs => write!(f, "var[args]"),
+            Branch::VarType => write!(f, "[type]"),
+            Branch::VarCond => write!(f, "[conditions]"),
+            Branch::VarTypeArgs => write!(f, "[args]"),
             Branch::Nest => write!(f, "nest"),
+            Branch::NestType => write!(f, "[type]"),
             Branch::ComplexRules => write!(f, "complex_rules"),
         }
     }

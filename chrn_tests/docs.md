@@ -12,10 +12,10 @@ LANGUAGE BLOAT >>>>>>>
 ## [Types]
 i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,
-char, bool, str, %Struct/Enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
+char, bool, (maybe capital) str, %Struct/Enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
 
-S% for structure of data.
-E% for Enum type.
+S| for structure of data.
+E| for Enum type.
 
 ## [Operators]
 `!`: Not operator.

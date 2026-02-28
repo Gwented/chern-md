@@ -16,13 +16,16 @@ const NC: &str = "\x1b[0m";
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
-//UNUSED:
-const MAX_RETRIES: u8 = 1;
+//USED:
+const MAX_RETRIES: u8 = 3;
 
+//FIX: Help is broken (As in very bad)
+//What about *J*bs*
+//Or add memory instead of having errors the second one is seen. Or just las error. Or Or :=
 #[derive(Debug)]
 pub struct Context<'a> {
     //TEST:
-    pub(crate) should_exit: bool,
+    pub(crate) retries: u8,
     //TEST:
     pub(crate) original_text: &'a [u8],
     pub(crate) tokens: &'a [SpannedToken],
@@ -33,10 +36,13 @@ pub struct Context<'a> {
 
 // Make more composable or something
 // Make "missing" report that covers common wrong characters to help parser in data structures
+// Fuzzy find?
+// Last token most probable chance of ofo fofofo
+// I'm NOT having context switch branches manually. Please.
 impl<'a> Context<'a> {
     pub fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
         Context {
-            should_exit: false,
+            retries: 0,
             original_text,
             tokens,
             pos: 0,
@@ -46,6 +52,7 @@ impl<'a> Context<'a> {
     }
 
     //Configuration for expected and found being disabled
+    //FIX: This can likely be done better...
     pub(crate) fn expect_id_verbose(
         &mut self,
         expected: TokenKind,
@@ -89,11 +96,11 @@ impl<'a> Context<'a> {
 
         self.err_vec.push(Diagnostic::new(msg, branch));
 
-        if self.should_exit {
+        self.retries += 1;
+
+        if self.retries > MAX_RETRIES {
             self.recover(branch);
-            self.should_exit = false;
-        } else {
-            self.should_exit = true;
+            self.retries = 0;
         }
 
         Err(found.token)
@@ -101,21 +108,31 @@ impl<'a> Context<'a> {
 
     /// Intended for basic errors that need little context after
     /// ALWAYS advance before using this or ensure an advance happened before
-    pub(crate) fn report_verbose(&mut self, msg: &str, branch: Branch) {
+    pub(crate) fn report_verbose(&mut self, msg: &str, help: Option<&str>, branch: Branch) {
         let found = &self.tokens[self.pos - 1];
+
+        let help = if let Some(msg) = help {
+            if self.can_color {
+                format!("{ORANGE}Help{NC}: {msg}\n")
+            } else {
+                format!("Help: {msg}\n")
+            }
+        } else {
+            "".to_string()
+        };
 
         // MAJOR BUG: EOF is never stopped here
         let (ln, col, segment) = self.get_location(&found.span);
 
         let separator = "-".repeat(TOTAL_SEPARATORS);
 
-        let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}");
+        let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}");
 
-        if self.should_exit {
+        self.retries += 1;
+
+        if self.retries > MAX_RETRIES {
             self.recover(branch);
-            self.should_exit = false;
-        } else {
-            self.should_exit = true;
+            self.retries = 0;
         }
 
         let report = Diagnostic::new(msg, branch);
@@ -155,7 +172,11 @@ impl<'a> Context<'a> {
             let separator = "-".repeat(TOTAL_SEPARATORS);
 
             let help = if let Some(msg) = help {
-                format!("{ORANGE}Help{NC}: {msg}\n")
+                if self.can_color {
+                    format!("{ORANGE}Help{NC}: {msg}\n")
+                } else {
+                    format!("Help: {msg}\n")
+                }
             } else {
                 "".to_string()
             };
@@ -179,11 +200,11 @@ impl<'a> Context<'a> {
 
             self.err_vec.push(Diagnostic::new(msg, branch));
 
-            if self.should_exit {
+            self.retries += 1;
+
+            if self.retries > MAX_RETRIES {
                 self.recover(branch);
-                self.should_exit = false;
-            } else {
-                self.should_exit = true;
+                self.retries = 0;
             }
 
             return Err(found.token);
@@ -206,11 +227,11 @@ impl<'a> Context<'a> {
             "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
         );
 
-        if self.should_exit {
+        self.retries += 1;
+
+        if self.retries > MAX_RETRIES {
             self.recover(branch);
-            self.should_exit = false;
-        } else {
-            self.should_exit = true;
+            self.retries = 0;
         }
 
         let report = Diagnostic::new(msg, Branch::VarTypeArgs);
@@ -329,6 +350,7 @@ impl<'a> Context<'a> {
                 && self.peek_ahead(1).token.kind() != TokenKind::Colon
                 && self.peek_ahead(1).token.kind() != target
             {
+                dbg!(self.peek_tok());
                 self.advance();
             }
         }
@@ -343,19 +365,25 @@ impl<'a> Context<'a> {
             Branch::VarType => TokenKind::HashSymbol,
             Branch::VarCond => TokenKind::Comma,
             Branch::VarTypeArgs => TokenKind::HashSymbol,
-            Branch::Nest => todo!(),
+            Branch::Nest => TokenKind::Id,
+            // Colon is a stand in
+            Branch::NestType => TokenKind::Colon,
             Branch::ComplexRules => todo!(),
         }
     }
 
     //TEST:
     pub(crate) fn exit_if(&mut self, branch: Branch) -> Result<(), Token> {
-        if self.should_exit {
+        if self.retries > 0 {
             self.recover(branch);
-            return Err(Token::Poison);
+            self.retries = 0;
         }
 
         Ok(())
+    }
+
+    pub(crate) fn skip(&mut self, dest: usize) -> () {
+        self.pos += dest;
     }
 
     pub(crate) fn peek_tok(&mut self) -> Token {

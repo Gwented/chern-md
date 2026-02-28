@@ -1,6 +1,13 @@
 @def
     var->
-        x: i32 [Len(4..=4), IsEmpty(), u8]
+        // Can have no brackets if only one function, otherwise requires it.
+        person: S|Person
+
+    nest->
+        .person {
+            name: u32
+            age: u8
+        }
 @end
 
 //ね//var->hi:i32さ

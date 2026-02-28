@@ -1,8 +1,7 @@
-use common::intern::Intern;
+use common::{intern::Intern, storage::FileLoader};
 use script_lib::{
     lexer::Lexer,
     parser::{self},
-    storage::FileLoader,
 };
 
 fn main() {
@@ -11,21 +10,12 @@ fn main() {
     let file = std::fs::File::open(path).unwrap();
 
     let (data, _) = match FileLoader::new(file).load_config() {
-        Some((data, offset)) => (data, offset),
-        None => panic!("Missing entry point (probably)."),
+        Ok((data, offset)) => (data, offset),
+        Err(e) => {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
     };
-
-    // dbg!(&data);
-
-    // let data = "
-    // @def
-    //     bind-> \"stops here\"
-    //     var->
-    //         Glorp: i32 (Len(~5  ))
-    //     @end"
-    //     .as_bytes();
-    // dbg!(&str::from_utf8(&data).unwrap());
-    // dbg!(&data.len());
 
     let mut interner = Intern::init();
 

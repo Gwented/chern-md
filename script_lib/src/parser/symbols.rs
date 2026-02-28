@@ -1,33 +1,15 @@
 use std::collections::HashMap;
 
-use crate::token::{ActualType, InnerArgs};
+use crate::token::{ActualType, Template};
 
-//FIXME: Odd handling
-//
+//FIXME:
+//MOVE ALL TO COMMON
+
 #[derive(Debug)]
 pub enum Symbol {
-    Definition(TypeDef),
-    Function(FunctionDef),
     Bind(Bind),
-}
-
-#[derive(Debug)]
-pub(crate) struct FunctionDef {
-    id: u32,
-    args: Vec<FuncArgs>,
-}
-
-impl FunctionDef {
-    pub(crate) fn new(id: u32, args: Vec<FuncArgs>) -> FunctionDef {
-        FunctionDef { id, args }
-    }
-}
-
-/// I have no comment on this.
-#[derive(Debug)]
-pub(crate) enum FuncArgs {
-    Id(u32),
-    Num(usize),
+    Func(FunctionDef),
+    Definition(TypeDef),
 }
 
 #[derive(Debug)]
@@ -61,7 +43,7 @@ impl SymbolTable {
         &self.type_ids
     }
 
-    /// func is the worst function name variant I have ever heard
+    /// func is actually alright as a name
     pub(crate) fn reserve_id(&mut self) -> u32 {
         let type_id = self.pos;
         self.type_ids.push(ActualType::Nil);
@@ -73,52 +55,71 @@ impl SymbolTable {
         self.symbols.insert(name_id, symbol);
     }
 
+    pub(crate) fn store_type(&mut self, actual_type: ActualType, type_id: u32) {
+        self.type_ids[type_id as usize] = actual_type;
+    }
+
     pub(crate) fn store_symbol(
         &mut self,
-        symbol: Symbol,
         name_id: u32,
         type_id: u32,
         raw_type: ActualType,
+        symbol: Symbol,
     ) {
         self.type_ids[type_id as usize] = raw_type;
         self.symbols.insert(name_id, symbol);
     }
 
-    pub(crate) fn search_symbol(&self, id: u32) -> &Symbol {
-        &self.symbols[&id]
+    pub(crate) fn search_symbol(&self, name_id: u32) -> &Symbol {
+        &self.symbols[&name_id]
     }
 
-    pub(crate) fn search_type(&self, id: usize) -> &ActualType {
-        &self.type_ids[id]
+    pub(crate) fn search_type(&self, type_id: usize) -> &ActualType {
+        &self.type_ids[type_id]
     }
+
+    pub(crate) fn search_type_mut(&mut self, id: usize) -> &mut ActualType {
+        &mut self.type_ids[id]
+    }
+}
+
+/// I have no comment on this.
+#[derive(Debug)]
+pub(crate) enum FuncArgs {
+    Id(u32),
+    Num(usize),
 }
 
 #[derive(Debug)]
 //FIX: Give interner a list of pathbufs
 pub struct Bind {
-    pub(crate) id: u32,
+    pub(crate) name_id: u32,
 }
 
 impl Bind {
     pub fn new(id: u32) -> Bind {
-        Bind { id }
+        Bind { name_id: id }
     }
 }
 
 #[derive(Debug)]
 pub struct TypeDef {
     // May be integer idk
-    pub(crate) id: u32,
-    // type_id: u32
+    pub(crate) name_id: u32,
     pub(crate) type_id: u32,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) cond: Vec<Cond>,
 }
 
 impl TypeDef {
-    pub(crate) fn new(id: u32, type_id: u32, args: Vec<InnerArgs>, cond: Vec<Cond>) -> TypeDef {
+    pub(crate) fn new(
+        name_id: u32,
+        type_id: u32,
+        args: Vec<InnerArgs>,
+        cond: Vec<Cond>,
+    ) -> TypeDef {
         TypeDef {
-            id,
+            name_id,
             type_id,
             args,
             cond,
@@ -129,14 +130,46 @@ impl TypeDef {
 #[derive(Debug)]
 pub(crate) enum Cond {
     // Approximation operator is a range internally.
-    // FIX: Possibly NEEDS usize but unsure
-    // Should probably just be usize
     // Unsure whether to remove range or len
-    // Range(usize, usize),
     Func(FunctionDef),
     // Probably should just attach bool
-    IsEmpty,
     Len(usize),
-    // But should likely be removed
+    // should likely be removed
     Not(Box<Cond>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum InnerArgs {
+    Warn,
+    Scientific,
+    Hex,
+    Binary,
+    Octo,
+}
+
+impl<'a> TryFrom<&'a str> for InnerArgs {
+    type Error = &'a str;
+
+    fn try_from(v: &'a str) -> Result<Self, Self::Error> {
+        match v {
+            "warn" => Ok(InnerArgs::Warn),
+            "scientific" => Ok(InnerArgs::Scientific),
+            "hex" => Ok(InnerArgs::Hex),
+            "binary" => Ok(InnerArgs::Binary),
+            "octo" => Ok(InnerArgs::Octo),
+            v => Err(v),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct FunctionDef {
+    pub(crate) name_id: u32,
+    pub(crate) args: Vec<FuncArgs>,
+}
+
+impl FunctionDef {
+    pub(crate) fn new(name_id: u32, args: Vec<FuncArgs>) -> FunctionDef {
+        FunctionDef { name_id, args }
+    }
 }

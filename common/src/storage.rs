@@ -1,12 +1,12 @@
 use std::io::{BufRead, BufReader, Read};
 
-// I didn't want to do this but it has state
 const DEFINITION_SIZE: usize = 4;
 
-// ~FileReader() : { delete ALL }
+// More inclusive name
 pub struct FileLoader<R: Read> {
     handle: BufReader<R>,
     pos: usize,
+    lines_read: usize,
 }
 
 impl<R: Read> FileLoader<R> {
@@ -14,16 +14,21 @@ impl<R: Read> FileLoader<R> {
         FileLoader {
             handle: BufReader::new(handle),
             pos: 0,
+            lines_read: 0,
         }
     }
 
     //TODO: Should return Result Vec usize string
-    pub fn load_config(&mut self) -> Option<(Vec<u8>, usize)> {
+    pub fn load_config(&mut self) -> Result<(Vec<u8>, usize), String> {
         // Doesn't NEED definition but will error if declared and not closed
         // TODO: Add read limit.
-        let mut requires_def = false;
+        let mut requires_end = false;
 
-        self.handle.fill_buf().ok().expect("Failed to fill buffer");
+        self.handle.fill_buf().or_else(|e| {
+            Err(format!(
+                "[Internal] Failed to fill buffer to read definition file: {e}"
+            ))
+        })?;
 
         while let Some(b) = self.peek() {
             if b == b'\0' {
@@ -37,26 +42,27 @@ impl<R: Read> FileLoader<R> {
                 b'/' => {
                     self.advance();
 
-                    if self.peek()? == b'/' {
+                    if self.peek() == Some(b'/') {
                         self.advance();
                         self.handle_comment();
-                    } else if self.peek_ahead(1)? == b'*' {
+                    } else if self.peek_ahead(1) == Some(b'*') {
                         self.advance();
                         self.handle_multi_comment();
                     }
                 }
                 b'@' => {
-                    if !requires_def
+                    // Remove @def?
+                    if !requires_end
                         && &self.handle.buffer()[self.pos..self.pos + DEFINITION_SIZE] == b"@def"
                     {
-                        requires_def = true;
+                        requires_end = true;
                     }
 
-                    if requires_def
+                    if requires_end
                         && &self.handle.buffer()[self.pos..self.pos + DEFINITION_SIZE] == b"@end"
                     {
                         let start_offset = self.pos + DEFINITION_SIZE;
-                        return Some((
+                        return Ok((
                             self.handle.buffer()[..self.pos + DEFINITION_SIZE].to_vec(),
                             start_offset,
                         ));
@@ -71,10 +77,10 @@ impl<R: Read> FileLoader<R> {
         }
         // TODO: Assert this...
 
-        if !requires_def {
-            Some((self.handle.buffer()[..self.pos].to_vec(), 0))
+        if !requires_end {
+            Ok((self.handle.buffer()[..self.pos].to_vec(), 0))
         } else {
-            None
+            Err("Could not find definition within ".to_string())
         }
     }
 
