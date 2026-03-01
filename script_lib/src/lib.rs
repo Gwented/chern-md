@@ -1,5 +1,6 @@
 pub mod color;
 pub mod lexer;
+pub mod linter;
 pub mod parser;
 pub mod token;
 
@@ -16,11 +17,12 @@ mod tests {
         let text = r#"bind-> "./some/path""#;
         dbg!(&text);
 
-        let (cfg, start_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let (cfg, lex_start, start_offset) =
+            FileLoader::new(text.as_bytes()).load_config().unwrap();
 
         let mut interner = Intern::init();
 
-        let toks = Lexer::new(&cfg).tokenize(&mut interner);
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
 
         assert_eq!(0, start_offset, "start_offset without `@def` failed");
         assert_eq!(4, toks.len(), "Token length exceeded 4 in lex_tok_test");
@@ -40,6 +42,7 @@ mod tests {
 
     //utf8 broke
 
+    // #[ignore = "Hi"]
     #[test]
     fn primitives_test() {
         // let text = "
@@ -79,7 +82,7 @@ mod tests {
         assert_eq!("var", interner.search(26));
         assert_eq!("nest", interner.search(27));
         assert_eq!("complex_rules", interner.search(28));
-        assert_eq!("Len", interner.search(29));
+        assert_eq!("Range", interner.search(29));
         assert_eq!("IsEmpty", interner.search(30));
     }
 
@@ -138,38 +141,37 @@ mod tests {
     #[test]
     fn start_offset_test() {
         // 24
-        let text = format!("@def var-> int: i32 @endhi");
+        let text = format!("adwh@def var-> int: i32 @endhi");
 
-        let (_, start_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let (_, lex_start, start_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
 
+        assert_eq!(&text[4..], &text[lex_start..]);
         assert_eq!("hi", &text[start_offset..]);
-        assert_eq!(start_offset, 24, "windows.h");
+        assert_eq!(start_offset, 28, "windows.h");
     }
 
-    // Green text make happy
-    #[test]
-    fn template_test() {
-        let text = r#"
-                person: S|Person,
-                nest->
-                    .person {
-                        name: str
-                        age: u8
-                        things: List<i32>
-                    }
-                "#;
-
-        let (cfg, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
-
-        let mut interner = Intern::init();
-
-        let toks = Lexer::new(&cfg).tokenize(&mut interner);
-
-        let sym_table = parser::parse(&cfg, &toks, &mut interner);
-
-        dbg!(sym_table);
-        panic!();
-        // assert_eq!("hi", &text[start_offset..]);
-        // assert_eq!(start_offset, 24, "windows.h");
-    }
+    // #[test]
+    // fn template_test() {
+    //     let text = r#"
+    //             person: S|Person,
+    //             nest->
+    //                 .person {
+    //                     name: str
+    //                     age: u8
+    //                     things: List<i32>
+    //                 }
+    //             "#;
+    //
+    //     let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+    //
+    //     let mut interner = Intern::init();
+    //
+    //     let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+    //
+    //     let sym_table = parser::parse(&cfg, &toks, &mut interner);
+    //
+    //     dbg!(sym_table);
+    //     // assert_eq!("hi", &text[start_offset..]);
+    //     // assert_eq!(start_offset, 24, "windows.h");
+    // }
 }

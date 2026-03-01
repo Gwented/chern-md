@@ -4,16 +4,15 @@ pub mod query;
 pub mod symbols;
 
 use crate::parser::error::Branch;
-use crate::parser::symbols::{
-    Bind, Cond, FuncArgs, FunctionDef, InnerArgs, SymbolId, SymbolTable, TypeDef, TypeIdent,
-};
-use crate::token::{ActualType, Template};
+use crate::parser::symbols::{Bind, Cond, FuncArgs, FuncDef, InnerArgs, SymbolTable, TypeDef};
+use crate::token::{ActualPrimitives, Template};
 use crate::{
     parser::{context::Context, symbols::Symbol},
     token::{SpannedToken, Token, TokenKind},
 };
 use common::intern::Intern;
 use common::primitives::PrimitiveKeywords;
+use common::symbols::{SymbolId, TypeIdent};
 
 pub fn parse(
     original_text: &[u8],
@@ -29,7 +28,6 @@ pub fn parse(
             break;
         }
 
-        // Should this be cloned?
         let tok = ctx.peek_tok();
 
         if let Token::Id(id) = tok {
@@ -65,23 +63,31 @@ pub fn parse(
                         interner,
                     );
 
-                    while let Token::Id(current_id) = ctx.peek_tok() {
-                        //FIX: TECHNICAL DEBT
-                        dbg!(&ctx.tokens[ctx.pos - 1]);
-                        // COULD NOT BE A SECTION
-                        // Interner should not have this much power
-                        if ctx.peek_kind() == TokenKind::EOF || interner.is_section(current_id) {
+                    //TODO: Fix loop to not stop until another section is seen
+                    //
+                    //<think>
+                    // This currently while lets ids because it removes the hinderance of checking
+                    // an id in-line within parse_var. This seems nice but it also restricts the
+                    // loop to failing even before seeing a section, which will always short
+                    // circuit. To fix this, the loop should be infinite and only break on sections,
+                    // which means parse_var should take care of the initial id check, or it should
+                    // be expected first.
+                    // </think>
+                    // I broke it.
+                    while ctx.peek_kind() != TokenKind::EOF {
+                        if let Token::Id(name_id) = ctx.peek_tok()
+                            && interner.is_section(name_id)
+                        {
                             break;
                         }
 
-                        // Sigh
                         if let Ok(type_def) = parse_var_section(&mut ctx, &mut sym_table, interner)
                         {
-                            sym_table.store_symbol(
-                                type_def.name_id,
-                                type_def.type_id,
-                                Symbol::Definition(type_def),
-                            );
+                            let sym_id = SymbolId::new(type_def.sym_id.id);
+
+                            let type_id = sym_table.store_typedef(type_def);
+
+                            sym_table.store_symbol(sym_id, Symbol::Def(type_id));
                         }
                     }
                 }
@@ -122,6 +128,7 @@ pub fn parse(
                 id => {
                     //FIX: CHECK FOR SIMILARITY
                     //WHAT IF IT WAS A MACRO?
+                    //No
                     ctx.advance_tok();
 
                     let name_id = interner.search(id as usize);
@@ -178,6 +185,8 @@ pub fn parse(
         //TODO: Ok I don't actually have the file path
 
         //FIX: ANSI
+        // Should I even be using this macro?
+        eprintln!("From path: {}", file!());
         eprint!("\x1b[31mError\x1b[0m: ");
 
         for err in ctx.err_vec.iter() {
@@ -204,12 +213,11 @@ fn parse_bind_section(
         interner,
     )?;
 
-    // Dog dog = new Dog();
     let sym_id = SymbolId::new(name_id);
 
     let symbol = Symbol::Bind(Bind::new(sym_id));
 
-    sym_table.store_basic(symbol, sym_id);
+    sym_table.store_symbol(sym_id, symbol);
 
     Ok(())
 }
@@ -221,18 +229,18 @@ fn parse_var_section(
 ) -> Result<TypeDef, Token> {
     let name_id = ctx.expect_id_verbose(
         TokenKind::Id,
-        "Expected an identifier within `var`, found '",
-        "'. |e.g. name: str'|",
+        "Expected an identifier to declare type, found ",
+        ". |e.g. name: str'|",
         Branch::Var,
         interner,
     )?;
 
     // This seems weird...
     // Ignore this naming
-    let __err_id__ = interner.search(name_id as usize);
+    let _err_name_ = interner.search(name_id as usize);
     ctx.expect_verbose(
         TokenKind::Colon,
-        &format!("Expected ':' after identifier \"{__err_id__}\" to declare a type, found "),
+        &format!("Expected a ':' after identifier \"{_err_name_}\" to declare a type, found "),
         "",
         None,
         Branch::VarType,
@@ -246,13 +254,13 @@ fn parse_var_section(
     if ctx.peek_kind() == TokenKind::OBracket {
         ctx.advance_tok();
 
-        let new_cond = parse_cond(ctx, interner)?;
+        let new_cond = parse_cond(ctx, sym_table, interner)?;
         conds.push(new_cond);
 
         while ctx.peek_kind() == TokenKind::Comma {
             ctx.advance_tok();
 
-            let new_cond = parse_cond(ctx, interner)?;
+            let new_cond = parse_cond(ctx, sym_table, interner)?;
             conds.push(new_cond);
         }
 
@@ -307,9 +315,9 @@ fn parse_type(
 
                     let ty = parse_array(ctx, sym_table, interner)?;
 
-                    let list = ActualType::List(ty);
+                    let list = ActualPrimitives::List(ty);
 
-                    let type_id = sym_table.store_type(list);
+                    let type_id = sym_table.store_primitive(list);
 
                     Ok(type_id)
                 }
@@ -318,9 +326,9 @@ fn parse_type(
 
                     let ty = parse_array(ctx, sym_table, interner)?;
 
-                    let set = ActualType::Set(ty);
+                    let set = ActualPrimitives::Set(ty);
 
-                    let type_id = sym_table.store_type(set);
+                    let type_id = sym_table.store_primitive(set);
 
                     Ok(type_id)
                 }
@@ -329,14 +337,14 @@ fn parse_type(
 
                     let (key, val) = parse_map(ctx, sym_table, interner)?;
 
-                    let map = ActualType::Map(key, val);
+                    let map = ActualPrimitives::Map(key, val);
 
-                    let type_id = sym_table.store_type(map);
+                    let type_id = sym_table.store_primitive(map);
 
                     Ok(type_id)
                 }
                 _ => {
-                    let prim = ActualType::try_from(id).or_else(|_| {
+                    let prim = ActualPrimitives::try_from(id).or_else(|_| {
                         ctx.advance_tok();
 
                         let name = interner.search(id as usize);
@@ -350,7 +358,7 @@ fn parse_type(
 
                     ctx.advance_tok();
 
-                    let type_id = sym_table.store_type(prim);
+                    let type_id = sym_table.store_primitive(prim);
 
                     Ok(type_id)
                 }
@@ -358,12 +366,13 @@ fn parse_type(
             None => {
                 let name = interner.search(id as usize);
 
+                // Maybe expect this?
                 if name == "S"
                     || name == "E" && ctx.peek_ahead(1).token.kind() == TokenKind::VerticalBar
                 {
                     ctx.skip(2);
 
-                    let type_id = ctx.expect_id_verbose(
+                    let struct_id = ctx.expect_id_verbose(
                         TokenKind::Id,
                         "Expected a valid type template, found ",
                         "",
@@ -372,20 +381,20 @@ fn parse_type(
                     )?;
 
                     //TODO: Find out whether or not enums should exist internally
-                    let struct_id = TypeIdent::new(type_id);
+                    // FIX:
+                    let temp_type_id = TypeIdent::new(struct_id);
 
-                    let template = ActualType::Template(Template::new(struct_id));
+                    let template = Template::new(temp_type_id);
 
-                    let type_id = sym_table.store_type(template);
-                    dbg!(struct_id, type_id);
+                    let type_id = sym_table.store_template(template);
 
                     return Ok(type_id);
                 }
 
                 let msg = format!("Expected a type, found identifier \"{name}\"");
-                //FIX: CHECK IF WE WE WE WE GOT WAS SIMILAR TO something?
                 ctx.advance_tok();
 
+                //TODO: Deeper help in case meant to be structural type, or primitive, probably.
                 ctx.report_verbose(&msg, None, Branch::VarType);
 
                 //WARN:
@@ -395,7 +404,7 @@ fn parse_type(
         Token::QuestionMark => {
             ctx.advance_tok();
 
-            let type_id = sym_table.store_type(ActualType::Any(None));
+            let type_id = sym_table.store_primitive(ActualPrimitives::Any(None));
 
             Ok(type_id)
         }
@@ -543,19 +552,26 @@ fn parse_map(
     Ok((key, val))
 }
 
-fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
+fn parse_cond(
+    ctx: &mut Context,
+    sym_table: &mut SymbolTable,
+    interner: &Intern,
+) -> Result<Cond, Token> {
     match ctx.peek_tok() {
         Token::Id(id) => {
             let name = interner.search(id as usize);
 
             match PrimitiveKeywords::from_id(id) {
                 Some(prim) => match prim {
-                    //TODO: Get arguments
-                    PrimitiveKeywords::Len => {
+                    PrimitiveKeywords::Range => {
                         ctx.advance_tok();
 
                         let args = handle_len_func(ctx, interner)?;
-                        Ok(Cond::Func(FunctionDef::new(SymbolId::new(id), args)))
+                        let temp = SymbolId::new(id);
+
+                        let type_id = sym_table.store_func(FuncDef::new(SymbolId::new(id), args));
+
+                        Ok(Cond::Func(type_id))
                     }
                     PrimitiveKeywords::IsEmpty => {
                         ctx.advance_tok();
@@ -578,7 +594,11 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
                             interner,
                         )?;
 
-                        Ok(Cond::Func(FunctionDef::new(SymbolId::new(id), Vec::new())))
+                        let sym_id = SymbolId::new(id);
+
+                        let type_id = sym_table.store_func(FuncDef::new(sym_id, Vec::new()));
+
+                        Ok(Cond::Func(type_id))
                     }
                     _ => {
                         // Function similar check?
@@ -631,7 +651,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
                 return Err(Token::Poison);
             }
 
-            let wrapped = parse_cond(ctx, interner)?;
+            let wrapped = parse_cond(ctx, sym_table, interner)?;
             Ok(Cond::Not(Box::new(wrapped)))
         }
         t => {
@@ -648,7 +668,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Cond, Token> {
 fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>, Token> {
     ctx.expect_verbose(
         TokenKind::OParen,
-        "Missing '(' within function `Len()`, found ",
+        "Missing '(' within function `Range()`, found ",
         "",
         None,
         Branch::VarCond,
@@ -685,13 +705,12 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>
 
             ctx.expect_verbose(
                 TokenKind::DotRange,
-                "(range) missing within parameters, found ",
+                &format!("Missing rest of (range) after the number {raw_num}, found "),
                 "",
                 Some("Use 'Len(~x1)' or 'Len(x1..=x2)' to define a range."),
                 Branch::VarCond,
                 interner,
-            )
-            .ok();
+            )?;
 
             let user_help = format!(". |e.g. {start}..=other|");
 
@@ -707,7 +726,6 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>
             let err_tok = ctx.advance_tok();
             let name = interner.search(id as usize);
 
-            //WARN: I think this should be advanced?
             let fmt_tok = format!("{} \"{}\" while parsing condition.", err_tok.kind(), name);
 
             ctx.report_template("a (range) or number", &fmt_tok, Branch::VarCond);
@@ -756,7 +774,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>
         TokenKind::CParen,
         "Expected ')' after `Len()`, found ",
         "",
-        Some("Individual type conditions must be closed with ')' |e.g. `(Len(~4))` |"),
+        Some("Individual type conditions must be closed with ')' or delimited by commas |e.g. `(Len(~4)` |"),
         Branch::VarCond,
         interner,
     )
@@ -790,6 +808,38 @@ fn parse_nest_section(
         interner,
     )?;
 
+    let sym_id = SymbolId::new(name_id);
+
+    dbg!(interner.search(sym_id.id as usize));
+
+    //FIX: Can't report unless I do a quick check first. Fixable.
+    //Maybe type enforce the indexable ids because silent bugs are very possible
+    let type_def_id = sym_table.get_typedef_id(sym_id).ok_or_else(|| {
+        let name = interner.search(sym_id.id as usize);
+
+        ctx.report_verbose(
+            &format!("Could not find any type defined with the identifier \"{name}\""),
+            None,
+            Branch::NestType,
+        );
+
+        Token::Poison
+    })?;
+    //FIX: Need a type checker...
+
+    let template_id = sym_table.get_template_id(type_def_id).ok_or_else(|| {
+        //TODO: Return result and take the result's type to report it
+        let name = interner.search(sym_id.id as usize);
+
+        ctx.report_verbose(
+            &format!("The symbol \"{name}\" is not defined as a template"),
+            None,
+            Branch::NestType,
+        );
+
+        Token::Poison
+    })?;
+
     ctx.expect_verbose(
         TokenKind::OCurlyBracket,
         "Expected a '{' to define template, found ",
@@ -799,37 +849,36 @@ fn parse_nest_section(
         interner,
     )?;
 
-    let mut id_arr: Vec<SymbolId> = Vec::new();
+    let mut fields: Vec<TypeIdent> = Vec::new();
 
     if ctx.peek_kind() == TokenKind::Id {
         while ctx.peek_kind() != TokenKind::CCurlyBracket {
             // Need to do something about the branch...
-            let type_def = parse_var_section(ctx, sym_table, interner).unwrap();
+            let type_def = parse_var_section(ctx, sym_table, interner)?;
+            dbg!(&type_def);
 
-            id_arr.push(type_def.name_id);
+            let sym_id = type_def.sym_id;
+            let type_id = sym_table.store_typedef(type_def);
 
-            sym_table.store_symbol(
-                type_def.name_id,
-                type_def.type_id,
-                Symbol::Definition(type_def),
-            );
+            sym_table.store_symbol(sym_id, Symbol::Def(type_id));
+
+            fields.push(type_id);
         }
 
-        let sym_id = SymbolId::new(name_id);
+        //TODO: Custom errors or handle inside of query..
+        dbg!(interner.search(sym_id.id as usize));
+        dbg!(sym_id);
 
-        // Yes. More of this naming.
-        // Also this is horrific and needs to be fixed structurally
-        let type_def_with_template = query::search_template_id(sym_table, sym_id).unwrap();
+        //TODO: Internally, it is possible to just return an id that is known to be a template
+        //first but not done yet.
 
-        match sym_table.search_type_mut(type_def_with_template) {
-            ActualType::Template(template) => {
-                for id in id_arr {
-                    template.fields.push(id);
-                }
-            }
-            _ => panic!("Search type mut"),
+        let template = sym_table.extract_template_mut(template_id);
+
+        for id in fields {
+            template.fields.push(id);
         }
 
+        // Not sure what to send here..
         ctx.expect_verbose(
             TokenKind::CCurlyBracket,
             "Expected a '}' to close defined template, found ",

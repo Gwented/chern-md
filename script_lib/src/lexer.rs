@@ -11,8 +11,11 @@ pub struct Lexer<'a> {
 }
 
 impl Lexer<'_> {
-    pub fn new(bytes: &[u8]) -> Lexer<'_> {
-        Lexer { bytes, pos: 0 }
+    pub fn new(bytes: &[u8], lex_start: usize) -> Lexer<'_> {
+        Lexer {
+            bytes,
+            pos: 0 + lex_start,
+        }
     }
 
     pub fn tokenize(&mut self, interner: &mut Intern) -> Vec<SpannedToken> {
@@ -364,7 +367,7 @@ impl Lexer<'_> {
 
         //WARN:
         let end = self.pos - 1;
-        //TODO: Possible "Base" enum with Number type arg
+
         let id = interner.intern(&id);
 
         SpannedToken {
@@ -389,7 +392,6 @@ impl Lexer<'_> {
 
                     path.push(a);
 
-                    //FIXME: BROKEN WINDER. TEMPORARY VALUE
                     if !escape_sequences.contains(&self.peek()) {
                         return self.recover_illegal(interner);
                     }
@@ -494,7 +496,7 @@ impl Lexer<'_> {
         }
 
         //FIX: Concerning...
-        let end = self.pos - 1;
+        let end = self.pos;
 
         println!("out: id={}", &err_str);
 
@@ -508,7 +510,6 @@ impl Lexer<'_> {
         }
     }
 
-    //FIXME: ENTIRELY BROKEN.
     fn peek_char(&mut self) -> Option<char> {
         let b = self.peek();
 
@@ -532,7 +533,6 @@ impl Lexer<'_> {
         }
     }
 
-    //Peek batch method?
     fn handle_multi_comment(&mut self) {
         while self.peek() != b'*' && self.peek_ahead(1) != b'/' {
             self.advance();
@@ -558,7 +558,10 @@ impl Lexer<'_> {
 
     fn advance_char(&mut self) -> Option<char> {
         let ch = self.peek_char();
-        self.pos += 1;
+
+        // Should this failing be a panic?
+        self.pos += if let Some(c) = ch { c.len_utf8() } else { 1 };
+
         ch
     }
 
@@ -568,11 +571,10 @@ impl Lexer<'_> {
             self.advance();
         }
 
-        //FIXME: BROKEN WINDER.
         while let Some(ch) = self.peek_char()
             && ch.is_whitespace()
         {
-            self.pos += ch.len_utf8();
+            self.advance_char();
         }
     }
 }

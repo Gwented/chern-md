@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::parser::symbols::{Cond, InnerArgs, SymbolId, TypeDef, TypeIdent};
+use common::symbols::{SymbolId, TypeIdent};
+
+use crate::parser::symbols::{Cond, InnerArgs, TypeDef};
 
 #[derive(Debug, Clone)]
 pub struct SpannedToken {
@@ -213,6 +215,7 @@ impl Display for TokenKind {
     }
 }
 
+//FIX: Move this
 #[derive(Debug, Clone)]
 pub(crate) struct Span {
     pub(crate) start: usize,
@@ -226,7 +229,7 @@ impl Span {
 }
 
 #[derive(Debug)]
-pub(crate) enum ActualType {
+pub(crate) enum ActualPrimitives {
     I8,
     U8,
     I16,
@@ -250,9 +253,7 @@ pub(crate) enum ActualType {
     BigInt,
     BigFloat,
     // Template
-    Template(Template),
     // TypeDef
-    Definition(TypeDef),
     // ActualType
     List(TypeIdent),
     Set(TypeIdent),
@@ -262,37 +263,37 @@ pub(crate) enum ActualType {
     Any(Option<TypeIdent>),
 }
 
-impl ActualType {
+impl ActualPrimitives {
     pub(crate) fn kind(&self) -> ActualTypeKind {
         match self {
-            ActualType::I8 => ActualTypeKind::I8,
-            ActualType::U8 => ActualTypeKind::U8,
-            ActualType::I16 => ActualTypeKind::I16,
-            ActualType::U16 => ActualTypeKind::U16,
-            ActualType::F16 => ActualTypeKind::F16,
-            ActualType::I32 => ActualTypeKind::I32,
-            ActualType::U32 => ActualTypeKind::U32,
-            ActualType::F32 => ActualTypeKind::F32,
-            ActualType::I64 => ActualTypeKind::I64,
-            ActualType::U64 => ActualTypeKind::U64,
-            ActualType::F64 => ActualTypeKind::F64,
-            ActualType::I128 => ActualTypeKind::I128,
-            ActualType::U128 => ActualTypeKind::U128,
-            ActualType::F128 => ActualTypeKind::F128,
-            ActualType::Sized => ActualTypeKind::Sized,
-            ActualType::Unsized => ActualTypeKind::Unsized,
-            ActualType::Bool => ActualTypeKind::Bool,
-            ActualType::Nil => ActualTypeKind::Nil,
-            ActualType::Char => ActualTypeKind::Char,
-            ActualType::Str => ActualTypeKind::Str,
-            ActualType::BigInt => ActualTypeKind::BigInt,
-            ActualType::BigFloat => ActualTypeKind::BigFloat,
-            ActualType::Template(template) => ActualTypeKind::Template,
-            ActualType::Definition(type_def) => ActualTypeKind::TypeDef,
-            ActualType::List(actual_type) => ActualTypeKind::List,
-            ActualType::Set(actual_type) => ActualTypeKind::Set,
-            ActualType::Map(actual_type, actual_type1) => ActualTypeKind::Map,
-            ActualType::Any(actual_type) => ActualTypeKind::Any,
+            ActualPrimitives::I8 => ActualTypeKind::I8,
+            ActualPrimitives::U8 => ActualTypeKind::U8,
+            ActualPrimitives::I16 => ActualTypeKind::I16,
+            ActualPrimitives::U16 => ActualTypeKind::U16,
+            ActualPrimitives::F16 => ActualTypeKind::F16,
+            ActualPrimitives::I32 => ActualTypeKind::I32,
+            ActualPrimitives::U32 => ActualTypeKind::U32,
+            ActualPrimitives::F32 => ActualTypeKind::F32,
+            ActualPrimitives::I64 => ActualTypeKind::I64,
+            ActualPrimitives::U64 => ActualTypeKind::U64,
+            ActualPrimitives::F64 => ActualTypeKind::F64,
+            ActualPrimitives::I128 => ActualTypeKind::I128,
+            ActualPrimitives::U128 => ActualTypeKind::U128,
+            ActualPrimitives::F128 => ActualTypeKind::F128,
+            ActualPrimitives::Sized => ActualTypeKind::Sized,
+            ActualPrimitives::Unsized => ActualTypeKind::Unsized,
+            ActualPrimitives::Bool => ActualTypeKind::Bool,
+            ActualPrimitives::Nil => ActualTypeKind::Nil,
+            ActualPrimitives::Char => ActualTypeKind::Char,
+            ActualPrimitives::Str => ActualTypeKind::Str,
+            ActualPrimitives::BigInt => ActualTypeKind::BigInt,
+            ActualPrimitives::BigFloat => ActualTypeKind::BigFloat,
+            // ActualPrimitives::Template(template) => ActualTypeKind::Template,
+            // ActualPrimitives::Definition(type_def) => ActualTypeKind::TypeDef,
+            ActualPrimitives::List(actual_type) => ActualTypeKind::List,
+            ActualPrimitives::Set(actual_type) => ActualTypeKind::Set,
+            ActualPrimitives::Map(actual_type, actual_type1) => ActualTypeKind::Map,
+            ActualPrimitives::Any(actual_type) => ActualTypeKind::Any,
         }
     }
 }
@@ -324,6 +325,7 @@ pub(crate) enum ActualTypeKind {
     Set,
     Map,
     Any,
+    // Orb
     TypeDef,
     Template,
 }
@@ -369,20 +371,21 @@ impl Display for ActualTypeKind {
 
 #[derive(Debug)]
 pub struct Template {
-    pub(crate) symbol_id: TypeIdent,
+    // Should this be a symbol or type id?
+    pub(crate) type_id: TypeIdent,
     pub(crate) args: Vec<InnerArgs>,
     // May remove conditions
     pub(crate) conds: Vec<Cond>,
     // Fields can be variants or separate strugg <-- Sgwom
     //WARN: Maybe (u32, u32) can return
-    pub(crate) fields: Vec<SymbolId>,
+    pub(crate) fields: Vec<TypeIdent>,
     // Should it just be ids, or ids and type ids?
 }
 
 impl Template {
-    pub fn new(symbol_id: TypeIdent) -> Template {
+    pub(crate) fn new(type_id: TypeIdent) -> Template {
         Template {
-            symbol_id,
+            type_id,
             args: Vec::new(),
             conds: Vec::new(),
             fields: Vec::new(),
@@ -402,33 +405,34 @@ pub struct EnumTemplate {
 //FIXME: Change match to actual enum name
 // No
 // PLEASE change this from a try_from
-impl TryFrom<u32> for ActualType {
+// Maybe
+impl TryFrom<u32> for ActualPrimitives {
     type Error = ();
 
     fn try_from(v: u32) -> Result<Self, Self::Error> {
         match v {
-            0 => Ok(ActualType::I8),
-            1 => Ok(ActualType::U8),
-            2 => Ok(ActualType::I16),
-            3 => Ok(ActualType::U16),
-            4 => Ok(ActualType::F16),
-            5 => Ok(ActualType::I32),
-            6 => Ok(ActualType::U32),
-            7 => Ok(ActualType::F32),
-            8 => Ok(ActualType::I64),
-            9 => Ok(ActualType::U64),
-            10 => Ok(ActualType::F64),
-            11 => Ok(ActualType::I128),
-            12 => Ok(ActualType::U128),
-            13 => Ok(ActualType::F128),
-            14 => Ok(ActualType::Sized),
-            15 => Ok(ActualType::Unsized),
-            16 => Ok(ActualType::Char),
-            17 => Ok(ActualType::Str),
-            18 => Ok(ActualType::Bool),
-            19 => Ok(ActualType::Nil),
-            20 => Ok(ActualType::BigInt),
-            21 => Ok(ActualType::BigFloat),
+            0 => Ok(ActualPrimitives::I8),
+            1 => Ok(ActualPrimitives::U8),
+            2 => Ok(ActualPrimitives::I16),
+            3 => Ok(ActualPrimitives::U16),
+            4 => Ok(ActualPrimitives::F16),
+            5 => Ok(ActualPrimitives::I32),
+            6 => Ok(ActualPrimitives::U32),
+            7 => Ok(ActualPrimitives::F32),
+            8 => Ok(ActualPrimitives::I64),
+            9 => Ok(ActualPrimitives::U64),
+            10 => Ok(ActualPrimitives::F64),
+            11 => Ok(ActualPrimitives::I128),
+            12 => Ok(ActualPrimitives::U128),
+            13 => Ok(ActualPrimitives::F128),
+            14 => Ok(ActualPrimitives::Sized),
+            15 => Ok(ActualPrimitives::Unsized),
+            16 => Ok(ActualPrimitives::Char),
+            17 => Ok(ActualPrimitives::Str),
+            18 => Ok(ActualPrimitives::Bool),
+            19 => Ok(ActualPrimitives::Nil),
+            20 => Ok(ActualPrimitives::BigInt),
+            21 => Ok(ActualPrimitives::BigFloat),
             // 25 => Ok(ReservedKeyword::Bind),
             // 26 => Ok(ReservedKeyword::Var),
             // 27 => Ok(ReservedKeyword::Nest),

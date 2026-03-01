@@ -1,5 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
+use crate::symbols::SymbolId;
+
 // This thing scares me
 const PRMITIVES_ARRAY: [&str; 31] = [
     "i8",
@@ -31,7 +33,7 @@ const PRMITIVES_ARRAY: [&str; 31] = [
     "var", // 26
     "nest",
     "complex_rules", // 28
-    "Len",
+    "Range",
     "IsEmpty",
 ];
 

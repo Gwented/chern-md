@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::token::ActualType;
+use common::symbols::{SymbolId, TypeIdent};
+
+use crate::{
+    parser::error,
+    token::{ActualPrimitives, Template},
+};
 
 //FIXME:
 //MOVE ALL TO COMMON
@@ -8,111 +13,155 @@ use crate::token::ActualType;
 #[derive(Debug)]
 pub(crate) enum Symbol {
     Bind(Bind),
-    Func(FunctionDef),
-    Definition(TypeDef),
+    Func(TypeIdent),
+    Def(TypeIdent),
 }
 
 // Dog dog = new Dog();
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SymbolId {
-    pub(crate) id: u32,
-}
-
-impl SymbolId {
-    pub(crate) fn new(id: u32) -> SymbolId {
-        SymbolId { id }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TypeIdent {
-    pub(crate) id: u32,
-}
-
-impl TypeIdent {
-    pub(crate) fn new(id: u32) -> TypeIdent {
-        TypeIdent { id }
-    }
-}
-
-impl From<u32> for TypeIdent {
-    fn from(v: u32) -> Self {
-        TypeIdent::new(v)
-    }
-}
-
 #[derive(Debug)]
 pub struct SymbolTable {
     //Can just be a vec?
     symbols: HashMap<u32, Symbol>,
-    // Rename registered something?
-    type_ids: Vec<ActualType>,
-    pos: usize,
+    typedefs: Vec<TypeDef>,
+    templates: Vec<Template>,
+    funcs: Vec<FuncDef>,
+    // I know this has more than primitives.
+    type_ids: Vec<ActualPrimitives>,
 }
 
-//TODO: Worst struct in this entire project
+// trait Typed {}
+//
+// impl Typed for Bind {}
+// impl Typed for Template {}
+// impl Typed for FuncDef {}
+// impl Typed for TypeDef {}
+// impl Typed for ActualPrimitives {}
+
+//TODO: Maybe traits for generics instead if possible
+//No
 impl SymbolTable {
     // In case table has something else added
     pub(crate) fn new() -> SymbolTable {
+        // I don't know. Anything but the enums.
+        // FIX: This could not possibly end well
         SymbolTable {
             symbols: HashMap::new(),
+            typedefs: Vec::new(),
+            templates: Vec::new(),
+            funcs: Vec::new(),
             type_ids: Vec::new(),
-            pos: 0,
         }
     }
 
-    // Visitor pattern data encapsulation prototype pattern
-    // Dog dog = new Dog();
     pub(crate) fn symbols(&self) -> &HashMap<u32, Symbol> {
         &self.symbols
     }
 
-    // Jauva data incapsulation JAVA spring springboot
-    pub(crate) fn type_ids(&self) -> &Vec<ActualType> {
+    pub(crate) fn type_ids(&self) -> &Vec<ActualPrimitives> {
         &self.type_ids
     }
 
-    /// func is actually alright as a name
-    // pub(crate) fn reserve_id(&mut self) -> TypeIdent {
-    //     let type_id = self.pos;
-    //     self.type_ids.push(ActualType::Nil);
-    //     self.pos += 1;
-    //     TypeIdent::new(type_id as u32)
-    // }
-
-    pub(crate) fn store_basic(&mut self, symbol: Symbol, sym_id: SymbolId) {
-        self.symbols.insert(sym_id.id, symbol);
-    }
-
-    pub(crate) fn store_type(&mut self, actual_type: ActualType) -> TypeIdent {
-        let type_id = self.pos;
+    /// Map<i32, Floor> == primitive
+    pub(crate) fn store_primitive(&mut self, actual_type: ActualPrimitives) -> TypeIdent {
+        let type_id = self.type_ids.len();
         self.type_ids.push(actual_type);
+
         TypeIdent::new(type_id as u32)
     }
 
-    pub(crate) fn store_symbol(&mut self, sym_id: SymbolId, type_id: TypeIdent, symbol: Symbol) {
-        // self.type_ids[type_id.id as usize] = raw_type;
+    pub(crate) fn store_typedef(&mut self, type_def: TypeDef) -> TypeIdent {
+        let type_id = self.typedefs.len();
+        self.typedefs.push(type_def);
+        TypeIdent::new(type_id as u32)
+    }
+
+    pub(crate) fn store_template(&mut self, template: Template) -> TypeIdent {
+        let type_id = self.templates.len();
+        self.templates.push(template);
+
+        TypeIdent::new(type_id as u32)
+    }
+
+    pub(crate) fn store_func(&mut self, func: FuncDef) -> TypeIdent {
+        let sym_id = self.funcs.len();
+        self.funcs.push(func);
+
+        TypeIdent::new(sym_id as u32)
+    }
+
+    pub(crate) fn store_symbol(&mut self, sym_id: SymbolId, symbol: Symbol) {
         self.symbols.insert(sym_id.id, symbol);
     }
 
-    pub(crate) fn search_symbol(&self, name_id: u32) -> &Symbol {
-        &self.symbols[&name_id]
+    pub(crate) fn get_symbol(&self, sym_id: SymbolId) -> Option<&Symbol> {
+        self.symbols.get(&sym_id.id)
     }
 
-    pub(crate) fn search_symbol_mut(&mut self, sym_id: u32) -> Option<&mut Symbol> {
-        self.symbols.get_mut(&sym_id)
+    // Remove?
+    pub(crate) fn get_symbol_mut(&mut self, sym_id: SymbolId) -> Option<&mut Symbol> {
+        self.symbols.get_mut(&sym_id.id)
     }
 
-    pub(crate) fn search_type(&self, type_id: TypeIdent) -> &ActualType {
+    /// Obtains an id to check before extracting to avoid boilerplate
+    //FIX: Will return err. All temp.
+    pub(crate) fn get_typedef_id(&self, sym_id: SymbolId) -> Option<TypeIdent> {
+        let symbol = self.get_symbol(sym_id);
+
+        match symbol {
+            Some(sym) => match sym {
+                Symbol::Def(type_ident) => Some(*type_ident),
+                _ => None,
+            },
+            None => None,
+        }
+    }
+
+    //FIX: Will return err
+    /// Takes in a `TypeDef` id and return option template type id
+    /// TYPE ENFORCE THESE PLEASE
+    pub(crate) fn get_template_id(&self, type_def_id: TypeIdent) -> Option<TypeIdent> {
+        let type_def = self.extract_typedef(type_def_id);
+
+        match self.templates.get(type_def.type_id.id as usize) {
+            Some(_) => Some(type_def.type_id),
+            None => None,
+        }
+    }
+
+    pub(crate) fn extract_type(&self, type_id: TypeIdent) -> &ActualPrimitives {
         &self.type_ids[type_id.id as usize]
     }
 
-    pub(crate) fn search_type_mut(&mut self, id: TypeIdent) -> &mut ActualType {
-        &mut self.type_ids[id.id as usize]
+    pub(crate) fn extract_type_mut(&mut self, type_id: TypeIdent) -> &mut ActualPrimitives {
+        &mut self.type_ids[type_id.id as usize]
+    }
+
+    pub(crate) fn extract_typedef(&self, type_id: TypeIdent) -> &TypeDef {
+        &self.typedefs[type_id.id as usize]
+    }
+
+    pub(crate) fn extract_typedef_mut(&mut self, type_id: TypeIdent) -> &mut TypeDef {
+        &mut self.typedefs[type_id.id as usize]
+    }
+
+    pub(crate) fn extract_func(&self, type_id: TypeIdent) -> &FuncDef {
+        &self.funcs[type_id.id as usize]
+    }
+
+    // Is this needed?
+    pub(crate) fn extract_func_mut(&mut self, type_id: TypeIdent) -> &mut FuncDef {
+        &mut self.funcs[type_id.id as usize]
+    }
+
+    pub(crate) fn extract_template(&self, type_id: TypeIdent) -> &Template {
+        &self.templates[type_id.id as usize]
+    }
+
+    pub(crate) fn extract_template_mut(&mut self, type_id: TypeIdent) -> &mut Template {
+        &mut self.templates[type_id.id as usize]
     }
 }
 
-/// I have no comment on this.
 #[derive(Debug)]
 pub(crate) enum FuncArgs {
     Id(SymbolId),
@@ -134,7 +183,7 @@ impl Bind {
 #[derive(Debug)]
 pub struct TypeDef {
     // May be integer idk
-    pub(crate) name_id: SymbolId,
+    pub(crate) sym_id: SymbolId,
     pub(crate) type_id: TypeIdent,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) cond: Vec<Cond>,
@@ -148,7 +197,7 @@ impl TypeDef {
         cond: Vec<Cond>,
     ) -> TypeDef {
         TypeDef {
-            name_id,
+            sym_id: name_id,
             type_id,
             args,
             cond,
@@ -156,13 +205,13 @@ impl TypeDef {
     }
 }
 
+//FIX: Move
 #[derive(Debug)]
 pub(crate) enum Cond {
     // Approximation operator is a range internally.
     // Unsure whether to remove range or len
-    Func(FunctionDef),
+    Func(TypeIdent),
     // Probably should just attach bool
-    Len(usize),
     // should likely be removed
     Not(Box<Cond>),
 }
@@ -192,13 +241,13 @@ impl<'a> TryFrom<&'a str> for InnerArgs {
 }
 
 #[derive(Debug)]
-pub(crate) struct FunctionDef {
+pub(crate) struct FuncDef {
     pub(crate) name_id: SymbolId,
     pub(crate) args: Vec<FuncArgs>,
 }
 
-impl FunctionDef {
-    pub(crate) fn new(name_id: SymbolId, args: Vec<FuncArgs>) -> FunctionDef {
-        FunctionDef { name_id, args }
+impl FuncDef {
+    pub(crate) fn new(name_id: SymbolId, args: Vec<FuncArgs>) -> FuncDef {
+        FuncDef { name_id, args }
     }
 }

@@ -1,16 +1,21 @@
+use std::time::Instant;
+
 use common::{intern::Intern, storage::FileLoader};
 use script_lib::{
     lexer::Lexer,
+    linter,
     parser::{self},
 };
 
 fn main() {
+    let start = Instant::now();
+
     let path = "./chrn_tests/main.chrn";
 
     let file = std::fs::File::open(path).unwrap();
 
-    let (data, _) = match FileLoader::new(file).load_config() {
-        Ok((data, offset)) => (data, offset),
+    let (data, lex_start, _) = match FileLoader::new(file).load_config() {
+        Ok((data, lex_start, serial_start)) => (data, lex_start, serial_start),
         Err(e) => {
             eprintln!("Error: {e}");
             std::process::exit(1);
@@ -19,9 +24,12 @@ fn main() {
 
     let mut interner = Intern::init();
 
-    let toks = Lexer::new(&data).tokenize(&mut interner);
+    let toks = Lexer::new(&data, lex_start).tokenize(&mut interner);
 
-    let table = parser::parse(&data, &toks, &mut interner);
+    let sym_table = parser::parse(&data, &toks, &mut interner);
 
-    dbg!(table);
+    linter::print_all(&sym_table, &interner);
+
+    // dbg!(sym_table);
+    println!("{} ms", start.elapsed().as_millis());
 }

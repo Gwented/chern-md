@@ -1,18 +1,16 @@
-### ERROR HANDLING ERROR HANDLING ERROR HANDLING ERROR HANDLING ERROR HANDLING
-
 ## [BEHAVIOR]
 - Ends program by default when type information is correct unless `#warn` is used.
 
 - If a `#warn` is used and `?` is used, there will be a warn (or error) that there is an issue inside of the md file in every lint check if an error is present. So it CAN stay, but it will constantly be noted.
 
-- If the `.chrn` file is turned into binary, the definition is immediately truncated and there needs to be a main.chrn file or else it is a "bag of bytes". Note: May have a way for it to undo itself by storing extremely specific header bytes that define what I should interpret the data as. Complicated :C . 
+- Binary representation. 
 
 LANGUAGE BLOAT >>>>>>>
 
 ## [Types]
 i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,
-char, bool, (maybe capital) str, %Struct/Enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
+char, bool, (maybe capital) str, S|Struct/E|Enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
 
 S| for structure of data.
 E| for Enum type.
@@ -20,6 +18,7 @@ E| for Enum type.
 ## [Operators]
 `!`: Not operator.
 
+Doesn't exist
 `||`: Or operator.
 
 `?`: Infers type and expects type consistency throughout entire `.chrn` file.  Name affects nothing.
@@ -45,11 +44,11 @@ NO ALIASES PLEASE NO
 
 
 ## [Predicates]
-`IsEmpty`: Checks if given array or string within a `.chrn` file is empty, or if a string only has whitespace. Ends program with error if true.
+`IsEmpty()`: Checks if given array or string within a `.chrn` file is empty, or if a string only has whitespace. Ends program with error if true.
 `IsWhitespace`: (MAY EXIST)
 
 ## Functions (Predicate)
-`Len(x || range || ~)`: Checks if length of string is in condition. name: str (Len(0..=5), !IsEmpty)
+`Range((range) OR ~x)`: Checks if length of string is in condition. name: str (Range(0..=5), !IsEmpty())
 
 ## [Sections]
 `bind`: Sets the `.chrn` file to affirm the syntax of. (or `attach`, `find`)

@@ -60,7 +60,7 @@ pub enum PrimitiveKeywords {
     Var = 26,
     Nest = 27,
     ComplexRules = 28,
-    Len = 29,
+    Range = 29,
     IsEmpty = 30,
 }
 //FIX: Maybe should reserve function names for checks
@@ -97,7 +97,7 @@ impl PrimitiveKeywords {
             26 => Some(PrimitiveKeywords::Var),
             27 => Some(PrimitiveKeywords::Nest),
             28 => Some(PrimitiveKeywords::ComplexRules),
-            29 => Some(PrimitiveKeywords::Len),
+            29 => Some(PrimitiveKeywords::Range),
             30 => Some(PrimitiveKeywords::IsEmpty),
             _ => None,
         }

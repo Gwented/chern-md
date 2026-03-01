@@ -16,15 +16,21 @@ const NC: &str = "\x1b[0m";
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
+const HASH_SYMBOL: u64 = 1 << 0;
+const OBRACKET: u64 = 1 << 1;
+
+const VAR_BRANCH_SET: u64 = HASH_SYMBOL | OBRACKET;
+
 //USED:
-const MAX_RETRIES: u8 = 3;
+const MAX_RETRIES: u8 = 0;
 
 //FIX: Help is broken (As in very bad)
-//What about *J*bs*
 //Or add memory instead of having errors the second one is seen. Or just las error. Or Or :=
+// Give it context on branches  gg give it
 #[derive(Debug)]
 pub struct Context<'a> {
     //TEST:
+    // Seems off since it's directly fighting the ignoring of errors
     pub(crate) retries: u8,
     //TEST:
     pub(crate) original_text: &'a [u8],
@@ -51,8 +57,6 @@ impl<'a> Context<'a> {
         }
     }
 
-    //Configuration for expected and found being disabled
-    //FIX: This can likely be done better...
     pub(crate) fn expect_id_verbose(
         &mut self,
         expected: TokenKind,
@@ -261,6 +265,7 @@ impl<'a> Context<'a> {
             } else {
                 todo!("UTF-8 only supported inside of literal");
             };
+            // b = self.original_text[i];
 
             //TODO: See if this works on windows
             //I still haven't checked.
@@ -295,9 +300,6 @@ impl<'a> Context<'a> {
 
         // Span range is inclusive exclusive so final character is missed otherwise
         // Has no other mathematical outside of this
-        // TODO: Span end and span start need to be translated somehow into
-        // what the utf-9 billion character would want
-        // Maybe just paint from the span byte onwards by ensuring it's decoded?
         let span_diff_offset = span.end - span.start + 1;
 
         let arrows = "^".repeat(span_diff_offset);
@@ -341,12 +343,13 @@ impl<'a> Context<'a> {
             return;
         }
 
-        let target = self.match_target(branch);
+        let target = self.match_anchor(branch);
         //FIX: SEE IF SELF.POS CHECK IS STILL NEEDED. WAS REMOVED.
         if self.peek_kind() != TokenKind::EOF {
             while self.pos < self.tokens.len() + 2
                 && self.peek_kind() != TokenKind::EOF
                 && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow
+                //WARN:
                 && self.peek_ahead(1).token.kind() != TokenKind::Colon
                 && self.peek_ahead(1).token.kind() != target
             {
@@ -356,16 +359,21 @@ impl<'a> Context<'a> {
         }
     }
 
-    fn match_target(&self, branch: Branch) -> TokenKind {
+    //FIX: The main issue is it's too restricted for if something should be expected ahead or
+    //after, which makes it hard to appease all anchors.
+    fn match_anchor(&self, branch: Branch) -> TokenKind {
         match branch {
             Branch::Broken => TokenKind::Illegal,
             Branch::Searching => TokenKind::Id,
-            Branch::Bind => TokenKind::Colon,
-            Branch::Var => TokenKind::OParen,
+            Branch::Bind => TokenKind::Poison,
+            Branch::Var => TokenKind::HashSymbol,
             Branch::VarType => TokenKind::HashSymbol,
-            Branch::VarCond => TokenKind::Comma,
+            // or Obracket
+            // FIX: This fails because condition is not adhering to returning correctly.
+            Branch::VarCond => TokenKind::Poison,
+            // or CBracket, or HashSymbol
             Branch::VarTypeArgs => TokenKind::HashSymbol,
-            Branch::Nest => TokenKind::Id,
+            Branch::Nest => TokenKind::Colon,
             // Colon is a stand in
             Branch::NestType => TokenKind::Colon,
             Branch::ComplexRules => todo!(),

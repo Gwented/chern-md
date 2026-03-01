@@ -4,7 +4,10 @@ pub(crate) struct Lexer<'a> {
 }
 
 impl Lexer<'_> {
-    pub fn new(text: &[u8]) -> Lexer<'_> {
-        Lexer { text, pos: 0 }
+    pub fn new(text: &[u8], start_offset: usize) -> Lexer<'_> {
+        Lexer {
+            text,
+            pos: 0 + start_offset,
+        }
     }
 }

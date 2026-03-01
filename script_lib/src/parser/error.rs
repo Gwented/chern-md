@@ -1,5 +1,10 @@
 use std::fmt::Display;
 
+use crate::{
+    parser::symbols::{Bind, FuncDef, TypeDef},
+    token::Template,
+};
+
 #[derive(Debug)]
 // I'm new to thinking. Anyone have some beginner thoughts?
 pub struct Diagnostic {
@@ -9,11 +14,6 @@ pub struct Diagnostic {
     // Maybe help
     // pub(crate) help: Option<String>
 }
-
-// pub(crate) enum ErrorType {
-//     TypeErr,
-//
-// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Branch {

@@ -1,26 +1,40 @@
+// It inifitely skips if no eof is found with /* comments. Fix.
 @def
+
     var->
-        // Can have no brackets if only one function, otherwise requires it.
-        person: S|Person
-        declared: S|S
+        //person: Snerson [Range(0..=5), IsEmpty()] #Warn #wextra #scientific
+        name: u32 [Range(0..=5)] #warn
+        hi: i32
+        erson: S|erson
+        //age: u8
+        
+        /*Person {
+            name: u8
+            age: u8
+        } #warn, #wextra*/
+
     nest->
         .person {
-            name: u32
-            age: u8
+            age: i32 #warn #scientific
+            list: List<i32> #warn
         }
-        .declared {}
+@end
+    var->
+        // Can have no brackets if only one function, otherwise requires it.
+    どうも
+        person: S|Person [Len(0..=5)]
+        declared: S|S
         // STOP UNWRAPPING PRESENTS AND FIX THIS
         /*.florp {
             hi: i32
         }*/
-@end
 
-//ね//var->hi:i32さ
+
+//ね//var->hi:i32
 //"\ねaね"
     var->
             let: i32
             //let: List<Map<List<List<List<List<List<List<i32>>>>>>, i32>
-            // Poison the data structures more
                 //list: List<List<List<List<List<List<List<List<Map<Map<Set<Set<i32>>>>>>>>>>
                 //list: List<List<List<<List<List<st<List<io<List<List<Map<Map<Set<Set<i32>>>>>>>>>>>>>>>>
                 wist: i32
@@ -30,11 +44,14 @@
             floor: Set<u32>
         }*/
  IM LOST
-/*person:= {
+/*person {
     name: "Floor"
     age: 20
     car:= {
         name: "Car"
         age: 6
+        orb {
+
+        }
     }
 }*なぜできないのか？
