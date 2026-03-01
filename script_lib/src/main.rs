@@ -18,6 +18,7 @@ fn main() {
         Ok((data, lex_start, serial_start)) => (data, lex_start, serial_start),
         Err(e) => {
             eprintln!("Error: {e}");
+            eprintln!("Aborting...");
             std::process::exit(1);
         }
     };
@@ -28,8 +29,8 @@ fn main() {
 
     let sym_table = parser::parse(&data, &toks, &mut interner);
 
+    //TODO: Make linter lint not print
     linter::print_all(&sym_table, &interner);
 
-    // dbg!(sym_table);
     println!("{} ms", start.elapsed().as_millis());
 }

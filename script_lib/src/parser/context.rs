@@ -70,8 +70,6 @@ impl<'a> Context<'a> {
 
         // Leads to EOF being skipped and index out of bounds unless this is done.
         // WARN: This is a fail safe for logic errors
-        // if self.peek_kind() != TokenKind::EOF {
-        // }
         self.pos += 1;
 
         // Maybe just check each individually first so we know it is invalid after.
@@ -125,7 +123,6 @@ impl<'a> Context<'a> {
             "".to_string()
         };
 
-        // MAJOR BUG: EOF is never stopped here
         let (ln, col, segment) = self.get_location(&found.span);
 
         let separator = "-".repeat(TOTAL_SEPARATORS);
@@ -228,7 +225,7 @@ impl<'a> Context<'a> {
         let separator = "-".repeat(TOTAL_SEPARATORS);
 
         let msg = format!(
-            "(in {branch})\n Expected {emsg}, found {fmsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{separator}",
+            "(in {branch})\nExpected {emsg}, found {fmsg}\n|\n|[{ln}:{col}]\n{segment}\n{separator}",
         );
 
         self.retries += 1;
@@ -351,6 +348,7 @@ impl<'a> Context<'a> {
                 && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow
                 //WARN:
                 && self.peek_ahead(1).token.kind() != TokenKind::Colon
+                && self.peek_ahead(1).token.kind() != TokenKind::Illegal
                 && self.peek_ahead(1).token.kind() != target
             {
                 dbg!(self.peek_tok());
@@ -364,7 +362,7 @@ impl<'a> Context<'a> {
     fn match_anchor(&self, branch: Branch) -> TokenKind {
         match branch {
             Branch::Broken => TokenKind::Illegal,
-            Branch::Searching => TokenKind::Id,
+            Branch::Searching => TokenKind::SlimArrow,
             Branch::Bind => TokenKind::Poison,
             Branch::Var => TokenKind::HashSymbol,
             Branch::VarType => TokenKind::HashSymbol,

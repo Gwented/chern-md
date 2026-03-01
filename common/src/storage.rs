@@ -18,15 +18,15 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    //WARN: The vector doesn't HAVE to be copied since the loader owns it, but not doing that yet.
+    /// Returns an Ok of text scanned for `@def` and `@end`, the lexing starting point if a
+    /// definition was found, and where the serializing should start if a def was found. Or returns
+    /// a string of error text.
+    //FIX: COMMENTS ARE BROKEN
     pub fn load_config(&mut self) -> Result<(Vec<u8>, usize, usize), String> {
         // Doesn't NEED definition but will error if declared and not closed
         // TODO: Add read limit.
         let mut requires_end = false;
 
-        // <think>
-        // I don't know
-        // </think>
         let mut lex_start = 0;
 
         self.handle.fill_buf().or_else(|e| {
@@ -39,6 +39,7 @@ impl<R: Read> FileLoader<R> {
             if b == b'\0' {
                 break;
             }
+            dbg!(b as char);
 
             match b {
                 b'"' => {
@@ -50,9 +51,9 @@ impl<R: Read> FileLoader<R> {
                     if self.peek() == Some(b'/') {
                         self.advance();
                         self.handle_comment();
-                    } else if self.peek_ahead(1) == Some(b'*') {
+                    } else if self.peek() == Some(b'*') {
                         self.advance();
-                        self.handle_multi_comment();
+                        self.handle_multi_comment()?;
                     }
                 }
                 b'@' => {
@@ -68,7 +69,7 @@ impl<R: Read> FileLoader<R> {
                     } else if requires_end {
                         //FIX: Weird wording. Cut out error @ used.
                         let msg = format!(
-                            "Found illegal '@' usage while loading file after seeing `@def`. (line {})",
+                            "Found illegal '@' usage while loading configuration file after seeing `@def`. (line {})",
                             self.lines_read
                         );
 
@@ -83,7 +84,7 @@ impl<R: Read> FileLoader<R> {
                     } else if !requires_end {
                         //WARN: Weird wording
                         let msg = format!(
-                            "Found illegal '@' usage while loading file (line {})",
+                            "Found illegal '@' usage while configuration file (line {})",
                             self.lines_read
                         );
                         return Err(msg);
@@ -134,17 +135,49 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    fn handle_multi_comment(&mut self) {
-        while let Some(a) = self.peek() {
-            if let Some(b) = self.peek_ahead(1)
-                && b != b'*'
-                && a != b'/'
-            {
-                self.advance();
+    //WARN: Seems to be working..
+    fn handle_multi_comment(&mut self) -> Result<(), String> {
+        let mut depth = 1;
+        let comment_start = self.lines_read;
+        while let Some(current_byte) = self.peek()
+            && depth > 0
+        {
+            dbg!(depth);
+            //FIX: Simplify this
+            if let Some(next_byte) = self.peek_ahead(1) {
+                if current_byte == b'/' && next_byte == b'*' {
+                    depth += 1;
+                    self.skip(2);
+                } else if current_byte == b'*' && next_byte == b'/' {
+                    depth -= 1;
+                    self.skip(2);
+                } else {
+                    self.advance();
+                }
+            } else {
+                break;
             }
         }
-        self.skip(2);
+
+        if depth > 0 {
+            return Err(format!(
+                "Error: Found unclosed multi-line comment in configuration file which started at line {}",
+                comment_start
+            ));
+        }
+
+        dbg!(depth);
+        Ok(())
     }
+    // while let Some(a) = self.peek() {
+    //     if let Some(b) = self.peek_ahead(1)
+    //         && b != b'*'
+    //         && a != b'/'
+    //     {
+    //         self.advance();
+    //     }
+    // }
+    // self.skip(2);
 
     fn skip(&mut self, dest: usize) {
         self.pos += dest;

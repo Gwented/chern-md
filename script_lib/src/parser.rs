@@ -1,6 +1,5 @@
 pub mod context;
 pub mod error;
-pub mod query;
 pub mod symbols;
 
 use crate::parser::error::Branch;
@@ -64,16 +63,6 @@ pub fn parse(
                     );
 
                     //TODO: Fix loop to not stop until another section is seen
-                    //
-                    //<think>
-                    // This currently while lets ids because it removes the hinderance of checking
-                    // an id in-line within parse_var. This seems nice but it also restricts the
-                    // loop to failing even before seeing a section, which will always short
-                    // circuit. To fix this, the loop should be infinite and only break on sections,
-                    // which means parse_var should take care of the initial id check, or it should
-                    // be expected first.
-                    // </think>
-                    // I broke it.
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && interner.is_section(name_id)
@@ -104,8 +93,10 @@ pub fn parse(
                     )
                     .ok();
 
-                    while TokenKind::Dot == ctx.peek_kind() {
-                        if ctx.peek_kind() == TokenKind::EOF {
+                    while ctx.peek_kind() != TokenKind::EOF {
+                        if let Token::Id(name_id) = ctx.peek_tok()
+                            && interner.is_section(name_id)
+                        {
                             break;
                         }
 
@@ -127,8 +118,6 @@ pub fn parse(
                 }
                 id => {
                     //FIX: CHECK FOR SIMILARITY
-                    //WHAT IF IT WAS A MACRO?
-                    //No
                     ctx.advance_tok();
 
                     let name_id = interner.search(id as usize);
@@ -138,7 +127,6 @@ pub fn parse(
                     // );
 
                     ctx.report_template("a section with a '->' after", &fmsg, Branch::Searching);
-                    break;
                 }
             },
             Token::Illegal(id) => {
@@ -151,32 +139,21 @@ pub fn parse(
                 ctx.report_verbose(&msg, None, Branch::Broken);
             }
             Token::EOF => break,
-            t => {
-                match t {
-                    Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
-                        ctx.advance_tok();
+            t => match t {
+                Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
+                    ctx.advance_tok();
 
-                        let name = interner.search(id as usize);
-                        let fmsg = format!("{} \"{}\"", t.kind(), name);
+                    let name = interner.search(id as usize);
+                    let fmsg = format!("{} \"{}\"", t.kind(), name);
 
-                        ctx.report_template(
-                            "a section or type definition",
-                            &fmsg,
-                            Branch::Searching,
-                        );
-                    }
-                    _ => {
-                        ctx.advance_tok();
-                        let fmsg = format!("'{}'", t.kind());
-                        ctx.report_template(
-                            "a section or type definition",
-                            &fmsg,
-                            Branch::Searching,
-                        );
-                    }
+                    ctx.report_template("a section or type definition", &fmsg, Branch::Searching);
                 }
-                break;
-            }
+                _ => {
+                    ctx.advance_tok();
+                    let fmsg = format!("'{}'", t.kind());
+                    ctx.report_template("a section or type definition", &fmsg, Branch::Searching);
+                }
+            },
         }
     }
 
@@ -294,12 +271,6 @@ fn parse_var_section(
 
     Ok(type_def)
 }
-
-// macro_rules! check_similar {
-//     ($x:ident) => {
-//
-//     };
-// }
 
 //FIXME: Give ActualType the function instead
 fn parse_type(
@@ -755,12 +726,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>
                 "[Internal] Failed to parse value '{end}'. Although shouldn't be possible."
             );
 
-            ctx.report_verbose(
-                //FIX:
-                &msg,
-                None,
-                Branch::VarCond,
-            );
+            ctx.report_verbose(&msg, None, Branch::VarCond);
             //WARN:
             return Err(Token::Poison);
         })?;
@@ -802,8 +768,8 @@ fn parse_nest_section(
 
     let name_id = ctx.expect_id_verbose(
         TokenKind::Id,
-        "Invalid ",
-        " was found as a reference.",
+        "Expeced a referece to a template, found ",
+        "",
         Branch::Nest,
         interner,
     )?;
@@ -813,26 +779,27 @@ fn parse_nest_section(
     dbg!(interner.search(sym_id.id as usize));
 
     //FIX: Can't report unless I do a quick check first. Fixable.
-    //Maybe type enforce the indexable ids because silent bugs are very possible
+    //Maybe type enforce types for ids because silent bugs are very possible
     let type_def_id = sym_table.get_typedef_id(sym_id).ok_or_else(|| {
-        let name = interner.search(sym_id.id as usize);
+        let err_name = interner.search(sym_id.id as usize);
 
         ctx.report_verbose(
-            &format!("Could not find any type defined with the identifier \"{name}\""),
+            &format!("Could not find any type defined for the reference \"{err_name}\""),
             None,
             Branch::NestType,
         );
 
         Token::Poison
     })?;
-    //FIX: Need a type checker...
 
+    //FIX: Can't option this either because report would call recover, but recover would skip past
+    //the curly bracket, meaning everything would be hallucinated onwards
     let template_id = sym_table.get_template_id(type_def_id).ok_or_else(|| {
         //TODO: Return result and take the result's type to report it
-        let name = interner.search(sym_id.id as usize);
+        let err_name = interner.search(sym_id.id as usize);
 
         ctx.report_verbose(
-            &format!("The symbol \"{name}\" is not defined as a template"),
+            &format!("The symbol \"{err_name}\" is not defined as a template"),
             None,
             Branch::NestType,
         );

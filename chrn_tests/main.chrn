@@ -1,24 +1,27 @@
-// It inifitely skips if no eof is found with /* comments. Fix.
 @def
-
+    let: x ;
+    /*   */ */
     var->
-        //person: Snerson [Range(0..=5), IsEmpty()] #Warn #wextra #scientific
-        name: u32 [Range(0..=5)] #warn
-        hi: i32
-        erson: S|erson
-        //age: u8
-        
-        /*Person {
-            name: u8
-            age: u8
-        } #warn, #wextra*/
-
-    nest->
-        .person {
-            age: i32 #warn #scientific
-            list: List<i32> #warn
-        }
+        le: i3
 @end
+var->
+//person: Snerson [Range(0..=5), IsEmpty()] #Warn #wextra #scientific
+name: u32 [Range(0..=5)] #warn
+hi: i32
+person: S|erson
+//age: u8
+
+/*Person {
+name: u8
+age: u8
+} #warn, #wextra*/
+
+nest->
+// This should not be ignored entirely. Ok this.
+.person {
+age: i32 #warn #scientific|
+         list: List<i32> #warn
+}
     var->
         // Can have no brackets if only one function, otherwise requires it.
     どうも
@@ -54,4 +57,4 @@
 
         }
     }
-}*なぜできないのか？
+}*/

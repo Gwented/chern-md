@@ -11,6 +11,8 @@ pub struct Lexer<'a> {
 }
 
 impl Lexer<'_> {
+    // WARN: The file is fully dependent on being able to lex from a certain point so the @ confirmation
+    // here should MAYBE be removed
     pub fn new(bytes: &[u8], lex_start: usize) -> Lexer<'_> {
         Lexer {
             bytes,
@@ -24,8 +26,7 @@ impl Lexer<'_> {
         // For threshold of illegal tokens before just giving up. Likely 8 cap.
         let mut illegal_toks: u8 = 0;
 
-        // In case of in md file definition
-        // WARN: Remove
+        // Could be removed
         let mut in_def = false;
 
         loop {
@@ -158,7 +159,6 @@ impl Lexer<'_> {
                 b'@' => {
                     // Allows for same behavior even in file with serialized data
                     // TODO: Should this be partially removed? Should @ be preserved?
-                    // The definition isn't required, so it can't just assume.
                     if self.is_def_start() {
                         in_def = true;
                         self.pos += DEFINITION_SIZE;
@@ -169,6 +169,7 @@ impl Lexer<'_> {
                             token: Token::EOF,
                             // Needs - 1 because span is inclusive exclusive
                             // due to how bytes are seen
+                            // Could be from bad decisions...
                             span: Span::new(self.pos, self.pos + DEFINITION_SIZE - 1),
                         });
 
@@ -383,6 +384,7 @@ impl Lexer<'_> {
         let start = self.pos - 1;
 
         //FIXME: Could be more escapes
+        //Should \0 be allowed?
         let escape_sequences = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
 
         while self.pos < self.bytes.len() {
@@ -408,7 +410,7 @@ impl Lexer<'_> {
             }
         }
 
-        //WARN:
+        //WARN: Compenstation for quotes being ignored
         let end = self.pos - 1;
 
         //TODO: Cleaner handle of failure to close string.
@@ -448,7 +450,6 @@ impl Lexer<'_> {
         self.bytes.get(self.pos).copied().unwrap_or(b'\0')
     }
 
-    //FIX: IS THIS REQUIRED NOW?
     fn is_def_start(&self) -> bool {
         if self.pos + 3 > self.bytes.len() {
             return false;
@@ -463,7 +464,6 @@ impl Lexer<'_> {
         false
     }
 
-    //FIX: READ PREVIOUS
     fn is_def_end(&mut self) -> bool {
         if self.pos + 3 > self.bytes.len() {
             return false;
@@ -495,8 +495,8 @@ impl Lexer<'_> {
             self.advance_char();
         }
 
-        //FIX: Concerning...
-        let end = self.pos;
+        //FIX: Normal in comparison to read_id but still a bit concerning
+        let end = self.pos - 1;
 
         println!("out: id={}", &err_str);
 
@@ -533,15 +533,32 @@ impl Lexer<'_> {
         }
     }
 
+    //TODO: Should this keep the depth even though the loader ensures this cant happen?
     fn handle_multi_comment(&mut self) {
-        while self.peek() != b'*' && self.peek_ahead(1) != b'/' {
-            self.advance();
+        let mut depth = 1;
+        // Avoiding recursion...
+        while self.pos < self.bytes.len() && depth > 0 {
+            dbg!(self.peek() as char, self.peek_ahead(1) as char);
+            if self.peek() == b'/' && self.peek_ahead(1) == b'*' {
+                self.skip(1);
+                depth += 1;
+            } else if self.peek() == b'*' && self.peek_ahead(1) == b'/' {
+                self.skip(2);
+                depth -= 1;
+            } else {
+                self.advance();
+            }
+
+            dbg!(self.peek() as char, self.peek_ahead(1) as char);
         }
-        self.skip(2);
+
+        if depth > 0 {
+            eprintln!("Could not find end of multi-line comment");
+        }
     }
 
     // May return byte
-    // BUG: This could be an issue. Many other places alike are present.
+    // WARN: This could be an issue. Many other places alike are present.
     fn skip(&mut self, dest: usize) {
         self.pos += dest;
     }
@@ -565,7 +582,7 @@ impl Lexer<'_> {
         ch
     }
 
-    //TODO: Utf-8 compliance. Broken.
+    //WARN: Compliant, but needs to ensure things to break if utf-8 names can be used
     fn skip_whitespace(&mut self) {
         while self.peek().is_ascii_whitespace() {
             self.advance();

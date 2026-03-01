@@ -2,10 +2,7 @@ use std::collections::HashMap;
 
 use common::symbols::{SymbolId, TypeIdent};
 
-use crate::{
-    parser::error,
-    token::{ActualPrimitives, Template},
-};
+use crate::token::{ActualPrimitives, Template};
 
 //FIXME:
 //MOVE ALL TO COMMON
@@ -26,7 +23,7 @@ pub struct SymbolTable {
     templates: Vec<Template>,
     funcs: Vec<FuncDef>,
     // I know this has more than primitives.
-    type_ids: Vec<ActualPrimitives>,
+    primitives: Vec<ActualPrimitives>,
 }
 
 // trait Typed {}
@@ -49,32 +46,37 @@ impl SymbolTable {
             typedefs: Vec::new(),
             templates: Vec::new(),
             funcs: Vec::new(),
-            type_ids: Vec::new(),
+            primitives: Vec::new(),
         }
     }
 
+    /// Direct reference to `SymbolTable` symbols
     pub(crate) fn symbols(&self) -> &HashMap<u32, Symbol> {
         &self.symbols
     }
 
+    /// Direct reference to `SymbolTable` primitives
     pub(crate) fn type_ids(&self) -> &Vec<ActualPrimitives> {
-        &self.type_ids
+        &self.primitives
     }
+    //TODO: Maybe for all of the inner
 
-    /// Map<i32, Floor> == primitive
+    /// Stores `ActualPrimitives` and returns it's assigned type id
     pub(crate) fn store_primitive(&mut self, actual_type: ActualPrimitives) -> TypeIdent {
-        let type_id = self.type_ids.len();
-        self.type_ids.push(actual_type);
+        let type_id = self.primitives.len();
+        self.primitives.push(actual_type);
 
         TypeIdent::new(type_id as u32)
     }
 
+    /// Stores `TypeDef` and returns it's assigned type id
     pub(crate) fn store_typedef(&mut self, type_def: TypeDef) -> TypeIdent {
         let type_id = self.typedefs.len();
         self.typedefs.push(type_def);
         TypeIdent::new(type_id as u32)
     }
 
+    /// Stores `Template` and returns it's assigned type id
     pub(crate) fn store_template(&mut self, template: Template) -> TypeIdent {
         let type_id = self.templates.len();
         self.templates.push(template);
@@ -82,6 +84,7 @@ impl SymbolTable {
         TypeIdent::new(type_id as u32)
     }
 
+    /// Stores `FuncDef` and returns it's assigned type id
     pub(crate) fn store_func(&mut self, func: FuncDef) -> TypeIdent {
         let sym_id = self.funcs.len();
         self.funcs.push(func);
@@ -89,6 +92,8 @@ impl SymbolTable {
         TypeIdent::new(sym_id as u32)
     }
 
+    /// Stores `Symbol` which doesn't need a particular id since it's only looked up upon a valid
+    /// given identifier
     pub(crate) fn store_symbol(&mut self, sym_id: SymbolId, symbol: Symbol) {
         self.symbols.insert(sym_id.id, symbol);
     }
@@ -102,7 +107,8 @@ impl SymbolTable {
         self.symbols.get_mut(&sym_id.id)
     }
 
-    /// Obtains an id to check before extracting to avoid boilerplate
+    /// ADD THE ERROR NOW
+    /// No
     //FIX: Will return err. All temp.
     pub(crate) fn get_typedef_id(&self, sym_id: SymbolId) -> Option<TypeIdent> {
         let symbol = self.get_symbol(sym_id);
@@ -129,11 +135,11 @@ impl SymbolTable {
     }
 
     pub(crate) fn extract_type(&self, type_id: TypeIdent) -> &ActualPrimitives {
-        &self.type_ids[type_id.id as usize]
+        &self.primitives[type_id.id as usize]
     }
 
     pub(crate) fn extract_type_mut(&mut self, type_id: TypeIdent) -> &mut ActualPrimitives {
-        &mut self.type_ids[type_id.id as usize]
+        &mut self.primitives[type_id.id as usize]
     }
 
     pub(crate) fn extract_typedef(&self, type_id: TypeIdent) -> &TypeDef {
