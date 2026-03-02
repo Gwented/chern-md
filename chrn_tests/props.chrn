@@ -7,7 +7,7 @@ var->
 
 nest->
     .Cat:= {
-        Dog dog = new Dog(); ∀ i ∈ ℕ
+        Dog dog = new Dog(); ∀ i ∈ ℕ ∧
         color: %Color
     }
 

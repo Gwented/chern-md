@@ -13,11 +13,7 @@ use common::intern::Intern;
 use common::primitives::PrimitiveKeywords;
 use common::symbols::{SymbolId, TypeIdent};
 
-pub fn parse(
-    original_text: &[u8],
-    tokens: &Vec<SpannedToken>,
-    interner: &mut Intern,
-) -> SymbolTable {
+pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern) -> SymbolTable {
     let mut sym_table = SymbolTable::new();
 
     let mut ctx = Context::new(original_text, tokens);
@@ -66,6 +62,8 @@ pub fn parse(
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && interner.is_section(name_id)
+                                // Oh my
+                            && ctx.peek_ahead(1).token.kind() != TokenKind::Colon
                         {
                             break;
                         }
@@ -96,6 +94,7 @@ pub fn parse(
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && interner.is_section(name_id)
+                            && ctx.peek_ahead(1).token.kind() != TokenKind::OCurlyBracket
                         {
                             break;
                         }
@@ -207,7 +206,7 @@ fn parse_var_section(
     let name_id = ctx.expect_id_verbose(
         TokenKind::Id,
         "Expected an identifier to declare type, found ",
-        ". |e.g. name: str'|",
+        " |e.g. name: str'|",
         Branch::Var,
         interner,
     )?;
@@ -753,7 +752,7 @@ fn handle_len_func(ctx: &mut Context, interner: &Intern) -> Result<Vec<FuncArgs>
 
 fn parse_nest_section(
     ctx: &mut Context,
-    interner: &mut Intern,
+    interner: &Intern,
     sym_table: &mut SymbolTable,
 ) -> Result<(), Token> {
     ctx.expect_verbose(
@@ -861,7 +860,7 @@ fn parse_nest_section(
 
 fn parse_complex_section(
     ctx: &mut Context,
-    interner: &mut Intern,
+    interner: &Intern,
     sym_table: &mut SymbolTable,
 ) -> Result<Symbol, Token> {
     todo!()

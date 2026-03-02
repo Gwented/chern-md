@@ -4,6 +4,7 @@ use crate::token::{Span, SpannedToken, Token};
 
 /// Known size in bytes for `@def` and `@end`
 const DEFINITION_SIZE: usize = 4;
+const MAX_ILLEGAL_TOKS: u8 = 7;
 
 pub struct Lexer<'a> {
     bytes: &'a [u8],
@@ -32,7 +33,7 @@ impl Lexer<'_> {
         loop {
             self.skip_whitespace();
 
-            if self.peek() == b'\0' || illegal_toks > 5 {
+            if self.peek() == b'\0' {
                 tokens.push(SpannedToken {
                     token: Token::EOF,
                     span: Span::new(self.pos, self.pos),
@@ -185,6 +186,7 @@ impl Lexer<'_> {
                     if self.peek_ahead(1) == b'.' && self.peek_ahead(2) == b'=' {
                         self.skip(2);
 
+                        //TODO: Remove this concept
                         tokens.push(SpannedToken {
                             token: Token::DotRange,
                             span: Span::new(start, end),
@@ -288,25 +290,32 @@ impl Lexer<'_> {
                 _ => {
                     illegal_toks += 1;
 
+                    tokens.push(self.recover_illegal(interner));
                     // TODO: Figure out if this should exist to avoid Java level errors
-                    if illegal_toks > 5 {
-                        eprintln!("Too many illegal tokens.\nAborting...");
+                    if illegal_toks > MAX_ILLEGAL_TOKS {
+                        eprintln!("Maximum illegal tokens found.\nReporting then aborting...");
                         in_def = false;
+                        // Should this just be done at the end of the loop by default?
+                        tokens.push(SpannedToken {
+                            token: Token::EOF,
+                            span: Span::new(self.pos, self.pos),
+                        });
+
                         break;
                     }
-
-                    tokens.push(self.recover_illegal(interner));
                 }
             }
         }
 
-        //FIXME: Illegal tokens are also in a weird position
+        //WARN: This also isn't possible after the loader so may remove
         if in_def {
             // Should abort
             eprintln!("Missing `@end`");
             // panic!();
         }
 
+        dbg!(&tokens);
+        dbg!(&tokens.len());
         tokens
     }
 
@@ -380,7 +389,7 @@ impl Lexer<'_> {
     //FIX: Currently fixing quote offset with - 1 but should likely just return start, end, tok
     fn read_quotes(&mut self, interner: &mut Intern) -> SpannedToken {
         let mut path: Vec<u8> = Vec::with_capacity(10);
-        //WARN: Compenstation for quotes being ignored
+        //WARN: THIS WAS CHANGED SEE IF IT BROKE
         let start = self.pos - 1;
 
         //FIXME: Could be more escapes
@@ -445,7 +454,6 @@ impl Lexer<'_> {
         }
     }
 
-    // Null byte denotes EOF as of now.
     fn peek(&self) -> u8 {
         self.bytes.get(self.pos).copied().unwrap_or(b'\0')
     }
@@ -582,7 +590,7 @@ impl Lexer<'_> {
         ch
     }
 
-    //WARN: Compliant, but needs to ensure things to break if utf-8 names can be used
+    //WARN: Compliant, but needs to ensure things don't break if utf-8 names can be used
     fn skip_whitespace(&mut self) {
         while self.peek().is_ascii_whitespace() {
             self.advance();

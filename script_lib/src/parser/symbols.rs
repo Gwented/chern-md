@@ -134,7 +134,7 @@ impl SymbolTable {
         }
     }
 
-    pub(crate) fn extract_type(&self, type_id: TypeIdent) -> &ActualPrimitives {
+    pub(crate) fn extract_primitive(&self, type_id: TypeIdent) -> &ActualPrimitives {
         &self.primitives[type_id.id as usize]
     }
 
@@ -237,9 +237,9 @@ impl<'a> TryFrom<&'a str> for InnerArgs {
     fn try_from(v: &'a str) -> Result<Self, Self::Error> {
         match v {
             "warn" => Ok(InnerArgs::Warn),
-            "scientific" => Ok(InnerArgs::Scientific),
+            "scient" => Ok(InnerArgs::Scientific),
             "hex" => Ok(InnerArgs::Hex),
-            "binary" => Ok(InnerArgs::Binary),
+            "bin" => Ok(InnerArgs::Binary),
             "octo" => Ok(InnerArgs::Octo),
             v => Err(v),
         }

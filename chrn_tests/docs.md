@@ -36,9 +36,11 @@ NO ALIASES PLEASE NO
 --
 
 
+---- Eliminate one of these
 `~`: Approximation operator acts as a range. Equivalent to: 0 <= x <= 6, 0..=6.
 
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
+-----
 
 '`.`': References past defined variable. `.person:= {..}`
 
@@ -68,7 +70,7 @@ Example:
 ## POSSIBLE FEATURES
 Utilities to alter actual main file, such as trimming all strings.
 
-Attributes ie. `#warn`, `#ign_if` (would remove anything that didn't align under condition rather than crash or warn.) `#scientific`, `#hex`, `#binary`, `#octo`
+Attributes ie. `#warn`, `#ign_if` (would remove anything that didn't align under condition rather than crash or warn.) `#scientific`, `#hex`, `#bin`, `#octo`
 
 Numerics: Binary, hex, octo. Allows for notation to serialize to be a specific notation. Unicode.
 

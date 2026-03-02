@@ -17,8 +17,7 @@ fn main() {
     let (data, lex_start, _) = match FileLoader::new(file).load_config() {
         Ok((data, lex_start, serial_start)) => (data, lex_start, serial_start),
         Err(e) => {
-            eprintln!("Error: {e}");
-            eprintln!("Aborting...");
+            eprintln!("Error: {e}\nAborting...");
             std::process::exit(1);
         }
     };

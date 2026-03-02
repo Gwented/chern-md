@@ -16,40 +16,79 @@ const NC: &str = "\x1b[0m";
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
-const HASH_SYMBOL: u64 = 1 << 0;
-const OBRACKET: u64 = 1 << 1;
+//TEST:
+// A C programmer got lost.
+// const ID: u64 = 1 << 0;
+// const LITERAL: u64 = 1 << 1;
+// const NUMBER: u64 = 1 << 2;
+const O_BRACKET: u64 = 1 << 3;
+// const C_BRACKET: u64 = 1 << 4;
+// const O_CURLY_BRACKET: u64 = 1 << 5;
+// const C_CURLY_BRACKET: u64 = 1 << 6;
+// const QUESTION_MARK: u64 = 1 << 7;
+// const EQUALS: u64 = 1 << 8;
+// const WALRUS: u64 = 1 << 9;
+// const O_ANGLE_BRACKET: u64 = 1 << 10;
+// const C_ANGLE_BRACKET: u64 = 1 << 11;
+const COMMA: u64 = 1 << 12;
+const SLIM_ARROW: u64 = 1 << 13;
+// const SLASH: u64 = 1 << 14;
+const HASH_SYMBOL: u64 = 1 << 15;
+// const DOT_RANGE: u64 = 1 << 16;
+// const PERCENT: u64 = 1 << 17;
+const COLON: u64 = 1 << 18;
+// const O_PAREN: u64 = 1 << 19;
+// const C_PAREN: u64 = 1 << 20;
+// const HYPHEN: u64 = 1 << 21;
+// const EXCLAMATION_POINT: u64 = 1 << 22;
+// const ASTERISK: u64 = 1 << 23;
+// const DOUBLE_QUOTES: u64 = 1 << 24;
+// const TILDE: u64 = 1 << 25;
+// const DOT: u64 = 1 << 26;
+// const VERTICAL_BAR: u64 = 1 << 27;
+const ILLEGAL: u64 = 1 << 28;
+// const POISON: u64 = 1 << 29;
+const EOF: u64 = 1 << 30;
 
-const VAR_BRANCH_SET: u64 = HASH_SYMBOL | OBRACKET;
+// C_ == current. A_ == ahead
 
-//USED:
-const MAX_RETRIES: u8 = 0;
+const C_BASE_EXIT_SET: u64 = EOF | ILLEGAL | HASH_SYMBOL;
+const A_BASE_EXIT_SET: u64 = SLIM_ARROW | COLON;
+
+const C_BRANCH_VAR_SET: u64 = C_BASE_EXIT_SET | O_BRACKET;
+const A_BRANCH_VAR_SET: u64 = A_BASE_EXIT_SET;
+
+const C_BRANCH_VAR_TYPE_SET: u64 = C_BASE_EXIT_SET | O_BRACKET;
+const A_BRANCH_VAR_TYPE_SET: u64 = A_BASE_EXIT_SET;
+
+const C_BRANCH_VAR_COND_SET: u64 = C_BASE_EXIT_SET | COMMA;
+const A_BRANCH_VAR_COND_SET: u64 = A_BASE_EXIT_SET;
+
+const C_BRANCH_VAR_ARGS_SET: u64 = C_BASE_EXIT_SET | COMMA;
+const A_BRANCH_VAR_ARGS_SET: u64 = A_BASE_EXIT_SET;
 
 //FIX: Help is broken (As in very bad)
 //Or add memory instead of having errors the second one is seen. Or just las error. Or Or :=
 // Give it context on branches  gg give it
 #[derive(Debug)]
 pub struct Context<'a> {
-    //TEST:
-    // Seems off since it's directly fighting the ignoring of errors
-    pub(crate) retries: u8,
-    //TEST:
     pub(crate) original_text: &'a [u8],
     pub(crate) tokens: &'a [SpannedToken],
     pub(crate) pos: usize,
     pub(crate) err_vec: Vec<Diagnostic>,
+    pub(crate) should_leave: bool,
     pub(crate) can_color: bool,
 }
 
 // Make more composable or something
-// Make "missing" report that covers common wrong characters to help parser in data structures
 // Fuzzy find?
 // Last token most probable chance of ofo fofofo
 // I'm NOT having context switch branches manually. Please.
 impl<'a> Context<'a> {
     pub fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
         Context {
-            retries: 0,
             original_text,
+            should_leave: false,
             tokens,
             pos: 0,
             err_vec: Vec::new(),
@@ -69,7 +108,7 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
 
         // Leads to EOF being skipped and index out of bounds unless this is done.
-        // WARN: This is a fail safe for logic errors
+        // WARN: IF ANYTHING GOES WRONG ADD THE IF STATEMENTS BACK FOR EOF
         self.pos += 1;
 
         // Maybe just check each individually first so we know it is invalid after.
@@ -98,12 +137,9 @@ impl<'a> Context<'a> {
 
         self.err_vec.push(Diagnostic::new(msg, branch));
 
-        self.retries += 1;
+        self.should_leave = true;
 
-        if self.retries > MAX_RETRIES {
-            self.recover(branch);
-            self.retries = 0;
-        }
+        self.recover(branch);
 
         Err(found.token)
     }
@@ -129,12 +165,9 @@ impl<'a> Context<'a> {
 
         let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}");
 
-        self.retries += 1;
+        self.should_leave = true;
 
-        if self.retries > MAX_RETRIES {
-            self.recover(branch);
-            self.retries = 0;
-        }
+        self.recover(branch);
 
         let report = Diagnostic::new(msg, branch);
 
@@ -155,10 +188,6 @@ impl<'a> Context<'a> {
     ) -> Result<Token, Token> {
         let found = &self.tokens[self.pos];
 
-        // Leads to EOF being skipped and index out of bounds unless this is done.
-        // WARN: This is a fail safe for logic errors
-        // if self.peek_kind() != TokenKind::EOF {
-        // }
         self.pos += 1;
 
         let id_opt = match found.token {
@@ -185,9 +214,6 @@ impl<'a> Context<'a> {
             let msg = if let Some(id) = id_opt {
                 let name = interner.search(id as usize);
 
-                // New line is after since no help would space it out by default
-                // WARN:
-
                 format!(
                     "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
                     found.token.kind()
@@ -201,12 +227,9 @@ impl<'a> Context<'a> {
 
             self.err_vec.push(Diagnostic::new(msg, branch));
 
-            self.retries += 1;
+            self.should_leave = true;
 
-            if self.retries > MAX_RETRIES {
-                self.recover(branch);
-                self.retries = 0;
-            }
+            self.recover(branch);
 
             return Err(found.token);
         }
@@ -228,12 +251,9 @@ impl<'a> Context<'a> {
             "(in {branch})\nExpected {emsg}, found {fmsg}\n|\n|[{ln}:{col}]\n{segment}\n{separator}",
         );
 
-        self.retries += 1;
+        self.should_leave = true;
 
-        if self.retries > MAX_RETRIES {
-            self.recover(branch);
-            self.retries = 0;
-        }
+        self.recover(branch);
 
         let report = Diagnostic::new(msg, Branch::VarTypeArgs);
 
@@ -245,10 +265,6 @@ impl<'a> Context<'a> {
     fn get_location(&self, span: &Span) -> (usize, usize, String) {
         let mut ln = 1;
         let mut col = 1;
-
-        for (i, t) in self.tokens.iter().enumerate() {
-            println!("index {i}: {t:?}");
-        }
 
         let mut b: u8;
 
@@ -289,6 +305,8 @@ impl<'a> Context<'a> {
 
         let segment = &self.original_text[seg_start..seg_end];
 
+        dbg!(seg_start, seg_end);
+
         dbg!(str::from_utf8(segment).unwrap());
 
         //FIX: Should calculate by characters for UTF-1000
@@ -307,12 +325,13 @@ impl<'a> Context<'a> {
 
         let spaces = " ".repeat(space_offset);
 
-        // Tape
         let fmt_segment = if self.can_color {
             format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}")
         } else {
             format!("\t{segment}\n\t{spaces}{arrows}")
         };
+
+        println!("{}", &fmt_segment);
 
         (ln, col, fmt_segment)
     }
@@ -335,55 +354,42 @@ impl<'a> Context<'a> {
     //TODO: Branch specific behavior
     //WARN: WATCH THIS CLOSELY
     fn recover(&mut self, branch: Branch) {
-        //TAPE
-        if branch == Branch::Broken {
-            return;
-        }
+        let (current_target, next_target) = self.match_anchor(branch);
 
-        let target = self.match_anchor(branch);
-        //FIX: SEE IF SELF.POS CHECK IS STILL NEEDED. WAS REMOVED.
         if self.peek_kind() != TokenKind::EOF {
             while self.pos < self.tokens.len() + 2
-                && self.peek_kind() != TokenKind::EOF
-                && self.peek_ahead(1).token.kind() != TokenKind::SlimArrow
-                //WARN:
-                && self.peek_ahead(1).token.kind() != TokenKind::Colon
-                && self.peek_ahead(1).token.kind() != TokenKind::Illegal
-                && self.peek_ahead(1).token.kind() != target
+                && (self.peek_kind().to_u64() & current_target) == 0
+                && (self.peek_ahead(1).token.kind().to_u64() & next_target) == 0
             {
-                dbg!(self.peek_tok());
                 self.advance();
             }
         }
     }
 
-    //FIX: The main issue is it's too restricted for if something should be expected ahead or
-    //after, which makes it hard to appease all anchors.
-    fn match_anchor(&self, branch: Branch) -> TokenKind {
+    // AM I TO ASSUME YOU CAN'T READ TEMPO?
+    fn match_anchor(&self, branch: Branch) -> (u64, u64) {
         match branch {
-            Branch::Broken => TokenKind::Illegal,
-            Branch::Searching => TokenKind::SlimArrow,
-            Branch::Bind => TokenKind::Poison,
-            Branch::Var => TokenKind::HashSymbol,
-            Branch::VarType => TokenKind::HashSymbol,
-            // or Obracket
+            Branch::Broken => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::Searching => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::Bind => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::Var => (C_BRANCH_VAR_SET, A_BRANCH_VAR_SET),
+            Branch::VarType => (C_BRANCH_VAR_TYPE_SET, A_BRANCH_VAR_TYPE_SET),
             // FIX: This fails because condition is not adhering to returning correctly.
-            Branch::VarCond => TokenKind::Poison,
-            // or CBracket, or HashSymbol
-            Branch::VarTypeArgs => TokenKind::HashSymbol,
-            Branch::Nest => TokenKind::Colon,
-            // Colon is a stand in
-            Branch::NestType => TokenKind::Colon,
-            Branch::ComplexRules => todo!(),
+            Branch::VarCond => (C_BRANCH_VAR_COND_SET, A_BRANCH_VAR_COND_SET),
+            Branch::VarTypeArgs => (C_BRANCH_VAR_ARGS_SET, A_BRANCH_VAR_ARGS_SET),
+            Branch::Nest => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::NestType => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::ComplexRules => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
         }
     }
 
     //TEST:
     pub(crate) fn exit_if(&mut self, branch: Branch) -> Result<(), Token> {
-        if self.retries > 0 {
+        if self.should_leave {
             self.recover(branch);
-            self.retries = 0;
         }
+
+        self.should_leave = false;
 
         Ok(())
     }

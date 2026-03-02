@@ -1,15 +1,15 @@
 @def
-    let: x ;
-    /*   */ */
-    var->
-        le: i3
-@end
+    bind -> "@./real_path"
 var->
-//person: Snerson [Range(0..=5), IsEmpty()] #Warn #wextra #scientific
-name: u32 [Range(0..=5)] #warn
-hi: i32
-person: S|erson
-//age: u8
+    expr: S|Expr [!IsEmpty()] ; ; ; ; ; ; ; ;
+    nest->
+    .expr {
+        let: S|Let
+    }
+    .let {
+        var: str
+    }
+@end
 
 /*Person {
 name: u8
@@ -47,7 +47,7 @@ age: i32 #warn #scientific|
             floor: Set<u32>
         }*/
  IM LOST
-/*person {
+person {
     name: "Floor"
     age: 20
     car:= {
@@ -57,4 +57,4 @@ age: i32 #warn #scientific|
 
         }
     }
-}*/
+}

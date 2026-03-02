@@ -9,11 +9,10 @@ mod tests {
 
     use common::{intern::Intern, primitives::PrimitiveKeywords, storage::FileLoader};
 
-    use crate::{lexer::Lexer, parser};
+    use crate::lexer::Lexer;
 
     #[test]
     fn lex_tok_test() {
-        // let text = r#"bind-> "./some/path""#;
         let text = r#"bind-> "./some/path""#;
         dbg!(&text);
 
@@ -77,6 +76,7 @@ mod tests {
         assert_eq!("nest", interner.search(27));
         assert_eq!("complex_rules", interner.search(28));
         assert_eq!("Range", interner.search(29));
+        //WARN: Probably shouldn't be a function
         assert_eq!("IsEmpty", interner.search(30));
     }
 
@@ -84,12 +84,12 @@ mod tests {
     fn multi_line_comment_test() {
         let correct = "
             /* /* */ */
-            "
+        "
         .as_bytes();
 
         let wrong = "
             /* /* */ 
-            "
+        "
         .as_bytes();
 
         let correct = FileLoader::new(correct).load_config();
@@ -103,11 +103,11 @@ mod tests {
     fn start_offset_test() {
         let text = format!("adwh@def var-> int: i32 @endhi");
 
-        let (_, lex_start, start_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let (_, lex_start, serial_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
 
         assert_eq!(&text[4..], &text[lex_start..]);
-        assert_eq!("hi", &text[start_offset..]);
-        assert_eq!(start_offset, 28, "windows.h");
+        assert_eq!("hi", &text[serial_offset..]);
+        assert_eq!(serial_offset, 28, "windows.h");
     }
 
     // #[test]

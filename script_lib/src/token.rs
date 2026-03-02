@@ -215,6 +215,78 @@ impl Display for TokenKind {
     }
 }
 
+// IS THIS EVEN OPTIMAL?
+const ID: u64 = 1 << 0;
+const LITERAL: u64 = 1 << 1;
+const NUMBER: u64 = 1 << 2;
+const O_BRACKET: u64 = 1 << 3;
+const C_BRACKET: u64 = 1 << 4;
+const O_CURLY_BRACKET: u64 = 1 << 5;
+const C_CURLY_BRACKET: u64 = 1 << 6;
+const QUESTION_MARK: u64 = 1 << 7;
+const EQUALS: u64 = 1 << 8;
+const WALRUS: u64 = 1 << 9;
+const O_ANGLE_BRACKET: u64 = 1 << 10;
+const C_ANGLE_BRACKET: u64 = 1 << 11;
+const COMMA: u64 = 1 << 12;
+const SLIM_ARROW: u64 = 1 << 13;
+const SLASH: u64 = 1 << 14;
+const HASH_SYMBOL: u64 = 1 << 15;
+const DOT_RANGE: u64 = 1 << 16;
+const PERCENT: u64 = 1 << 17;
+const COLON: u64 = 1 << 18;
+const O_PAREN: u64 = 1 << 19;
+const C_PAREN: u64 = 1 << 20;
+const HYPHEN: u64 = 1 << 21;
+const EXCLAMATION_POINT: u64 = 1 << 22;
+const ASTERISK: u64 = 1 << 23;
+const DOUBLE_QUOTES: u64 = 1 << 24;
+const TILDE: u64 = 1 << 25;
+const DOT: u64 = 1 << 26;
+const VERTICAL_BAR: u64 = 1 << 27;
+const ILLEGAL: u64 = 1 << 28;
+const POISON: u64 = 1 << 29;
+const EOF: u64 = 1 << 30;
+
+impl TokenKind {
+    pub(crate) fn to_u64(&self) -> u64 {
+        // Ignore this...
+        match self {
+            TokenKind::Id => ID,
+            TokenKind::Literal => LITERAL,
+            TokenKind::Number => NUMBER,
+            TokenKind::OBracket => O_BRACKET,
+            TokenKind::CBracket => C_BRACKET,
+            TokenKind::OCurlyBracket => O_CURLY_BRACKET,
+            TokenKind::CCurlyBracket => C_CURLY_BRACKET,
+            TokenKind::QuestionMark => QUESTION_MARK,
+            TokenKind::Equals => EQUALS,
+            TokenKind::Walrus => WALRUS,
+            TokenKind::OAngleBracket => O_ANGLE_BRACKET,
+            TokenKind::CAngleBracket => C_ANGLE_BRACKET,
+            TokenKind::Comma => COMMA,
+            TokenKind::SlimArrow => SLIM_ARROW,
+            TokenKind::Slash => SLASH,
+            TokenKind::HashSymbol => HASH_SYMBOL,
+            TokenKind::DotRange => DOT_RANGE,
+            TokenKind::Percent => PERCENT,
+            TokenKind::Colon => COLON,
+            TokenKind::OParen => O_PAREN,
+            TokenKind::CParen => C_PAREN,
+            TokenKind::Hyphen => HYPHEN,
+            TokenKind::ExclamationPoint => EXCLAMATION_POINT,
+            TokenKind::Asterisk => ASTERISK,
+            TokenKind::DoubleQuotes => DOUBLE_QUOTES,
+            TokenKind::Tilde => TILDE,
+            TokenKind::Dot => DOT,
+            TokenKind::VerticalBar => VERTICAL_BAR,
+            TokenKind::Illegal => ILLEGAL,
+            TokenKind::Poison => POISON,
+            TokenKind::EOF => EOF,
+        }
+    }
+}
+
 //FIX: Move this
 #[derive(Debug, Clone)]
 pub(crate) struct Span {
@@ -290,10 +362,10 @@ impl ActualPrimitives {
             ActualPrimitives::BigFloat => ActualTypeKind::BigFloat,
             // ActualPrimitives::Template(template) => ActualTypeKind::Template,
             // ActualPrimitives::Definition(type_def) => ActualTypeKind::TypeDef,
-            ActualPrimitives::List(actual_type) => ActualTypeKind::List,
-            ActualPrimitives::Set(actual_type) => ActualTypeKind::Set,
-            ActualPrimitives::Map(actual_type, actual_type1) => ActualTypeKind::Map,
-            ActualPrimitives::Any(actual_type) => ActualTypeKind::Any,
+            ActualPrimitives::List(_) => ActualTypeKind::List,
+            ActualPrimitives::Set(_) => ActualTypeKind::Set,
+            ActualPrimitives::Map(_, _) => ActualTypeKind::Map,
+            ActualPrimitives::Any(_) => ActualTypeKind::Any,
         }
     }
 }
@@ -402,10 +474,9 @@ pub struct EnumTemplate {
     pub(crate) variants: Vec<SymbolId>,
 }
 
-//FIXME: Change match to actual enum name
+//FIXME:
 // No
 // PLEASE change this from a try_from
-// Maybe
 impl TryFrom<u32> for ActualPrimitives {
     type Error = ();
 

@@ -31,7 +31,7 @@ impl<R: Read> FileLoader<R> {
 
         self.handle.fill_buf().or_else(|e| {
             Err(format!(
-                "[Internal] Failed to fill buffer to read definition file: {e}"
+                "Internal Error: Failed to fill buffer to read configuration file\n{e}"
             ))
         })?;
 
@@ -39,7 +39,6 @@ impl<R: Read> FileLoader<R> {
             if b == b'\0' {
                 break;
             }
-            dbg!(b as char);
 
             match b {
                 b'"' => {
@@ -66,14 +65,6 @@ impl<R: Read> FileLoader<R> {
                             lex_start,
                             serial_start,
                         ));
-                    } else if requires_end {
-                        //FIX: Weird wording. Cut out error @ used.
-                        let msg = format!(
-                            "Found illegal '@' usage while loading configuration file after seeing `@def`. (line {})",
-                            self.lines_read
-                        );
-
-                        return Err(msg);
                     }
 
                     if !requires_end
@@ -84,7 +75,8 @@ impl<R: Read> FileLoader<R> {
                     } else if !requires_end {
                         //WARN: Weird wording
                         let msg = format!(
-                            "Found illegal '@' usage while configuration file (line {})",
+                            //FIX: Should print path
+                            "Found illegal '@' usage while reading definition file (line {})",
                             self.lines_read
                         );
                         return Err(msg);
@@ -142,7 +134,6 @@ impl<R: Read> FileLoader<R> {
         while let Some(current_byte) = self.peek()
             && depth > 0
         {
-            dbg!(depth);
             //FIX: Simplify this
             if let Some(next_byte) = self.peek_ahead(1) {
                 if current_byte == b'/' && next_byte == b'*' {
@@ -166,7 +157,6 @@ impl<R: Read> FileLoader<R> {
             ));
         }
 
-        dbg!(depth);
         Ok(())
     }
     // while let Some(a) = self.peek() {
