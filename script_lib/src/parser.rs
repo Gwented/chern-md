@@ -1,20 +1,17 @@
 pub mod ast;
 pub mod context;
 pub mod error;
-pub mod symbols;
 
 use crate::parser::ast::{
     AbstractBind, AbstractEnum, AbstractFunc, AbstractGeneric, AbstractStruct, AbstractType, Call,
     Expr, Generic, Item, TypeExpr, Unary, UnaryOp, Variant,
 };
+use crate::parser::context::Context;
 use crate::parser::error::Branch;
-use crate::{
-    parser::context::Context,
-    token::{SpannedToken, Token, TokenKind},
-};
 use common::intern::Intern;
 use common::primitives::PrimitiveKeywords;
-use common::symbols::{InnerArgs, NameId};
+use common::symbols::{InnerArgs, NameId, SpannedToken};
+use common::token::{Token, TokenKind};
 
 // May be lower
 const MAX_ERRORS: u8 = 3;

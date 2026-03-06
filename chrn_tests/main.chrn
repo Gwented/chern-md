@@ -1,10 +1,9 @@
-@def
-    bind-> "./main.chrn"
-    var->
-        var: i32 #warb #wextra #win #windows #h
+@def var->
+            ども はい
+
     nest->
-        struct Account {
-            balance: BigFloat Range(0,8))] #wall #wextra
+        enum Account {
+            balance: BigFloat Range(0,8))]
         }
 
         /*
@@ -13,7 +12,7 @@
             balance: BigFloat [Range(0,8))] #wall #wextra
         }
      */
-//     ^^^
+//  ^^^
 // Err hallucinates here
 @end
 

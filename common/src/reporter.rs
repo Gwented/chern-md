@@ -1,3 +1,5 @@
+use unicode_width::UnicodeWidthChar;
+
 use crate::symbols::Span;
 
 //FIX: ANSI
@@ -6,71 +8,64 @@ const ORANGE: &str = "\x1b[33m";
 const NC: &str = "\x1b[0m";
 
 //TODO: Handle multi-line errors
-pub fn form_diagnostic(text: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
+// Store \n array for binary search NOT now. DO NOT. do it now.
+// Ok
+
+// FIXME: Given 'a: A "[Range()]' span.end reaches past the line causing a subtract overflow.
+// Handling multi-line will likely fix it
+pub fn form_diagnostic(src: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
     let mut ln = 1;
-    let mut col = 1;
 
     let mut b: u8;
 
     let mut seg_start = 0;
 
-    // todo:
-    // read as char
+    let src_str = str::from_utf8(src).expect("Lexer broke");
+
     for i in 0..span.end {
-        // b = if text[i].is_ascii() {
-        //     text[i]
-        // } else {
-        //     todo!("utf-8 only supported inside of literal");
-        // };
-        b = text[i];
+        b = src[i];
 
         //todo: see if this works on windows
-        //i still haven't checked.
-        if b == b'\r' && text.get(i + 1).copied() == Some(b'\n') {
+        //WARN: Still haven't checked.
+        if b == b'\r' && src.get(i + 1).copied() == Some(b'\n') {
             ln += 1;
-            // offset to skip new line since cannot alter for loop counter directly
-            // should likely just manually loop to avoid odditiy
             seg_start = i + 2;
-            col = 1;
         } else if b == b'\n' {
             ln += 1;
             seg_start = i + 1;
-            col = 1;
-        } else {
-            col += 1;
         }
     }
 
-    // needs offset or will print span.end when span.start is more informational
-    dbg!(&span, col);
-    // FIXME: Given 'a: A "[Range()]' span.end reaches past the line causing a subtract overflow.
-    // Handling multi-line will likely fix it
-    col -= span.end - span.start;
+    let seg_end = get_line_end(src, seg_start);
 
-    let seg_end = get_line_end(text, seg_start);
+    let segment = &src[seg_start..seg_end];
 
-    let segment = &text[seg_start..seg_end];
+    // WARN: Suspicious off by one...
+    let col = src_str[seg_start..span.start].chars().count() + 1;
 
-    //fix: should calculate by characters for utf-1000
-    let segment = str::from_utf8(segment)
-        .expect("[temp] invalid utf-8 although would be impossible after lexer");
+    let str_segment = str::from_utf8(segment).expect("Lexer broke");
 
-    // span range is inclusive exclusive so final character is missed otherwise
-    // has no other mathematical outside of this
-    let span_diff_offset = span.end - span.start + 1;
-
-    let arrows = "^".repeat(span_diff_offset);
-
-    // spaces need to be proportional to the current line's size therefore it must
-    // stay inside the range.
-    let space_offset = text[seg_start..span.start].len();
+    // Could both of these look less odd?
+    let space_offset = src_str[seg_start..span.start]
+        .chars()
+        .map(|c| UnicodeWidthChar::width(c).unwrap_or(0))
+        .sum();
 
     let spaces = " ".repeat(space_offset);
 
+    // span range is inclusive exclusive so final character is missed without + 1
+    // Has no other mathematical reasoning outside of this
+    let arrow_offset = src_str[span.start..span.end + 1]
+        .chars()
+        .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
+        .sum();
+
+    let arrows = "^".repeat(arrow_offset);
+
     let fmt_segment = if can_color {
-        format!("\t{segment}\n\t{spaces}{RED}{arrows}{NC}")
+        format!("\t{str_segment}\n\t{spaces}{RED}{arrows}{NC}")
     } else {
-        format!("\t{segment}\n\t{spaces}{arrows}")
+        format!("\t{str_segment}\n\t{spaces}{arrows}")
     };
 
     println!("{}", &fmt_segment);
@@ -98,7 +93,8 @@ fn get_line_end(original_text: &[u8], start: usize) -> usize {
 //
 // }
 
-//TEST: HELP TEST
+pub fn form_help_diagnostic(text: &[u8], span: &Span, can_color: bool) {}
+
 pub fn form_help(msg: &str, can_color: bool) -> String {
     if can_color {
         format!("{ORANGE}Help{NC}: {msg}\n")

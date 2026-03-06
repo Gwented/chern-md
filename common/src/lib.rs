@@ -3,3 +3,4 @@ pub mod primitives;
 pub mod reporter;
 pub mod storage;
 pub mod symbols;
+pub mod token;

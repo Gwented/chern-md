@@ -1,11 +1,13 @@
 use std::io::IsTerminal;
 
-use common::{intern::Intern, reporter};
-
-use crate::{
-    parser::error::{Branch, Diagnostic},
-    token::{SpannedToken, Token, TokenKind},
+use common::{
+    intern::Intern,
+    reporter,
+    symbols::{Span, SpannedToken},
+    token::{Token, TokenKind},
 };
+
+use crate::parser::error::{Branch, Diagnostic};
 //TODO: A struct that contains something like the branch, and error type instead of params
 
 /// Amount of '-' to print for multiple error separation
@@ -38,7 +40,7 @@ const C_PAREN: u64 = 1 << 20;
 // const ASTERISK: u64 = 1 << 23;
 // const DOUBLE_QUOTES: u64 = 1 << 24;
 // const TILDE: u64 = 1 << 25;
-const DOT: u64 = 1 << 26;
+// const DOT: u64 = 1 << 26;
 // const VERTICAL_BAR: u64 = 1 << 27;
 const ILLEGAL: u64 = 1 << 28;
 // const POISON: u64 = 1 << 29;
@@ -75,7 +77,6 @@ const C_BRANCH_NEST_TYPE: u64 = C_BASE_EXIT_SET | C_CURLY_BRACKET;
 const C_BRANCH_VAR_FUNC_SET: u64 = C_BASE_EXIT_SET | C_PAREN;
 const A_BRANCH_VAR_FUNC_SET: u64 = A_BASE_EXIT_SET | C_BRACKET;
 
-//FIX: Help is broken (As in very bad)
 #[derive(Debug)]
 pub struct Context<'a> {
     original_text: &'a [u8],
@@ -83,8 +84,6 @@ pub struct Context<'a> {
     pub(crate) pos: usize,
     pub(crate) err_vec: Vec<Diagnostic>,
     can_color: bool,
-    //TEST:
-    //TEST:
 }
 
 // Fuzzy find?
@@ -264,7 +263,7 @@ impl<'a> Context<'a> {
         // dbg!(self.peek_tok());
     }
 
-    // AM I TO ASSUME YOU CAN'T READ TEMPO?
+    // AM I TO ASSUME YOU CANNOT READ TEMPO?
     fn match_anchor(&self, branch: Branch) -> (u64, u64) {
         match branch {
             Branch::Broken => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
@@ -291,13 +290,18 @@ impl<'a> Context<'a> {
         found: TokenKind,
         branch: Branch,
     ) -> Option<String> {
-        let prev_tok = self.tokens.get(self.pos - 2)?.clone();
+        let prev_tok = self.tokens.get(self.pos.saturating_sub(2))?.clone();
         let prev_kind = prev_tok.token.kind();
 
         match branch {
             Branch::VarType => match found {
                 TokenKind::OParen if expected == TokenKind::Colon => {
                     let msg = "Is this missing '[' to define conditions?";
+                    // TODO: Correctly align arrows when given non-ascii
+                    // dbg!(prev_kind);
+                    // let start = prev_tok.span.start - 1;
+                    // let span = Span::new(start, start);
+                    // dbg!(span);
                     let help = reporter::form_help(msg, self.can_color);
 
                     Some(help)

@@ -1,16 +1,10 @@
 use std::fmt::Display;
 
-use common::symbols::{Cond, InnerArgs, Span, TypeIdent};
-
-#[derive(Debug, Clone)]
-pub struct SpannedToken {
-    pub(crate) token: Token,
-    pub(crate) span: Span,
-}
+use crate::symbols::TypeIdent;
 
 // WARN: TEMP
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Token {
+pub enum Token {
     Id(u32),
     Literal(u32),
     Number(u32),
@@ -85,7 +79,7 @@ impl Token {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub(crate) enum TokenKind {
+pub enum TokenKind {
     Id,
     Literal,
     // START OF TYPES
@@ -247,7 +241,7 @@ const POISON: u64 = 1 << 29;
 const EOF: u64 = 1 << 30;
 
 impl TokenKind {
-    pub(crate) fn to_u64(&self) -> u64 {
+    pub fn to_u64(&self) -> u64 {
         // Ignore this...
         match self {
             TokenKind::Id => ID,
