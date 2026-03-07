@@ -1,7 +1,7 @@
 @def
 var->
     name: str
-    person: 32
+    person: i32
 
 nest->
     struct Person {
@@ -15,9 +15,9 @@ nest->
             balance: BigFloat [Range(0,8))] #wall #wextra
 
         }
-     */
-//  ^^^
+//     ^^^
 // Err hallucinates here
+     */
 @end
 
         enum State {Ready(Account) InProgress Failed}

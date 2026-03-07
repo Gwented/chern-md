@@ -8,10 +8,11 @@ use crate::parser::ast::{
 };
 use crate::parser::context::Context;
 use crate::parser::error::Branch;
+use crate::symbols::SpannedToken;
+use crate::token::{Token, TokenKind};
 use common::intern::Intern;
 use common::primitives::PrimitiveKeywords;
-use common::symbols::{InnerArgs, NameId, SpannedToken};
-use common::token::{Token, TokenKind};
+use common::symbols::{InnerArgs, NameId};
 
 // May be lower
 const MAX_ERRORS: u8 = 3;

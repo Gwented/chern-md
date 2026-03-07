@@ -1,8 +1,6 @@
-use common::{
-    intern::Intern,
-    symbols::{Span, SpannedToken},
-    token::Token,
-};
+use common::{intern::Intern, symbols::Span};
+
+use crate::{symbols::SpannedToken, token::Token};
 
 /// Known size in bytes for `@def` and `@end`
 const DEFINITION_SIZE: usize = 4;

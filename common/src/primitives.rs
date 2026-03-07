@@ -1,4 +1,49 @@
-// Turn to macro or , or := := :=
+pub const INTRINSICS_ARRAY: [&str; 37] = [
+    // primitives
+    "i8", // 0
+    "u8",
+    "i16",
+    "u16",
+    "f16", // 4
+    "i32",
+    "u32", // 6
+    "f32",
+    "i64", // 8
+    "u64",
+    "f64", // 10
+    "i128",
+    "u128", // 12
+    "f128",
+    "sized", // 14
+    "unsized",
+    "char", // 16
+    "str",
+    "bool", // 18
+    "nil",
+    "BigInt", // 20
+    "BigFloat",
+    "List",
+    "Map",
+    "Set", // 24
+    // structures
+    "struct",
+    "enum", // 26
+    // Section names
+    "bind",
+    "var", // 28
+    "nest",
+    "complex", // 30
+    // Directives
+    "IsEmpty",
+    "IsWhitespace", // 32
+    "Range",
+    "StartsW", // 34
+    "EndsW",
+    "Contains", // 36
+];
+
+// Keep a compact enum for code that prefers typed keyword identifiers.
+#[repr(u32)]
 pub enum PrimitiveKeywords {
     I8 = 0,
     U8 = 1,
@@ -38,7 +83,6 @@ pub enum PrimitiveKeywords {
     EndsW = 35,
     Contains = 36,
 }
-//FIX: Maybe should reserve function names for checks
 
 impl PrimitiveKeywords {
     pub fn from_id(id: u32) -> Option<PrimitiveKeywords> {
@@ -68,7 +112,6 @@ impl PrimitiveKeywords {
             22 => Some(PrimitiveKeywords::List),
             23 => Some(PrimitiveKeywords::Map),
             24 => Some(PrimitiveKeywords::Set),
-            //TODO:
             25 => Some(PrimitiveKeywords::Struct),
             26 => Some(PrimitiveKeywords::Enum),
             27 => Some(PrimitiveKeywords::Bind),
@@ -84,4 +127,12 @@ impl PrimitiveKeywords {
             _ => None,
         }
     }
+}
+
+pub fn is_primitive_id(id: usize) -> bool {
+    id <= 24
+}
+
+pub fn is_section_id(id: usize) -> bool {
+    (27..=30).contains(&id)
 }

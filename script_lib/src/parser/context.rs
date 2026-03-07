@@ -1,81 +1,49 @@
 use std::io::IsTerminal;
 
-use common::{
-    intern::Intern,
-    reporter,
-    symbols::{Span, SpannedToken},
-    token::{Token, TokenKind},
-};
+use common::{intern::Intern, reporter, symbols::Span};
 
-use crate::parser::error::{Branch, Diagnostic};
+use crate::{
+    parser::error::{Branch, Diagnostic},
+    symbols::SpannedToken,
+    token::{self, Token, TokenKind},
+};
 //TODO: A struct that contains something like the branch, and error type instead of params
 
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
 // A C programmer got lost.
-// const ID: u64 = 1 << 0;
-// const LITERAL: u64 = 1 << 1;
-// const NUMBER: u64 = 1 << 2;
-const O_BRACKET: u64 = 1 << 3;
-const C_BRACKET: u64 = 1 << 4;
-// const O_CURLY_BRACKET: u64 = 1 << 5;
-const C_CURLY_BRACKET: u64 = 1 << 6;
-// const QUESTION_MARK: u64 = 1 << 7;
-// const EQUALS: u64 = 1 << 8;
-// const WALRUS: u64 = 1 << 9;
-// const O_ANGLE_BRACKET: u64 = 1 << 10;
-// const C_ANGLE_BRACKET: u64 = 1 << 11;
-const COMMA: u64 = 1 << 12;
-const SLIM_ARROW: u64 = 1 << 13;
-// const SLASH: u64 = 1 << 14;
-const HASH_SYMBOL: u64 = 1 << 15;
-// const DOT_RANGE: u64 = 1 << 16;
-// const PERCENT: u64 = 1 << 17;
-const COLON: u64 = 1 << 18;
-// const O_PAREN: u64 = 1 << 19;
-const C_PAREN: u64 = 1 << 20;
-// const HYPHEN: u64 = 1 << 21;
-// const EXCLAMATION_POINT: u64 = 1 << 22;
-// const ASTERISK: u64 = 1 << 23;
-// const DOUBLE_QUOTES: u64 = 1 << 24;
-// const TILDE: u64 = 1 << 25;
-// const DOT: u64 = 1 << 26;
-// const VERTICAL_BAR: u64 = 1 << 27;
-const ILLEGAL: u64 = 1 << 28;
-// const POISON: u64 = 1 << 29;
-const EOF: u64 = 1 << 30;
 
 // C_ == current. A_ == ahead
 
 // ALL SET LOGIC AND PARSE LOGIC NEED TO WORK WITH EACH OTHER
 // TODO:  Readjust Sets for new behavior
 
-const C_BASE_EXIT_SET: u64 = EOF | ILLEGAL | C_CURLY_BRACKET;
-const A_BASE_EXIT_SET: u64 = SLIM_ARROW;
+const C_BASE_EXIT_SET: u64 = token::EOF | token::ILLEGAL | token::C_CURLY_BRACKET;
+const A_BASE_EXIT_SET: u64 = token::SLIM_ARROW;
 
-const C_BRANCH_VAR_SET: u64 = C_BASE_EXIT_SET | O_BRACKET;
-const A_BRANCH_VAR_SET: u64 = A_BASE_EXIT_SET | COLON;
+const C_BRANCH_VAR_SET: u64 = C_BASE_EXIT_SET | token::O_BRACKET;
+const A_BRANCH_VAR_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
 // WARN: NestType should probably be responsible for C_CURLY but maybe not
-const C_BRANCH_VAR_TYPE_SET: u64 = C_BASE_EXIT_SET | O_BRACKET | HASH_SYMBOL;
-const A_BRANCH_VAR_TYPE_SET: u64 = A_BASE_EXIT_SET | COLON;
+const C_BRANCH_VAR_TYPE_SET: u64 = C_BASE_EXIT_SET | token::O_BRACKET | token::HASH_SYMBOL;
+const A_BRANCH_VAR_TYPE_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
 // Probably shouldn't account for hash symbol since it is not apart of the loop
-const C_BRANCH_VAR_COND_SET: u64 = C_BASE_EXIT_SET | HASH_SYMBOL;
-const A_BRANCH_VAR_COND_SET: u64 = A_BASE_EXIT_SET | COLON;
+const C_BRANCH_VAR_COND_SET: u64 = C_BASE_EXIT_SET | token::HASH_SYMBOL;
 
-const C_BRANCH_VAR_ARGS_SET: u64 = C_BASE_EXIT_SET | HASH_SYMBOL;
-const A_BRANCH_VAR_ARGS_SET: u64 = A_BASE_EXIT_SET | COLON;
+const A_BRANCH_VAR_COND_SET: u64 = A_BASE_EXIT_SET | token::COLON;
+const C_BRANCH_VAR_ARGS_SET: u64 = C_BASE_EXIT_SET | token::HASH_SYMBOL;
+const A_BRANCH_VAR_ARGS_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
 // TODO: Unsure if there's a possibility to stop this from hallucinating '}'
 const C_BRANCH_NEST_SET: u64 = C_BASE_EXIT_SET;
 
-const C_BRANCH_NEST_TYPE: u64 = C_BASE_EXIT_SET | C_CURLY_BRACKET;
+const C_BRANCH_NEST_TYPE: u64 = C_BASE_EXIT_SET | token::C_CURLY_BRACKET;
 
 // May remove since these are destructive
-const C_BRANCH_VAR_FUNC_SET: u64 = C_BASE_EXIT_SET | C_PAREN;
-const A_BRANCH_VAR_FUNC_SET: u64 = A_BASE_EXIT_SET | C_BRACKET;
+const C_BRANCH_VAR_FUNC_SET: u64 = C_BASE_EXIT_SET | token::C_PAREN;
+const A_BRANCH_VAR_FUNC_SET: u64 = A_BASE_EXIT_SET | token::C_BRACKET;
 
 #[derive(Debug)]
 pub struct Context<'a> {

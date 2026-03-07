@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::symbols::TypeIdent;
+use common::symbols::TypeIdent;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Token {
@@ -207,37 +207,38 @@ impl Display for TokenKind {
 }
 
 // IS THIS EVEN OPTIMAL?
-const ID: u64 = 1 << 0;
-const LITERAL: u64 = 1 << 1;
-const NUMBER: u64 = 1 << 2;
-const O_BRACKET: u64 = 1 << 3;
-const C_BRACKET: u64 = 1 << 4;
-const O_CURLY_BRACKET: u64 = 1 << 5;
-const C_CURLY_BRACKET: u64 = 1 << 6;
-const QUESTION_MARK: u64 = 1 << 7;
-const EQUALS: u64 = 1 << 8;
-const WALRUS: u64 = 1 << 9;
-const O_ANGLE_BRACKET: u64 = 1 << 10;
-const C_ANGLE_BRACKET: u64 = 1 << 11;
-const COMMA: u64 = 1 << 12;
-const SLIM_ARROW: u64 = 1 << 13;
-const SLASH: u64 = 1 << 14;
-const HASH_SYMBOL: u64 = 1 << 15;
-const DOT_RANGE: u64 = 1 << 16;
-const PERCENT: u64 = 1 << 17;
-const COLON: u64 = 1 << 18;
-const O_PAREN: u64 = 1 << 19;
-const C_PAREN: u64 = 1 << 20;
-const HYPHEN: u64 = 1 << 21;
-const EXCLAMATION_POINT: u64 = 1 << 22;
-const ASTERISK: u64 = 1 << 23;
-const DOUBLE_QUOTES: u64 = 1 << 24;
-const TILDE: u64 = 1 << 25;
-const DOT: u64 = 1 << 26;
-const VERTICAL_BAR: u64 = 1 << 27;
-const ILLEGAL: u64 = 1 << 28;
-const POISON: u64 = 1 << 29;
-const EOF: u64 = 1 << 30;
+// I DID NOT KNOW ABOUT PUB CONST AT ALL
+pub const ID: u64 = 1 << 0;
+pub const LITERAL: u64 = 1 << 1;
+pub const NUMBER: u64 = 1 << 2;
+pub const O_BRACKET: u64 = 1 << 3;
+pub const C_BRACKET: u64 = 1 << 4;
+pub const O_CURLY_BRACKET: u64 = 1 << 5;
+pub const C_CURLY_BRACKET: u64 = 1 << 6;
+pub const QUESTION_MARK: u64 = 1 << 7;
+pub const EQUALS: u64 = 1 << 8;
+pub const WALRUS: u64 = 1 << 9;
+pub const O_ANGLE_BRACKET: u64 = 1 << 10;
+pub const C_ANGLE_BRACKET: u64 = 1 << 11;
+pub const COMMA: u64 = 1 << 12;
+pub const SLIM_ARROW: u64 = 1 << 13;
+pub const SLASH: u64 = 1 << 14;
+pub const HASH_SYMBOL: u64 = 1 << 15;
+pub const DOT_RANGE: u64 = 1 << 16;
+pub const PERCENT: u64 = 1 << 17;
+pub const COLON: u64 = 1 << 18;
+pub const O_PAREN: u64 = 1 << 19;
+pub const C_PAREN: u64 = 1 << 20;
+pub const HYPHEN: u64 = 1 << 21;
+pub const EXCLAMATION_POINT: u64 = 1 << 22;
+pub const ASTERISK: u64 = 1 << 23;
+pub const DOUBLE_QUOTES: u64 = 1 << 24;
+pub const TILDE: u64 = 1 << 25;
+pub const DOT: u64 = 1 << 26;
+pub const VERTICAL_BAR: u64 = 1 << 27;
+pub const ILLEGAL: u64 = 1 << 28;
+pub const POISON: u64 = 1 << 29;
+pub const EOF: u64 = 1 << 30;
 
 impl TokenKind {
     pub fn to_u64(&self) -> u64 {

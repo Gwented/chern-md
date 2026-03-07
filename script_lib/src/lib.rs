@@ -2,11 +2,17 @@ pub mod analyzer;
 pub mod lexer;
 pub mod linter;
 pub mod parser;
+pub mod symbols;
+pub mod token;
 
 #[cfg(test)]
 mod tests {
 
-    use common::{intern::Intern, primitives::PrimitiveKeywords, storage::FileLoader};
+    use common::{
+        intern::Intern,
+        primitives::{self, PrimitiveKeywords},
+        storage::FileLoader,
+    };
 
     use crate::lexer::Lexer;
 
@@ -117,7 +123,10 @@ mod tests {
         );
 
         // Uh
-        assert_eq!(36, PrimitiveKeywords::Contains as usize);
+        assert_eq!(
+            primitives::INTRINSICS_ARRAY.len() - 1,
+            PrimitiveKeywords::Contains as usize
+        );
     }
 
     #[test]

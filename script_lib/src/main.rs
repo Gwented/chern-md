@@ -29,10 +29,10 @@ fn main() {
 
     let ast = parser::parse(&data, &toks, &mut interner);
 
-    linter::print_all(&ast, &interner);
     let stuff = Analyzer::new(&ast, &interner);
 
     //TODO: Make linter lint not print
+    linter::print_all(&ast, &interner);
 
     println!("{} ms", start.elapsed().as_millis());
 }
