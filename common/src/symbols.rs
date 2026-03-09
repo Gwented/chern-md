@@ -1,11 +1,18 @@
-use std::collections::HashMap;
-
-//FIXME:
-//MOVE ALL BACK TO SCRIPT
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// Suspicious hash
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SymbolId {
     pub id: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AstId {
+    pub id: u32,
+}
+
+impl AstId {
+    pub fn new(id: u32) -> AstId {
+        AstId { id }
+    }
 }
 
 impl SymbolId {
@@ -32,17 +39,18 @@ impl From<u32> for TypeIdent {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScopeId {
-    pub id: u32,
-}
-impl ScopeId {
-    pub fn new(id: u32) -> ScopeId {
-        ScopeId { id }
-    }
-}
+// FIXME: Does not seem needed since there are no functions only definitions.
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// pub struct ScopeId {
+//     pub id: u32,
+// }
+// impl ScopeId {
+//     pub fn new(id: u32) -> ScopeId {
+//         ScopeId { id }
+//     }
+// }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NameId {
     pub id: u32,
 }
@@ -61,6 +69,50 @@ pub struct FuncId {
 impl FuncId {
     pub fn new(id: u32) -> FuncId {
         FuncId { id }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnumId {
+    pub id: u32,
+}
+
+impl EnumId {
+    pub fn new(id: u32) -> EnumId {
+        EnumId { id }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StructId {
+    pub id: u32,
+}
+
+impl StructId {
+    pub fn new(id: u32) -> StructId {
+        StructId { id }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PrimitiveId {
+    pub id: u32,
+}
+
+impl PrimitiveId {
+    pub fn new(id: u32) -> PrimitiveId {
+        PrimitiveId { id }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TypeDefId {
+    pub id: u32,
+}
+
+impl TypeDefId {
+    pub fn new(id: u32) -> TypeDefId {
+        TypeDefId { id }
     }
 }
 
@@ -112,39 +164,3 @@ impl<'a> TryFrom<&'a str> for InnerArgs {
         }
     }
 }
-
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub struct TemplateId {
-//     pub id: u32,
-// }
-//
-// impl TemplateId {
-//     pub fn new(id: u32) -> TemplateId {
-//         TemplateId { id }
-//     }
-// }
-//
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub struct TypeDefId {
-//     pub id: u32,
-// }
-//
-// impl TypeDefId {
-//     pub fn new(id: u32) -> TypeDefId {
-//         TypeDefId { id }
-//     }
-// }
-
-// pub struct TypedTypeId<T> {
-//     pub id: u32,
-//     _phantom_data: PhantomData<T>,
-// }
-//
-// impl<T> TypedTypeId<T> {
-//     pub fn new(type_id: u32) -> TypedTypeId<T> {
-//         TypedTypeId {
-//             id: type_id,
-//             _phantom_data: PhantomData,
-//         }
-//     }
-// }

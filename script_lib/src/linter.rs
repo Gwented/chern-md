@@ -1,22 +1,20 @@
-use common::{
-    intern::Intern,
-    symbols::{Cond, InnerArgs},
-};
+use common::{intern::Intern, symbols::InnerArgs};
 
-use crate::parser::ast::{AbstractType, Expr, Item, TypeExpr, Variant};
+use crate::parser::ast::{AbstractTypeDef, AbstractVariant, Expr, Item, Program, TypeExpr};
 
 //WARN: FOR SANITY PURPOSES
-pub fn print_all(ast: &Vec<Item>, interner: &Intern) {
+pub fn print_all(program: &Program, interner: &Intern) {
     let indent = 4;
     let spaces = " ".repeat(indent);
 
-    for item in ast {
+    if let Some(name_id) = program.bind {
+        let name = interner.search(name_id.id as usize);
+
+        println!("bind = {name}");
+    }
+
+    for item in &program.items {
         match item {
-            Item::Bind(bind) => {
-                let name = interner.search(bind.name_id.id as usize);
-                println!("Bind [\n{spaces}{name}");
-                println!("]");
-            }
             Item::Var(ty) => {
                 let name = interner.search(ty.name_id.id as usize);
                 println!("TypeDef {name} [");
@@ -86,11 +84,12 @@ fn print_type(ty: &TypeExpr, indent: usize, interner: &Intern) {
     }
 }
 
-fn print_fields(fields: &Vec<AbstractType>, indent: usize, interner: &Intern) {
+//WARN: Did not properly create recursive this.doThat() entry point
+fn print_fields(fields: &Vec<AbstractTypeDef>, indent: usize, interner: &Intern) {
     for ty in fields {}
 }
 
-fn print_variants(variants: &Vec<Variant>, indent: usize, interner: &Intern) {
+fn print_variants(variants: &Vec<AbstractVariant>, indent: usize, interner: &Intern) {
     let spaces = " ".repeat(indent);
 
     for variant in variants {
@@ -127,7 +126,6 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
             Expr::Number(num) => {
                 println!("{spaces}number: {num}")
             }
-            // I honestly don't know what I'm looking at
             Expr::Literal(name_id) => {
                 let name = interner.search(name_id.id as usize);
                 println!("{spaces}{name}")
@@ -149,6 +147,15 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
                     let name = interner.search(name_id.id as usize);
                     println!("{spaces}{name}");
                 }
+
+                println!("{spaces}]");
+            }
+            Expr::FieldAccess(field_access) => {
+                println!("{spaces}FieldAccess [");
+                let field_name = interner.search(field_access.field.id as usize);
+
+                println!("{spaces}{field_name}");
+                print_exprs(conds, indent, interner);
 
                 println!("{spaces}]");
             }

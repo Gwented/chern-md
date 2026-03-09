@@ -10,22 +10,21 @@ LANGUAGE BLOAT >>>>>>>
 ## [Types]
 i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,
-char, bool, (maybe capital) str, S|Struct/E|Enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
+char, bool, (maybe capital) str, struct, enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
 
-S| for structure of data.
-E| for Enum type.
+`struct` for a structure of data.
+`enum` for Enum type which can hold data with `Ready(Data)` syntax.
 
 ## [Operators]
+# MIGHT EXIST
 `!`: Not operator.
 
-Doesn't exist
+# MIGHT EXIST
 `||`: Or operator.
 
 `?`: Infers type and expects type consistency throughout entire `.chrn` file.  Name affects nothing.
 Can be used as "I don't know" for the naming so it doesn't matter. Exmpl: name?: ? (likely illegal)
 Maybe inference only works if there is one of one type? (WHAT DOES THAT MEAN?)
-
-(may remove)-> Can be used in struct definition to perform the same check, but also allows for the name after for clarity.
 
 -- After instruction.
 `!?`: Self declaring type inference that then alters props file.
@@ -41,9 +40,6 @@ NO ALIASES PLEASE NO
 
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
 -----
-
-'`.`': References past defined variable. `.person:= {..}`
-
 
 ## [Predicates]
 `IsEmpty`: Checks if the given array or string within is empty.
@@ -61,16 +57,33 @@ NO ALIASES PLEASE NO
 `bind`: Sets the `.chrn` file to affirm the syntax of. (or `attach`, `find`)
 A bind call within the actual file with serialized data takes precedence.
 
-`var`: Definition of syntax to align while serializing and deserializing.
+`var->`: Front facing definitions of the data to be serialized or deserialized.
 
-`default_override`: What to default to when a language doesn't contain a particular type.
+```chrn
+// If we have struct Person, it would look like
+var->
+    name: str
+    age: u8
+
+// But given nested data such as
+    account: Account
+
+// it would need a nest-> section
+```
+```
+```
+
+`nest->`: Define structs and enums **STRICTLY** within nest sections.
+
+# DOES NOT EXIST YET
+`override->`: What to default to when a language doesn't contain a particular type.
 There is also a "like" category. A "JAVA_LIKE" category would have all of the int, short, logic for a batch of languages.
 
-`complex_rules`: Define complex rules such as enum bounds.
+# DOES NOT EXIST YET
+`complex->`: Define complex rules such as enum bounds.
 Example:
-    complex_rules:
-        .age = ~5
-        .state = ~6
+    complex:
+        State.variants = 5
 
 ## POSSIBLE FEATURES
 Utilities to alter actual main file, such as trimming all strings.

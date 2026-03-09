@@ -1,17 +1,17 @@
 use std::fmt::Display;
 
 #[derive(Debug)]
-// I'm new to thinking. Anyone have some beginner thoughts?
+// Override errors maybe if I get more context that the hard-coded portion?
 pub struct Diagnostic {
     //FIX:
-    pub(crate) msg: String,
-    pub(crate) branch: Branch,
+    pub(super) msg: String,
+    pub(super) branch: Branch,
     // Maybe help
     // pub(crate) help: Option<String>
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum Branch {
+pub(super) enum Branch {
     Broken,
     Searching,
     Bind,
@@ -46,7 +46,7 @@ impl Display for Branch {
 }
 
 impl Diagnostic {
-    pub(crate) fn new(msg: String, branch: Branch) -> Diagnostic {
+    pub(super) fn new(msg: String, branch: Branch) -> Diagnostic {
         Diagnostic { msg, branch }
     }
 }

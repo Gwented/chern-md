@@ -45,7 +45,6 @@ impl Lexer<'_> {
 
             let ch = self.peek_char();
 
-            dbg!(ch as char);
             match ch {
                 // TEST: Whitespace is skipped beforehand meaning if it's not ascii it actually has
                 // to be a character anyways, I think.
@@ -312,7 +311,6 @@ impl Lexer<'_> {
             panic!();
         }
 
-        dbg!(&tokens);
         tokens
     }
 
@@ -320,9 +318,7 @@ impl Lexer<'_> {
         let mut ident = Vec::with_capacity(4);
 
         let start = self.pos;
-        dbg!(self.bytes[start] as char);
 
-        //FIXME: Utf-8 compliance. Maybe.
         while self.pos < self.bytes.len() && self.peek_char().is_alphanumeric()
             || self.peek() == b'_'
         {
@@ -420,7 +416,6 @@ impl Lexer<'_> {
             };
         }
 
-        dbg!(&path);
         let path_res = str::from_utf8(path.as_slice());
 
         match path_res {
@@ -466,7 +461,6 @@ impl Lexer<'_> {
         }
 
         let possible_end = &self.bytes[self.pos..=self.pos + 3];
-        dbg!(str::from_utf8(&possible_end).unwrap());
 
         if possible_end == "@end".as_bytes() {
             return true;
@@ -475,7 +469,6 @@ impl Lexer<'_> {
         false
     }
 
-    //FIX: POSITION UTF-8 is off by one Why?
     fn recover_illegal(&mut self, interner: &mut Intern) -> SpannedToken {
         let start = self.pos;
 
@@ -494,8 +487,6 @@ impl Lexer<'_> {
         println!("out: id={}", &err_str);
 
         let id = interner.intern(&err_str);
-
-        dbg!(Span::new(start, end));
 
         SpannedToken {
             token: Token::Illegal(id),
@@ -532,7 +523,6 @@ impl Lexer<'_> {
         let mut depth = 1;
         // Avoiding recursion...
         while self.pos < self.bytes.len() && depth > 0 {
-            dbg!(self.peek() as char, self.peek_ahead(1) as char);
             if self.peek() == b'/' && self.peek_ahead(1) == b'*' {
                 self.skip(1);
                 depth += 1;
@@ -542,8 +532,6 @@ impl Lexer<'_> {
             } else {
                 self.advance();
             }
-
-            dbg!(self.peek() as char, self.peek_ahead(1) as char);
         }
 
         if depth > 0 {
@@ -575,7 +563,6 @@ impl Lexer<'_> {
         ch
     }
 
-    //WARN: Compliant, but needs to ensure things don't break if utf-8 names can be used
     fn skip_whitespace(&mut self) {
         while self.peek().is_ascii_whitespace() {
             self.advance();

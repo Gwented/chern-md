@@ -1,15 +1,20 @@
 @def
 var->
     name: str
-    person: i32
-
+@end
+/*nest->
+    struct Person {
+        p: Person
+    }
+*/
+/*
 nest->
+
     struct Person {
         name: str
         age: u8
     }
 
-        /*
         nest->
         strs Account {
             balance: BigFloat [Range(0,8))] #wall #wextra

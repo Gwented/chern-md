@@ -27,12 +27,11 @@ fn main() {
 
     let toks = Lexer::new(&data, lex_start).tokenize(&mut interner);
 
-    let ast = parser::parse(&data, &toks, &mut interner);
+    let program = parser::parse(&data, &toks, &mut interner);
 
-    let stuff = Analyzer::new(&ast, &interner);
+    linter::print_all(&program, &interner);
 
-    //TODO: Make linter lint not print
-    linter::print_all(&ast, &interner);
+    let stuff = Analyzer::new(&program, &interner).analyze();
 
     println!("{} ms", start.elapsed().as_millis());
 }

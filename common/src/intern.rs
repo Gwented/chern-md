@@ -17,13 +17,13 @@ pub struct Intern {
 impl Intern {
     pub fn init() -> Intern {
         let mut interner = Intern {
-            map: HashMap::with_capacity(primitives::INTRINSICS_ARRAY.len()),
-            stored: Vec::with_capacity(primitives::INTRINSICS_ARRAY.len()),
-            pos: primitives::INTRINSICS_ARRAY.len(),
+            map: HashMap::with_capacity(primitives::KEYWORDS_ARRAY.len()),
+            stored: Vec::with_capacity(primitives::KEYWORDS_ARRAY.len()),
+            pos: primitives::KEYWORDS_ARRAY.len(),
         };
 
         // TODO: Is this ok?
-        for (id, keyword) in primitives::INTRINSICS_ARRAY.iter().enumerate() {
+        for (id, keyword) in primitives::KEYWORDS_ARRAY.iter().enumerate() {
             interner.map.insert(keyword.to_string(), id as u32);
             interner.stored.push(keyword.to_string());
         }
@@ -48,7 +48,7 @@ impl Intern {
     }
 
     pub fn is_keyword(&self, id: usize) -> bool {
-        id < primitives::INTRINSICS_ARRAY.len()
+        id < primitives::KEYWORDS_ARRAY.len()
     }
 
     // Primitive being used loosely here...

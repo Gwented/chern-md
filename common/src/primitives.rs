@@ -1,4 +1,4 @@
-pub const INTRINSICS_ARRAY: [&str; 37] = [
+pub static KEYWORDS_ARRAY: [&str; 37] = [
     // primitives
     "i8", // 0
     "u8",
@@ -43,8 +43,10 @@ pub const INTRINSICS_ARRAY: [&str; 37] = [
 ];
 
 // Keep a compact enum for code that prefers typed keyword identifiers.
+// I think I don't know I am new to thinking does anyone have beginner thoughts?
+#[derive(Clone, Copy, Debug)]
 #[repr(u32)]
-pub enum PrimitiveKeywords {
+pub enum Keyword {
     I8 = 0,
     U8 = 1,
     I16 = 2,
@@ -84,55 +86,105 @@ pub enum PrimitiveKeywords {
     Contains = 36,
 }
 
-impl PrimitiveKeywords {
-    pub fn from_id(id: u32) -> Option<PrimitiveKeywords> {
+impl Keyword {
+    pub fn try_as_kw(id: u32) -> Option<Keyword> {
         match id {
-            0 => Some(PrimitiveKeywords::I8),
-            1 => Some(PrimitiveKeywords::U8),
-            2 => Some(PrimitiveKeywords::I16),
-            3 => Some(PrimitiveKeywords::U16),
-            4 => Some(PrimitiveKeywords::F16),
-            5 => Some(PrimitiveKeywords::I32),
-            6 => Some(PrimitiveKeywords::U32),
-            7 => Some(PrimitiveKeywords::F32),
-            8 => Some(PrimitiveKeywords::I64),
-            9 => Some(PrimitiveKeywords::U64),
-            10 => Some(PrimitiveKeywords::F64),
-            11 => Some(PrimitiveKeywords::I128),
-            12 => Some(PrimitiveKeywords::U128),
-            13 => Some(PrimitiveKeywords::F128),
-            14 => Some(PrimitiveKeywords::Sized),
-            15 => Some(PrimitiveKeywords::Unsized),
-            16 => Some(PrimitiveKeywords::Char),
-            17 => Some(PrimitiveKeywords::Str),
-            18 => Some(PrimitiveKeywords::Bool),
-            19 => Some(PrimitiveKeywords::Nil),
-            20 => Some(PrimitiveKeywords::BigInt),
-            21 => Some(PrimitiveKeywords::BigFloat),
-            22 => Some(PrimitiveKeywords::List),
-            23 => Some(PrimitiveKeywords::Map),
-            24 => Some(PrimitiveKeywords::Set),
-            25 => Some(PrimitiveKeywords::Struct),
-            26 => Some(PrimitiveKeywords::Enum),
-            27 => Some(PrimitiveKeywords::Bind),
-            28 => Some(PrimitiveKeywords::Var),
-            29 => Some(PrimitiveKeywords::Nest),
-            30 => Some(PrimitiveKeywords::Complex),
-            31 => Some(PrimitiveKeywords::IsEmpty),
-            32 => Some(PrimitiveKeywords::IsWhitespace),
-            33 => Some(PrimitiveKeywords::Range),
-            34 => Some(PrimitiveKeywords::StartsW),
-            35 => Some(PrimitiveKeywords::EndsW),
-            36 => Some(PrimitiveKeywords::Contains),
+            // Using literal because scared of if
+            0 => Some(Keyword::I8),
+            1 => Some(Keyword::U8),
+            2 => Some(Keyword::I16),
+            3 => Some(Keyword::U16),
+            4 => Some(Keyword::F16),
+            5 => Some(Keyword::I32),
+            6 => Some(Keyword::U32),
+            7 => Some(Keyword::F32),
+            8 => Some(Keyword::I64),
+            9 => Some(Keyword::U64),
+            10 => Some(Keyword::F64),
+            11 => Some(Keyword::I128),
+            12 => Some(Keyword::U128),
+            13 => Some(Keyword::F128),
+            14 => Some(Keyword::Sized),
+            15 => Some(Keyword::Unsized),
+            16 => Some(Keyword::Char),
+            17 => Some(Keyword::Str),
+            18 => Some(Keyword::Bool),
+            19 => Some(Keyword::Nil),
+            20 => Some(Keyword::BigInt),
+            21 => Some(Keyword::BigFloat),
+            22 => Some(Keyword::List),
+            23 => Some(Keyword::Map),
+            24 => Some(Keyword::Set),
+            25 => Some(Keyword::Struct),
+            26 => Some(Keyword::Enum),
+            27 => Some(Keyword::Bind),
+            28 => Some(Keyword::Var),
+            29 => Some(Keyword::Nest),
+            30 => Some(Keyword::Complex),
+            31 => Some(Keyword::IsEmpty),
+            32 => Some(Keyword::IsWhitespace),
+            33 => Some(Keyword::Range),
+            34 => Some(Keyword::StartsW),
+            35 => Some(Keyword::EndsW),
+            36 => Some(Keyword::Contains),
             _ => None,
         }
     }
+
+    pub fn try_as_prim(id: u32) -> Option<Keyword> {
+        if let Some(kw) = Self::try_as_kw(id) {
+            match kw {
+                Keyword::I8
+                | Keyword::U8
+                | Keyword::I16
+                | Keyword::U16
+                | Keyword::F16
+                | Keyword::I32
+                | Keyword::U32
+                | Keyword::F32
+                | Keyword::I64
+                | Keyword::U64
+                | Keyword::F64
+                | Keyword::I128
+                | Keyword::U128
+                | Keyword::F128
+                | Keyword::Sized
+                | Keyword::Unsized
+                | Keyword::Char
+                | Keyword::Str
+                | Keyword::Bool
+                | Keyword::Nil
+                | Keyword::BigInt
+                | Keyword::BigFloat => return Some(kw),
+                _ => return None,
+            }
+        }
+
+        None
+    }
+
+    // Maybe match as kw first?
+    pub fn try_as_cond(id: u32) -> Option<Keyword> {
+        if let Some(kw) = Self::try_as_kw(id) {
+            match kw {
+                Keyword::IsEmpty
+                | Keyword::IsWhitespace
+                | Keyword::Range
+                | Keyword::StartsW
+                | Keyword::EndsW
+                | Keyword::Contains => return Some(kw),
+                _ => return None,
+            }
+        }
+
+        None
+    }
 }
 
-pub fn is_primitive_id(id: usize) -> bool {
+pub fn is_type(id: u32) -> bool {
     id <= 24
 }
 
-pub fn is_section_id(id: usize) -> bool {
+pub fn is_section(id: u32) -> bool {
     (27..=30).contains(&id)
 }

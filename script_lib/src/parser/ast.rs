@@ -3,25 +3,51 @@ use common::symbols::{InnerArgs, NameId};
 // Going for convention...
 // Aliases too.
 
+//TEST: Storing bind or constants in the future could use this maybe?
+#[derive(Debug)]
+pub struct Program {
+    // MAYBE SHOULDN't BE A NAME ID I DONT KNOW
+    //FIX: Inconsistent
+    pub bind: Option<NameId>,
+    pub items: Vec<Item>,
+}
+
+impl Program {
+    pub(crate) fn new() -> Program {
+        Program {
+            bind: None,
+            items: Vec::new(),
+        }
+    }
+
+    //TEST: Oh my java.
+    pub(crate) fn set_bind(&mut self, bind: NameId) {
+        self.bind = Some(bind);
+    }
+
+    pub(crate) fn has_bind(&self) -> bool {
+        self.bind.is_some()
+    }
+}
+
 #[derive(Debug)]
 pub enum Item {
-    Bind(AbstractBind),
+    //FIX: WILL REMOVE
     // DO I SECTION THIS?
-    Var(AbstractType),
+    Var(AbstractTypeDef),
     Struct(AbstractStruct),
     Enum(AbstractEnum),
-    // HOW DO I MAKE CONSTANTS
-    // You don't
-    // TODO: Do we need this?
     // Func(AbstractFunc),
 }
 
 #[derive(Debug)]
 pub enum Expr {
     Var(NameId),
-    Number(usize),
+    // isize?
+    Number(i64),
     Literal(NameId),
     Call(Call),
+    FieldAccess(FieldAccess),
     Unary(Unary),
 }
 
@@ -74,21 +100,21 @@ impl AbstractBind {
 }
 
 #[derive(Debug)]
-pub struct AbstractType {
+pub struct AbstractTypeDef {
     pub(crate) name_id: NameId,
     pub(crate) ty: TypeExpr,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
 }
 
-impl AbstractType {
+impl AbstractTypeDef {
     pub fn new(
         name_id: NameId,
         ty: TypeExpr,
         args: Vec<InnerArgs>,
         conds: Vec<Expr>,
-    ) -> AbstractType {
-        AbstractType {
+    ) -> AbstractTypeDef {
+        AbstractTypeDef {
             name_id,
             ty,
             args,
@@ -102,7 +128,7 @@ pub struct AbstractStruct {
     pub(crate) name_id: NameId,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
-    pub(crate) fields: Vec<AbstractType>,
+    pub(crate) fields: Vec<AbstractTypeDef>,
 }
 
 impl AbstractStruct {
@@ -111,7 +137,7 @@ impl AbstractStruct {
         args: Vec<InnerArgs>,
         conds: Vec<Expr>,
         //TODO: Change both enum and struct of field
-        fields: Vec<AbstractType>,
+        fields: Vec<AbstractTypeDef>,
     ) -> AbstractStruct {
         AbstractStruct {
             name_id,
@@ -128,7 +154,7 @@ pub struct AbstractEnum {
     pub(crate) name_id: NameId,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
-    pub(crate) variants: Vec<Variant>,
+    pub(crate) variants: Vec<AbstractVariant>,
 }
 
 impl AbstractEnum {
@@ -137,7 +163,7 @@ impl AbstractEnum {
         args: Vec<InnerArgs>,
         // I'm scared
         conds: Vec<Expr>,
-        variants: Vec<Variant>,
+        variants: Vec<AbstractVariant>,
     ) -> AbstractEnum {
         AbstractEnum {
             name_id,
@@ -150,7 +176,7 @@ impl AbstractEnum {
 
 // Hold that thought
 #[derive(Debug)]
-pub struct Variant {
+pub struct AbstractVariant {
     pub(crate) name_id: NameId,
     // I think this is right?
     pub(crate) ty: Option<TypeExpr>,
@@ -158,26 +184,20 @@ pub struct Variant {
     pub(crate) conds: Vec<Expr>,
 }
 
-impl Variant {
+impl AbstractVariant {
     pub fn new(
         name_id: NameId,
         // I think this is right?
         ty: Option<TypeExpr>,
         args: Vec<InnerArgs>,
         conds: Vec<Expr>,
-    ) -> Variant {
-        Variant {
+    ) -> AbstractVariant {
+        AbstractVariant {
             name_id,
             ty,
             args,
             conds,
         }
-    }
-}
-
-impl From<AbstractType> for Variant {
-    fn from(ty: AbstractType) -> Self {
-        todo!();
     }
 }
 
@@ -190,6 +210,18 @@ pub struct AbstractFunc {
 impl AbstractFunc {
     pub fn new(name_id: NameId, params: Vec<Expr>) -> AbstractFunc {
         AbstractFunc { name_id, params }
+    }
+}
+
+#[derive(Debug)]
+pub struct FieldAccess {
+    pub(crate) base: Box<Expr>,
+    pub(crate) field: NameId,
+}
+
+impl FieldAccess {
+    pub fn new(base: Box<Expr>, field: NameId) -> FieldAccess {
+        FieldAccess { base, field }
     }
 }
 
@@ -213,7 +245,7 @@ pub enum UnaryOp {
 #[derive(Debug)]
 pub struct Generic {
     pub(crate) base: NameId,
-    // Change to tuple or something alike?
+    // Change to tuple or something alike since max 2?
     pub(crate) args: Vec<TypeExpr>,
 }
 

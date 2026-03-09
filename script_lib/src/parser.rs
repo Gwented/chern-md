@@ -1,24 +1,25 @@
 pub mod ast;
-pub mod context;
+mod context;
+// Unpub this
 pub mod error;
 
 use crate::parser::ast::{
-    AbstractBind, AbstractEnum, AbstractFunc, AbstractGeneric, AbstractStruct, AbstractType, Call,
-    Expr, Generic, Item, TypeExpr, Unary, UnaryOp, Variant,
+    AbstractEnum, AbstractStruct, AbstractTypeDef, AbstractVariant, Call, Expr, Generic, Item,
+    Program, TypeExpr, Unary, UnaryOp,
 };
 use crate::parser::context::Context;
 use crate::parser::error::Branch;
 use crate::symbols::SpannedToken;
 use crate::token::{Token, TokenKind};
 use common::intern::Intern;
-use common::primitives::PrimitiveKeywords;
+use common::primitives::Keyword;
 use common::symbols::{InnerArgs, NameId};
 
 // May be lower
 const MAX_ERRORS: u8 = 3;
 
-pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern) -> Vec<Item> {
-    let mut ast: Vec<Item> = Vec::new();
+pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern) -> Program {
+    let mut program = Program::new();
 
     let mut ctx = Context::new(original_text, tokens);
 
@@ -31,7 +32,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
         match tok {
             Token::Id(id) => match id {
-                id if id == PrimitiveKeywords::Bind as u32 => {
+                id if id == Keyword::Bind as u32 => {
                     ctx.advance_tok();
 
                     _ = ctx.expect_verbose(
@@ -42,9 +43,9 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         interner,
                     );
 
-                    parse_bind_sect(&mut ctx, &mut ast, interner).ok();
+                    parse_bind_sect(&mut ctx, &mut program, interner).ok();
                 }
-                id if id == PrimitiveKeywords::Var as u32 => {
+                id if id == Keyword::Var as u32 => {
                     ctx.advance_tok();
 
                     _ = ctx.expect_verbose(
@@ -66,11 +67,11 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         }
 
                         if let Ok(ty) = parse_var_sect(&mut ctx, interner) {
-                            ast.push(Item::Var(ty));
+                            program.items.push(Item::Var(ty));
                         }
                     }
                 }
-                id if id == PrimitiveKeywords::Nest as u32 => {
+                id if id == Keyword::Nest as u32 => {
                     ctx.advance_tok();
 
                     _ = ctx.expect_verbose(
@@ -91,14 +92,13 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         {
                             break;
                         }
-                        dbg!(ctx.peek_tok());
 
                         if let Ok(item) = parse_nest_sect(&mut ctx, interner) {
-                            ast.push(item);
+                            program.items.push(item);
                         }
                     }
                 }
-                id if id == PrimitiveKeywords::Complex as u32 => {
+                id if id == Keyword::Complex as u32 => {
                     todo!();
                     ctx.advance_tok();
 
@@ -174,11 +174,16 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
         std::process::exit(1);
     }
 
-    dbg!(&ast);
-    ast
+    dbg!(&program);
+    program
 }
 
-fn parse_bind_sect(ctx: &mut Context, ast: &mut Vec<Item>, interner: &Intern) -> Result<(), Token> {
+//FIXME:
+fn parse_bind_sect(
+    ctx: &mut Context,
+    program: &mut Program,
+    interner: &Intern,
+) -> Result<(), Token> {
     let name_id = ctx.expect_id_verbose(
         TokenKind::Literal,
         "Expected a string literal within section `bind`, found ",
@@ -189,14 +194,15 @@ fn parse_bind_sect(ctx: &mut Context, ast: &mut Vec<Item>, interner: &Intern) ->
 
     let name_id = NameId::new(name_id);
 
-    let bind = Item::Bind(AbstractBind::new(name_id));
+    // I don't know...
+    // let bind = Item::Bind(AbstractBind::new(name_id));
 
-    ast.push(bind);
+    program.set_bind(name_id);
 
     Ok(())
 }
 
-fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractType, Token> {
+fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDef, Token> {
     let plain_id = ctx.expect_id_verbose(
         TokenKind::Id,
         "Expected an identifier to declare a type, found ",
@@ -288,7 +294,7 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractType, 
 
     let ty = type_res?;
 
-    let ty = AbstractType::new(name_id, ty, args, conds);
+    let ty = AbstractTypeDef::new(name_id, ty, args, conds);
 
     Ok(ty)
 }
@@ -400,19 +406,19 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
 fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
     match ctx.peek_tok() {
         Token::Id(id) => {
-            match PrimitiveKeywords::from_id(id) {
+            match Keyword::try_as_kw(id) {
                 Some(prim) => match prim {
                     //TODO: Use or for this..
                     //Can likely funnel this all into a singular function that just returns Expr
                     //which could be var or call making this less odd
-                    PrimitiveKeywords::IsEmpty => {
+                    Keyword::IsEmpty => {
                         ctx.advance_tok();
 
                         let name_id = NameId::new(id);
 
                         Ok(Expr::Var(name_id))
                     }
-                    PrimitiveKeywords::IsWhitespace => {
+                    Keyword::IsWhitespace => {
                         ctx.advance_tok();
 
                         let name_id = NameId::new(id);
@@ -532,7 +538,7 @@ fn handle_func_args(
                 ctx.advance_tok();
 
                 //WARN: Maybe change this later to remain a string but ok for now
-                let num: usize = interner.search(id as usize).parse().expect("Lexer broke");
+                let num: i64 = interner.search(id as usize).parse().expect("Lexer broke");
 
                 args.push(Expr::Number(num));
             }
@@ -581,7 +587,7 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
 
     //TODO: Can likely be done simpler but keep for simplicity
     let item = match id {
-        id if id == PrimitiveKeywords::Struct as u32 => {
+        id if id == Keyword::Struct as u32 => {
             let name = ctx.expect_id_verbose(
                 TokenKind::Id,
                 "Expected an identifier for the given structure. found ",
@@ -601,7 +607,7 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
 
             Item::Struct(structure)
         }
-        id if id == PrimitiveKeywords::Enum as u32 => {
+        id if id == Keyword::Enum as u32 => {
             let name = ctx.expect_id_verbose(
                 TokenKind::Id,
                 "Expected an identifier for the given enum. found ",
@@ -637,7 +643,7 @@ fn handle_struct_fields(
     ctx: &mut Context,
     struct_name: &str,
     interner: &Intern,
-) -> Result<Vec<AbstractType>, Token> {
+) -> Result<Vec<AbstractTypeDef>, Token> {
     _ = ctx.expect_verbose(
         TokenKind::OCurlyBracket,
         &format!("Expected a '{{' before defining struct \"{struct_name}\", found "),
@@ -646,7 +652,7 @@ fn handle_struct_fields(
         interner,
     );
 
-    let mut fields: Vec<AbstractType> = Vec::new();
+    let mut fields: Vec<AbstractTypeDef> = Vec::new();
 
     // Suspicious loop
     while ctx.peek_kind() == TokenKind::Id {
@@ -674,7 +680,7 @@ fn handle_enum_variants(
     ctx: &mut Context,
     enum_name: &str,
     interner: &Intern,
-) -> Result<Vec<Variant>, Token> {
+) -> Result<Vec<AbstractVariant>, Token> {
     _ = ctx.expect_verbose(
         TokenKind::OCurlyBracket,
         &format!("Expected a '{{' before defining the enum \"{enum_name}\", found "),
@@ -683,7 +689,7 @@ fn handle_enum_variants(
         interner,
     );
 
-    let mut variants: Vec<Variant> = Vec::new();
+    let mut variants: Vec<AbstractVariant> = Vec::new();
 
     while ctx.peek_kind() == TokenKind::Id {
         let variant = parse_variant(ctx, interner)?;
@@ -706,7 +712,7 @@ fn handle_enum_variants(
 }
 
 //FIXME: Has to be some way to handle this better without copy and pasting from parse_var
-fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<Variant, Token> {
+fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant, Token> {
     let name = ctx.expect_id_verbose(
         TokenKind::Id,
         "Expected an identifier for a variant, found ",
@@ -808,7 +814,7 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<Variant, Token>
         ctx.advance_tok();
     }
 
-    let variant = Variant::new(name_id, ty_opt, args, Vec::new());
+    let variant = AbstractVariant::new(name_id, ty_opt, args, Vec::new());
 
     Ok(variant)
 }

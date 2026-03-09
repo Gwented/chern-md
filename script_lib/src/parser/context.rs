@@ -7,7 +7,6 @@ use crate::{
     symbols::SpannedToken,
     token::{self, Token, TokenKind},
 };
-//TODO: A struct that contains something like the branch, and error type instead of params
 
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
@@ -46,18 +45,18 @@ const C_BRANCH_VAR_FUNC_SET: u64 = C_BASE_EXIT_SET | token::C_PAREN;
 const A_BRANCH_VAR_FUNC_SET: u64 = A_BASE_EXIT_SET | token::C_BRACKET;
 
 #[derive(Debug)]
-pub struct Context<'a> {
+pub(super) struct Context<'a> {
     src_text: &'a [u8],
-    pub(crate) tokens: &'a [SpannedToken],
-    pub(crate) pos: usize,
-    pub(crate) err_vec: Vec<Diagnostic>,
+    pub(super) tokens: &'a [SpannedToken],
+    pub(super) pos: usize,
+    pub(super) err_vec: Vec<Diagnostic>,
     can_color: bool,
 }
 
 // Fuzzy find?
 // I'm NOT having context switch branches manually. Please.
 impl<'a> Context<'a> {
-    pub fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
+    pub(super) fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
         Context {
             src_text: original_text,
             tokens,
@@ -67,7 +66,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub(crate) fn expect_id_verbose(
+    pub(super) fn expect_id_verbose(
         &mut self,
         expected: TokenKind,
         bmsg: &str,
@@ -116,7 +115,7 @@ impl<'a> Context<'a> {
 
     /// Intended for basic errors that need little context after
     /// ALWAYS advance before using this or ensure an advance happened before
-    pub(crate) fn report_verbose(&mut self, msg: &str, branch: Branch) {
+    pub(super) fn report_verbose(&mut self, msg: &str, branch: Branch) {
         let found = &self.tokens[self.pos - 1];
 
         let help = self
@@ -139,7 +138,7 @@ impl<'a> Context<'a> {
 
     /// Fully curated version of `expect_basic`
     // Return token based off of it's most probable path?
-    pub(crate) fn expect_verbose(
+    pub(super) fn expect_verbose(
         &mut self,
         expected: TokenKind,
         bmsg: &str,
@@ -192,7 +191,7 @@ impl<'a> Context<'a> {
     /// More composable "Expected but found" error.
     /// ALWAYS advance before using this
     /// Expected [emsg], found [fmsg]
-    pub(crate) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
+    pub(super) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
         let found = &self.tokens[self.pos - 1];
 
         let help = self
@@ -251,7 +250,7 @@ impl<'a> Context<'a> {
     }
 
     //TEST:
-    pub(crate) fn try_help(
+    pub(super) fn try_help(
         &self,
         expected: TokenKind,
         found: TokenKind,
@@ -262,6 +261,7 @@ impl<'a> Context<'a> {
 
         match branch {
             Branch::VarType => match found {
+                //FIX: Still a little too general
                 TokenKind::OParen if expected == TokenKind::Colon => {
                     let msg = "Is this missing '[' to define conditions?";
                     // TEST:
@@ -314,29 +314,29 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub(crate) fn skip(&mut self, dest: usize) -> () {
+    pub(super) fn skip(&mut self, dest: usize) -> () {
         self.pos += dest;
     }
 
-    pub(crate) fn peek_tok(&mut self) -> Token {
+    pub(super) fn peek_tok(&mut self) -> Token {
         self.tokens
             .get(self.pos)
             .map(|t| t.token)
             .unwrap_or(Token::EOF)
     }
 
-    pub(crate) fn peek_ahead(&self, dest: usize) -> &SpannedToken {
+    pub(super) fn peek_ahead(&self, dest: usize) -> &SpannedToken {
         &self.tokens[self.pos + dest]
     }
 
-    pub(crate) fn peek_kind(&self) -> TokenKind {
+    pub(super) fn peek_kind(&self) -> TokenKind {
         self.tokens
             .get(self.pos)
             .map(|t| t.token.kind())
             .unwrap_or(TokenKind::EOF)
     }
 
-    pub(crate) fn advance_tok(&mut self) -> Token {
+    pub(super) fn advance_tok(&mut self) -> Token {
         let t = self.tokens[self.pos].token;
         self.pos += 1;
         t
