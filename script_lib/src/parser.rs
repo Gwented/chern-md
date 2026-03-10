@@ -4,6 +4,7 @@ pub mod ast;
 mod context;
 // Unpub this
 pub mod error;
+pub mod parse_state;
 
 use crate::parser::ast::{
     AbstractEnum, AbstractStruct, AbstractTypeDef, AbstractVariant, Call, Expr, Generic, Item,
@@ -11,6 +12,7 @@ use crate::parser::ast::{
 };
 use crate::parser::context::Context;
 use crate::parser::error::Branch;
+use crate::parser::parse_state::StateFlag;
 use crate::symbols::SpannedToken;
 use crate::token::{Token, TokenKind};
 use common::builtins::{self, Keyword};
@@ -22,6 +24,8 @@ const MAX_ERRORS: u8 = 3;
 
 pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern) -> Program {
     let mut program = Program::new();
+
+    let mut state = StateFlag::new();
 
     let mut ctx = Context::new(original_text, tokens);
 
@@ -37,15 +41,18 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                 id if id == Keyword::Bind as u32 => {
                     ctx.advance_tok();
 
-                    _ = ctx.expect_verbose(
-                        TokenKind::SlimArrow,
-                        "Expected a '->' after section `bind`, found ",
-                        "",
-                        Branch::Searching,
-                        interner,
-                    );
+                    //WARN: Not sure if this is really a stmt if it's ast decl is non-existent
+                    if state.has_bind() {
+                        ctx.report_verbose(
+                            "Found a bind statement more than once",
+                            Branch::Searching,
+                        );
+                        continue;
+                    } else {
+                        state.flip_bind();
+                    }
 
-                    parse_bind_sect(&mut ctx, &mut program, interner).ok();
+                    parse_bind_stmt(&mut ctx, &mut program, interner).ok();
                 }
                 id if id == Keyword::Var as u32 => {
                     ctx.advance_tok();
@@ -57,6 +64,17 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         Branch::Searching,
                         interner,
                     );
+
+                    //TODO: CHICKEN. OR THE. EGG. (var or state check first)
+                    if state.has_var() {
+                        ctx.report_verbose(
+                            "Found \"var\" section more than once",
+                            Branch::Searching,
+                        );
+                        continue;
+                    } else {
+                        state.flip_var();
+                    }
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(plain_id) = ctx.peek_tok()
@@ -84,9 +102,17 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         interner,
                     );
 
+                    if state.has_nest() {
+                        ctx.report_verbose(
+                            "Found \"nest\" section more than once",
+                            Branch::Searching,
+                        );
+                        continue;
+                    } else {
+                        state.flip_nest();
+                    }
+
                     while ctx.peek_kind() != TokenKind::EOF {
-                        // May hallucinate an error where a colon is present making it seem as
-                        // though you cannot name errors section names
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && builtins::is_section(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
@@ -111,6 +137,16 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         interner,
                     );
 
+                    if state.has_complex() {
+                        ctx.report_verbose(
+                            "Found \"complex\" section more than once",
+                            Branch::Searching,
+                        );
+                        continue;
+                    } else {
+                        state.flip_complex();
+                    }
+
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && builtins::is_section(name_id)
@@ -134,6 +170,16 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         interner,
                     );
 
+                    if state.has_override() {
+                        ctx.report_verbose(
+                            "Found \"override\" section more than once",
+                            Branch::Searching,
+                        );
+                        continue;
+                    } else {
+                        state.flip_override();
+                    }
+
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && builtins::is_section(name_id)
@@ -146,7 +192,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                     }
                 }
                 id => {
-                    //FIX: CHECK FOR SIMILARITY
+                    //TODO: CHECK FOR SIMILARITY
                     ctx.advance_tok();
 
                     let name = interner.search(id as usize);
@@ -195,15 +241,16 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 }
 
 //FIXME:
-fn parse_bind_sect(
+fn parse_bind_stmt(
     ctx: &mut Context,
     program: &mut Program,
     interner: &Intern,
 ) -> Result<(), Token> {
     let name_id = ctx.expect_id_verbose(
         TokenKind::Literal,
-        "Expected a string literal within section `bind`, found ",
+        "Expected a string literal after `bind`, found ",
         "",
+        // Maybe it is still a branch
         Branch::Bind,
         interner,
     )?;

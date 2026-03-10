@@ -3,7 +3,6 @@ use common::symbols::{InnerArgs, NameId, Span};
 // Going for convention...
 // Aliases too.
 
-//TEST: Storing bind or constants in the future could use this maybe?
 #[derive(Debug)]
 pub struct Program {
     // MAYBE SHOULDN't BE A NAME ID I DONT KNOW

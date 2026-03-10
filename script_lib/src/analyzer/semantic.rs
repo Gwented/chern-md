@@ -25,10 +25,10 @@ impl<'a> SemanticReporter<'a> {
         }
     }
 
-    pub(super) fn report_basic(&mut self, msg: &str) {
-        let diag = Diagnostic::new(msg.to_owned());
-        self.err_vec.push(diag);
-    }
+    // pub(super) fn report_basic(&mut self, msg: &str) {
+    //     let diag = Diagnostic::new(msg.to_owned());
+    //     self.err_vec.push(diag);
+    // }
 
     /// Draws red arrows under the span given. err_name represents whether or not a keyword that
     /// could be similar in name should be looked for.
@@ -64,7 +64,7 @@ impl<'a> SemanticReporter<'a> {
 
     pub(super) fn emit_errors(&self) {
         //FIX: Get file path
-        let initial_err = if self.can_color {
+        let header_err = if self.can_color {
             format!("{}Error{}", reporter::RED, reporter::NC)
         } else {
             format!("Error")
@@ -73,7 +73,7 @@ impl<'a> SemanticReporter<'a> {
         println!("From path => {{}}");
 
         for err in &self.err_vec {
-            println!("{initial_err}: {}", err.msg);
+            println!("{header_err}: {}", err.msg);
         }
 
         eprintln!("\nReported {} error(s)\n", self.err_vec.len());

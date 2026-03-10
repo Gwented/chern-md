@@ -30,8 +30,9 @@ pub static KEYWORDS_ARRAY: [&str; 38] = [
     // structures
     "struct",
     "enum", // 26
-    // Section names
+    // Statements
     "bind",
+    // Section names
     "var", // 28
     "nest",
     "complex", // 30
@@ -203,10 +204,11 @@ pub fn is_type(id: u32) -> bool {
 }
 
 pub fn is_section(id: u32) -> bool {
-    (27..=31).contains(&id)
+    (28..=31).contains(&id)
 }
 
 //WARN: This belongs elsewhere
+//This should maybe acount for known namespaces inside the symbol table
 pub fn fuzzy_find_kw(other_bytes: &[u8]) -> Option<usize> {
     if other_bytes.len() > LARGEST_KW {
         return None;

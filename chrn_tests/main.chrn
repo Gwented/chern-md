@@ -1,13 +1,25 @@
 @def
-var->
-    name: str
+    // Fix this
+bind "hello"
+
+nest->
+
+@end
+/*
+    // Make this possible.
+    str: String
     sigma: Map<str, str>
     p: Person
 nest->
     struct Person {
-        name: str 
+        name: str
     } // Allow global args here
+    struct Str {
 
+    }
+
+    // str: String | This should fail to match as a kiwi instead of suggesting struct
+*/
 @end
 
 /*nest->

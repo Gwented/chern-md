@@ -42,7 +42,19 @@ impl<R: Read> FileLoader<R> {
 
             match b {
                 b'"' => {
-                    self.read_quotes();
+                    self.advance();
+
+                    let start_line = self.lines_read;
+
+                    if self.read_quotes().is_err() {
+                        let msg = format!(
+                            //FIX: Should print path
+                            "Found unclosed quotes at line {} which reached <eof>",
+                            start_line
+                        );
+
+                        return Err(msg);
+                    }
                 }
                 b'/' => {
                     self.advance();
@@ -73,6 +85,7 @@ impl<R: Read> FileLoader<R> {
                         requires_end = true;
                         lex_start = self.pos;
                     } else if !requires_end {
+                        //FIXME: Remove this?
                         //WARN: Weird wording
                         let msg = format!(
                             //FIX: Should print path
@@ -99,23 +112,29 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    fn read_quotes(&mut self) -> Option<u8> {
+    //FIX: I DON'T CARE ADD THE FLOATS
+    //Ok sorry
+    /// Returns a result instead of an option because if there are unclosed quotes and this method
+    /// fails, it would need to return a Some value that can't be used rather than a more accurate,
+    /// failed value.
+    fn read_quotes(&mut self) -> Result<(), ()> {
         while let Some(b) = self.peek() {
+            //FIX: WHAT
             match b {
                 b'\\' => {
-                    self.advance()?;
+                    self.skip(2);
                 }
                 b'\"' => {
-                    self.advance()?;
-                    break;
+                    self.advance();
+                    return Ok(());
                 }
                 _ => {
-                    self.advance()?;
+                    self.advance();
                 }
             }
         }
 
-        None
+        Err(())
     }
 
     fn handle_comment(&mut self) {

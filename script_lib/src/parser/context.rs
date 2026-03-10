@@ -124,8 +124,7 @@ impl<'a> Context<'a> {
 
         let separators = "-".repeat(TOTAL_SEPARATORS);
 
-        let msg =
-            format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separators}");
+        let msg = format!("(in {branch})\n{msg}\n\n[{ln}:{col}]\n{segment}\n{help}{separators}");
 
         self.recover(branch);
 
@@ -306,7 +305,7 @@ impl<'a> Context<'a> {
     }
 
     pub(super) fn emit_errors(&self) {
-        let initial_err = if self.can_color {
+        let header_err = if self.can_color {
             format!("{}Error{}", reporter::RED, reporter::NC)
         } else {
             format!("Error")
@@ -315,7 +314,7 @@ impl<'a> Context<'a> {
         println!("From path => {{}}");
 
         for err in &self.err_vec {
-            println!("{initial_err}: {}", err.msg);
+            println!("{header_err}: {}", err.msg);
         }
 
         eprintln!("Reported {} error(s)\n", self.err_vec.len());

@@ -1,0 +1,57 @@
+const BIND_FLAG: u16 = 1 << 1;
+const VAR_FLAG: u16 = 1 << 2;
+const NEST_FLAG: u16 = 1 << 3;
+const COMPLEX_FLAG: u16 = 1 << 4;
+const OVERRIDE_FLAG: u16 = 1 << 5;
+
+pub(super) struct StateFlag {
+    pub(super) flag: u16,
+}
+
+// Could reduce duplication by manually enforcing setting it from the outside but im scared
+impl StateFlag {
+    pub(super) fn new() -> StateFlag {
+        StateFlag { flag: 1 }
+    }
+
+    pub(super) fn flip_bind(&mut self) {
+        self.flag = self.flag | BIND_FLAG;
+    }
+
+    pub(super) fn has_bind(&self) -> bool {
+        // If the corresponding bits are != 0 then the bit is not in set so has_bind == false
+        (self.flag & BIND_FLAG) != 0
+    }
+
+    pub(super) fn flip_var(&mut self) {
+        self.flag = self.flag | VAR_FLAG;
+    }
+
+    pub(super) fn has_var(&self) -> bool {
+        (self.flag & VAR_FLAG) != 0
+    }
+
+    pub(super) fn flip_nest(&mut self) {
+        self.flag = self.flag | NEST_FLAG;
+    }
+
+    pub(super) fn has_nest(&self) -> bool {
+        (self.flag & NEST_FLAG) != 0
+    }
+
+    pub(super) fn flip_complex(&mut self) {
+        self.flag = self.flag | COMPLEX_FLAG;
+    }
+
+    pub(super) fn has_complex(&self) -> bool {
+        (self.flag & COMPLEX_FLAG) != 0
+    }
+
+    pub(super) fn flip_override(&mut self) {
+        self.flag = self.flag | OVERRIDE_FLAG;
+    }
+
+    pub(super) fn has_override(&self) -> bool {
+        (self.flag & OVERRIDE_FLAG) != 0
+    }
+}
