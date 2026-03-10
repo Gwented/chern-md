@@ -1,11 +1,16 @@
 @def
 var->
-    name: st
-    sigma: Mapp<str>
+    name: str
+    sigma: Map<str, str>
+    p: Person
+nest->
+    struct Person {
+        name: str 
+    } // Allow global args here
+
 @end
 
 /*nest->
-    // Can IN-PROGRAM hold args but not possible in parser
     struct Person {
         p: Person #warn
     }

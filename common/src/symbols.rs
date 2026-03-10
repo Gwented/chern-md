@@ -1,7 +1,23 @@
-// Suspicious hash
+use crate::builtins::Keyword;
+
+#[derive(Debug, Clone, Copy)]
+pub enum TypedId {
+    Struct(StructId),
+    Enum(EnumId),
+    TypeDef(TypeDefId),
+    Func(FuncId),
+    Builtin(BuiltinTypeId),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SymbolId {
     pub id: u32,
+}
+
+impl SymbolId {
+    pub fn new(id: u32) -> SymbolId {
+        SymbolId { id }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -14,32 +30,6 @@ impl AstId {
         AstId { id }
     }
 }
-
-impl SymbolId {
-    pub fn new(id: u32) -> SymbolId {
-        SymbolId { id }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TypedId {
-    Struct(StructId),
-    Enum(EnumId),
-    TypeDef(TypeDefId),
-    Func(FuncId),
-    Type(PrimitiveId),
-}
-
-// FIXME: Does not seem needed since there are no functions only definitions.
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub struct ScopeId {
-//     pub id: u32,
-// }
-// impl ScopeId {
-//     pub fn new(id: u32) -> ScopeId {
-//         ScopeId { id }
-//     }
-// }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NameId {
@@ -86,13 +76,13 @@ impl StructId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PrimitiveId {
+pub struct BuiltinTypeId {
     pub id: u32,
 }
 
-impl PrimitiveId {
-    pub fn new(id: u32) -> PrimitiveId {
-        PrimitiveId { id }
+impl BuiltinTypeId {
+    pub fn new(id: u32) -> BuiltinTypeId {
+        BuiltinTypeId { id }
     }
 }
 
@@ -130,6 +120,19 @@ pub enum Cond {
     // Probably should just attach bool
     // should likely be removed
     Not(Box<Cond>),
+}
+
+// This is getting really bad :C
+impl Cond {
+    /// Only returns a condition if it is solely a keyword, and excludes conditions such as
+    /// `Contains()`
+    pub fn try_from_kw(kw: Keyword) -> Option<Cond> {
+        match kw {
+            Keyword::IsEmpty => Some(Cond::IsEmpty),
+            Keyword::IsWhitespace => Some(Cond::IsWhitespace),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

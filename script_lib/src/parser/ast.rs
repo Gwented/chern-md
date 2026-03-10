@@ -48,7 +48,7 @@ pub enum Expr {
     Number(i64, Span),
     Literal(NameId, Span),
     Call(Call, Span),
-    FieldAccess(FieldAccess, Span),
+    FieldAccess(AbstractFieldAccess, Span),
     Unary(Unary, Span),
 }
 
@@ -88,21 +88,25 @@ impl AbstractGeneric {
     }
 }
 
-// public abstract class AbstractBind {}
+// #[derive(Debug)]
+// pub struct AbstractBind {
+//     pub(crate) name_id: NameId,
+// }
+//
+// impl AbstractBind {
+//     pub fn new(name_id: NameId) -> AbstractBind {
+//         AbstractBind { name_id }
+//     }
+// }
+//
 #[derive(Debug)]
-pub struct AbstractBind {
-    pub(crate) name_id: NameId,
-}
-
-impl AbstractBind {
-    pub fn new(name_id: NameId) -> AbstractBind {
-        AbstractBind { name_id }
-    }
-}
-
-#[derive(Debug)]
+// ONE HUNDRED TWENTY BYTES WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAT
+// WHAT
+// FIX:FIX:FIX:FIX:FIX:
+//  This is fine, none of this is bad. None of it.
 pub struct AbstractTypeDef {
     pub(crate) name_id: NameId,
+    pub(crate) name_span: Span,
     pub(crate) ty: TypeExpr,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
@@ -111,12 +115,14 @@ pub struct AbstractTypeDef {
 impl AbstractTypeDef {
     pub fn new(
         name_id: NameId,
+        name_span: Span,
         ty: TypeExpr,
         args: Vec<InnerArgs>,
         conds: Vec<Expr>,
     ) -> AbstractTypeDef {
         AbstractTypeDef {
             name_id,
+            name_span,
             ty,
             args,
             conds,
@@ -127,6 +133,7 @@ impl AbstractTypeDef {
 #[derive(Debug)]
 pub struct AbstractStruct {
     pub(crate) name_id: NameId,
+    pub(crate) name_span: Span,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
     pub(crate) fields: Vec<AbstractTypeDef>,
@@ -135,6 +142,7 @@ pub struct AbstractStruct {
 impl AbstractStruct {
     pub fn new(
         name_id: NameId,
+        name_span: Span,
         args: Vec<InnerArgs>,
         conds: Vec<Expr>,
         //TODO: Change both enum and struct of field
@@ -142,6 +150,7 @@ impl AbstractStruct {
     ) -> AbstractStruct {
         AbstractStruct {
             name_id,
+            name_span,
             args,
             conds,
             fields,
@@ -153,6 +162,7 @@ impl AbstractStruct {
 pub struct AbstractEnum {
     // Would be SymbolId in symbol table anyways
     pub(crate) name_id: NameId,
+    pub(crate) name_span: Span,
     pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
     pub(crate) variants: Vec<AbstractVariant>,
@@ -161,6 +171,7 @@ pub struct AbstractEnum {
 impl AbstractEnum {
     pub fn new(
         name_id: NameId,
+        name_span: Span,
         args: Vec<InnerArgs>,
         // I'm scared
         conds: Vec<Expr>,
@@ -168,6 +179,7 @@ impl AbstractEnum {
     ) -> AbstractEnum {
         AbstractEnum {
             name_id,
+            name_span,
             args,
             conds,
             variants,
@@ -179,6 +191,7 @@ impl AbstractEnum {
 #[derive(Debug)]
 pub struct AbstractVariant {
     pub(crate) name_id: NameId,
+    pub(super) name_span: Span,
     // I think this is right?
     pub(crate) ty: Option<TypeExpr>,
     pub(crate) args: Vec<InnerArgs>,
@@ -188,6 +201,7 @@ pub struct AbstractVariant {
 impl AbstractVariant {
     pub fn new(
         name_id: NameId,
+        name_span: Span,
         // I think this is right?
         ty: Option<TypeExpr>,
         args: Vec<InnerArgs>,
@@ -195,6 +209,7 @@ impl AbstractVariant {
     ) -> AbstractVariant {
         AbstractVariant {
             name_id,
+            name_span,
             ty,
             args,
             conds,
@@ -205,24 +220,30 @@ impl AbstractVariant {
 #[derive(Debug)]
 pub struct AbstractFunc {
     pub(crate) name_id: NameId,
+    pub(super) name_span: Span,
     pub(crate) params: Vec<Expr>,
 }
 
 impl AbstractFunc {
-    pub fn new(name_id: NameId, params: Vec<Expr>) -> AbstractFunc {
-        AbstractFunc { name_id, params }
+    pub fn new(name_id: NameId, name_span: Span, params: Vec<Expr>) -> AbstractFunc {
+        AbstractFunc {
+            name_id,
+            name_span,
+            params,
+        }
     }
 }
 
+// Please no SpannedNameId
 #[derive(Debug)]
-pub struct FieldAccess {
+pub struct AbstractFieldAccess {
     pub(crate) base: Box<Expr>,
     pub(crate) field: NameId,
 }
 
-impl FieldAccess {
-    pub fn new(base: Box<Expr>, field: NameId) -> FieldAccess {
-        FieldAccess { base, field }
+impl AbstractFieldAccess {
+    pub fn new(base: Box<Expr>, field: NameId) -> AbstractFieldAccess {
+        AbstractFieldAccess { base, field }
     }
 }
 
@@ -241,6 +262,7 @@ impl Unary {
 #[derive(Debug)]
 pub enum UnaryOp {
     Not,
+    // Negate
 }
 
 #[derive(Debug)]

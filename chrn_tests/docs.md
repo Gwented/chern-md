@@ -5,21 +5,20 @@
 
 - Binary representation. 
 
-LANGUAGE BLOAT >>>>>>>
+LANGUAGE BLOAT >>>>>>> I LOVE BLOAT
 
 ## [Types]
 i8, u8, i16, u16, i32, u32, i64, u64
 i128, u128, f16, f32, f64, f128, sized, unsized,
-char, bool, (maybe capital) str, struct, enum,  nil (maybe not), BigInt, BigFloat, List, Map, Set
+char, bool, (maybe capital) str, struct, enum, nil (maybe not), BigInt, BigFloat, List, Map, Set
 
 `struct` for a structure of data.
-`enum` for Enum type which can hold data with `Ready(Data)` syntax.
+`enum` for an Enum type which can also hold data.
 
 ## [Operators]
-# MIGHT EXIST
 `!`: Not operator.
 
-# MIGHT EXIST
+### MIGHT EXIST
 `||`: Or operator.
 
 `?`: Infers type and expects type consistency throughout entire `.chrn` file.  Name affects nothing.
@@ -36,16 +35,19 @@ NO ALIASES PLEASE NO
 
 
 ---- REMOVE ONE
+# No. Not like this.
+# DO IT
 `~`: Approximation operator acts as a range. Equivalent to: 0 <= x <= 6, 0..=6.
 
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
 -----
 
 ## [Predicates]
-`IsEmpty`: Checks if the given array or string within is empty.
-`IsWhitespace`:
+`IsEmpty`: Checks if the given array or string is empty.
+`IsWhitespace`: Checks if a string is only whitespace or is empty
 
 ## Functions (Predicate)
+(WHAT TO DO WITH THIS?)
 `Range((range) OR ~x)`: Checks if length of string is in condition. name: str (Range(0..=5), !IsEmpty())
 
 `Contains`([Literal]):
@@ -54,10 +56,13 @@ NO ALIASES PLEASE NO
 
 
 ## [Sections]
-`bind`: Sets the `.chrn` file to affirm the syntax of. (or `attach`, `find`)
+
+- Sections are how the type of data to be parsed is described. They exist as opposed a keywords so that data is always defined in a readable, expected manner.
+
+`bind`: Sets the `.chrn` file (or possibly any file) to affirm the syntax of. (maybe `attach` or `find`?)
 A bind call within the actual file with serialized data takes precedence.
 
-`var->`: Front facing definitions of the data to be serialized or deserialized.
+`var`: Front facing definitions of the data to be serialized or deserialized.
 
 ```chrn
 // If we have struct Person, it would look like
@@ -68,18 +73,56 @@ var->
 // But given nested data such as
     account: Account
 
-// it would need a nest-> section
+// it would need a nest section
 ```
 ```
 ```
 
-`nest->`: Define structs and enums **STRICTLY** within nest sections.
+`nest->`: Allows for the definition of a struct or enum
+```chrn
+var->
+    account: Account
+    state: State
+nest->
+    struct Account {
+        balance: BigFloat
+    }
+    
+    enum State {
+        Ready(str) // Enums can only store ONE type (as of right now)
+        InProgress
+        Failed
+    }
 
-# DOES NOT EXIST YET
+```
+
 `override->`: What to default to when a language doesn't contain a particular type.
+
+# Full example of language
+
+// YOU HAVE DONE THE SAME EXAMPLE OVER 50 TIMES CHOOSE SOMETHING ELSE
+// Dynamic array in C
+```chrn
+@def
+    var->
+        name: str
+        age: u8 #warn #bin
+        pets: List<Pet> [!IsEmpty, Range(0, 15)]
+    nest->
+        struct Pet {
+            name: str [!IsWhitespace]
+            color: Color
+        }
+
+        enum Color {Red(u8) #hex Blue(u8) #hex Green(u8) #hex }
+@end
+```
+```
+```
+
+(Probably not a good idea)
 There is also a "like" category. A "JAVA_LIKE" category would have all of the int, short, logic for a batch of languages.
 
-# DOES NOT EXIST YET
 `complex->`: Define complex rules such as enum bounds.
 Example:
     complex:
@@ -93,8 +136,8 @@ Attributes ie. `#warn`, `#ign_if` (would remove anything that didn't align under
 Numerics: Binary, hex, octo. Allows for notation to serialize to be a specific notation. Unicode.
 
 Maybe more complex operations such as '/' and '*'
-
 # No
+
 Matrix declarations.
 
 Unified serialization rules for any md file.

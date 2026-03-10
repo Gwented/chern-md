@@ -122,6 +122,29 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         // _ = parse_complex_sect(&mut ctx, interner);
                     }
                 }
+                id if id == Keyword::Override as u32 => {
+                    todo!("Override not done");
+                    ctx.advance_tok();
+
+                    _ = ctx.expect_verbose(
+                        TokenKind::SlimArrow,
+                        "Expected a '->' after section `complex_rules`, found ",
+                        "",
+                        Branch::Searching,
+                        interner,
+                    );
+
+                    while ctx.peek_kind() != TokenKind::EOF {
+                        if let Token::Id(name_id) = ctx.peek_tok()
+                            && builtins::is_section(name_id)
+                            && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
+                        {
+                            break;
+                        }
+
+                        // _ = parse_override_sect(&mut ctx, interner);
+                    }
+                }
                 id => {
                     //FIX: CHECK FOR SIMILARITY
                     ctx.advance_tok();
@@ -193,6 +216,8 @@ fn parse_bind_sect(
 }
 
 fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDef, Token> {
+    let name_span = ctx.peek_span();
+
     let plain_id = ctx.expect_id_verbose(
         TokenKind::Id,
         "Expected an identifier to declare a type, found ",
@@ -284,7 +309,7 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDe
 
     let ty = type_res?;
 
-    let ty = AbstractTypeDef::new(name_id, ty, args, conds);
+    let ty = AbstractTypeDef::new(name_id, name_span, ty, args, conds);
 
     Ok(ty)
 }
@@ -545,6 +570,8 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
     //TODO: Can likely be done simpler but keep for simplicity
     let item = match id {
         id if id == Keyword::Struct as u32 => {
+            let name_span = ctx.peek_span();
+
             let name = ctx.expect_id_verbose(
                 TokenKind::Id,
                 "Expected an identifier for the given structure. found ",
@@ -560,11 +587,13 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
             let fields = handle_struct_fields(ctx, struct_name, interner)?;
 
             // Unsure if structures or enums will have fields so just stays for now
-            let structure = AbstractStruct::new(name_id, Vec::new(), Vec::new(), fields);
+            let structure = AbstractStruct::new(name_id, name_span, Vec::new(), Vec::new(), fields);
 
             Item::Struct(structure)
         }
         id if id == Keyword::Enum as u32 => {
+            let name_span = ctx.peek_span();
+
             let name = ctx.expect_id_verbose(
                 TokenKind::Id,
                 "Expected an identifier for the given enum. found ",
@@ -579,7 +608,8 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
 
             let variants = handle_enum_variants(ctx, enum_name, interner)?;
 
-            let enumeration = AbstractEnum::new(name_id, Vec::new(), Vec::new(), variants);
+            let enumeration =
+                AbstractEnum::new(name_id, name_span, Vec::new(), Vec::new(), variants);
 
             Item::Enum(enumeration)
         }
@@ -670,6 +700,8 @@ fn handle_enum_variants(
 
 //FIXME: Has to be some way to handle this better without copy and pasting from parse_var
 fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant, Token> {
+    let name_span = ctx.peek_span();
+
     let name = ctx.expect_id_verbose(
         TokenKind::Id,
         "Expected an identifier for a variant, found ",
@@ -774,11 +806,15 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
         ctx.advance_tok();
     }
 
-    let variant = AbstractVariant::new(name_id, ty_opt, args, Vec::new());
+    let variant = AbstractVariant::new(name_id, name_span, ty_opt, args, Vec::new());
 
     Ok(variant)
 }
 
 fn parse_complex_section(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
+    todo!()
+}
+
+fn parse_override_sect(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
     todo!()
 }

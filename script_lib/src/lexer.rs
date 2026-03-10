@@ -376,8 +376,7 @@ impl Lexer<'_> {
         //WARN: THIS WAS CHANGED SEE IF IT BROKE
         let start = self.pos - 1;
 
-        //FIXME: Could be more escapes
-        //Should \0 be allowed?
+        //FIXME: ACTUALLY IMPLEMENT THEIR FUNCTIONALITIES EVENTUALLY
         let escape_sequences = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
 
         while self.pos < self.bytes.len() {
@@ -477,14 +476,10 @@ impl Lexer<'_> {
         while !self.peek_char().is_whitespace() {
             let ch = self.advance_char();
             err_str.push(ch);
-
-            println!("loop: id={}", &err_str);
         }
 
-        //FIX: Normal in comparison to read_id but still a bit concerning
+        //WARN: Same behavior as read_id
         let end = self.pos - 1;
-
-        println!("out: id={}", &err_str);
 
         let id = interner.intern(&err_str);
 
@@ -522,6 +517,7 @@ impl Lexer<'_> {
     fn handle_multi_comment(&mut self) {
         let mut depth = 1;
         // Avoiding recursion...
+        // But why?
         while self.pos < self.bytes.len() && depth > 0 {
             if self.peek() == b'/' && self.peek_ahead(1) == b'*' {
                 self.skip(1);

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use common::symbols::{
-    Cond, EnumId, FuncId, InnerArgs, NameId, PrimitiveId, Span, StructId, SymbolId, TypeDefId,
+    BuiltinTypeId, Cond, EnumId, FuncId, InnerArgs, NameId, Span, StructId, SymbolId, TypeDefId,
 };
 
 use crate::token::{BuiltinType, Token};

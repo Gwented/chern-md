@@ -1,6 +1,6 @@
 #[derive(Debug)]
 // Override errors maybe if I get more context that the hard-coded portion?
-pub struct Diagnostic {
+pub(super) struct Diagnostic {
     //FIX:
     pub(super) msg: String,
     // Maybe help

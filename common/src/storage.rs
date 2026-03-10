@@ -1,3 +1,4 @@
+//FIX: Should print path on all errors
 use std::io::{BufRead, BufReader, Read};
 
 const DEFINITION_SIZE: usize = 4;
@@ -18,10 +19,9 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    /// Returns an Ok of text scanned for `@def` and `@end`, the lexing starting point if a
-    /// definition was found, and where the serializing should start if a def was found. Or returns
-    /// a string of error text.
-    //FIX: COMMENTS ARE BROKEN
+    /// Returns an `Ok` of text scanned for `@def` and `@end`, the lexing starting point if a
+    /// definition was found, and where the serializing should start if a def was found. On `Err` returns
+    /// a string with error info.
     pub fn load_config(&mut self) -> Result<(Vec<u8>, usize, usize), String> {
         // Doesn't NEED definition but will error if declared and not closed
         // TODO: Add read limit.
@@ -100,7 +100,6 @@ impl<R: Read> FileLoader<R> {
     }
 
     fn read_quotes(&mut self) -> Option<u8> {
-        // FIX: I think this is ok I don't know. Option is here because !!@
         while let Some(b) = self.peek() {
             match b {
                 b'\\' => {
@@ -127,7 +126,6 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    //WARN: Seems to be working..
     fn handle_multi_comment(&mut self) -> Result<(), String> {
         let mut depth = 1;
         let comment_start = self.lines_read;
@@ -159,15 +157,6 @@ impl<R: Read> FileLoader<R> {
 
         Ok(())
     }
-    // while let Some(a) = self.peek() {
-    //     if let Some(b) = self.peek_ahead(1)
-    //         && b != b'*'
-    //         && a != b'/'
-    //     {
-    //         self.advance();
-    //     }
-    // }
-    // self.skip(2);
 
     fn skip(&mut self, dest: usize) {
         self.pos += dest;

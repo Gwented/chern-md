@@ -51,8 +51,6 @@ pub(super) struct Context<'a> {
     can_color: bool,
 }
 
-// Fuzzy find?
-// I'm NOT having context switch branches manually. Please.
 impl<'a> Context<'a> {
     pub(super) fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
         Context {
@@ -214,8 +212,6 @@ impl<'a> Context<'a> {
         self.err_vec.push(report);
     }
 
-    //TODO: Branch specific behavior
-    //WARN: SEEMS FINE MAY REMOVE WARN
     fn recover(&mut self, branch: Branch) {
         let (current_targets, next_targets) = self.match_anchor(branch);
 
@@ -240,12 +236,12 @@ impl<'a> Context<'a> {
             Branch::VarCond => (C_BRANCH_VAR_COND_SET, A_BRANCH_VAR_COND_SET),
             Branch::VarFuncArgs => (C_BRANCH_VAR_FUNC_SET, A_BRANCH_VAR_FUNC_SET),
             Branch::VarTypeArgs => (C_BRANCH_VAR_ARGS_SET, A_BRANCH_VAR_ARGS_SET),
+            //TODO: Tune these sets
             Branch::Nest => (C_BRANCH_NEST_SET, A_BASE_EXIT_SET),
             Branch::NestType => (C_BRANCH_NEST_TYPE, A_BASE_EXIT_SET),
-            // TODO:
             Branch::NestEnum => (C_BRANCH_NEST_TYPE, A_BASE_EXIT_SET),
-            // TODO:
             Branch::ComplexRules => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::Override => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
         }
     }
 
@@ -317,10 +313,9 @@ impl<'a> Context<'a> {
         };
 
         println!("From path => {{}}");
-        println!("{initial_err}:");
 
         for err in &self.err_vec {
-            println!("{}", err.msg);
+            println!("{initial_err}: {}", err.msg);
         }
 
         eprintln!("Reported {} error(s)\n", self.err_vec.len());

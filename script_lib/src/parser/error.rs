@@ -24,6 +24,7 @@ pub(super) enum Branch {
     NestType,
     NestEnum,
     ComplexRules,
+    Override,
 }
 
 impl Display for Branch {
@@ -41,6 +42,7 @@ impl Display for Branch {
             Branch::NestType => write!(f, "[type]"),
             Branch::NestEnum => write!(f, "[enum]"),
             Branch::ComplexRules => write!(f, "complex_rules"),
+            Branch::Override => write!(f, "override"),
         }
     }
 }

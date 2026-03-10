@@ -1,5 +1,4 @@
 //TODO: GET NAME ID SPANS FOR REGISTER PHASE
-mod context;
 mod error;
 pub mod representation;
 mod semantic;
@@ -7,13 +6,13 @@ mod semantic;
 use common::{
     builtins::Keyword,
     intern::Intern,
-    symbols::{AstId, Cond, EnumId, PrimitiveId, StructId, TypeDefId, TypedId},
+    symbols::{AstId, BuiltinTypeId, Cond, EnumId, Span, StructId, TypeDefId, TypedId},
 };
 
 use crate::{
     analyzer::{
-        context::SemanticReporter,
         representation::{EnumRepre, FieldRepre, StructRepre, Table, TypeDefRepre},
+        semantic::SemanticReporter,
     },
     parser::ast::{AbstractEnum, AbstractStruct, AbstractTypeDef, Expr, Item, Program, TypeExpr},
     token::BuiltinType,
@@ -30,12 +29,12 @@ pub struct Analyzer<'a> {
 }
 
 impl Analyzer<'_> {
-    pub fn new<'a>(program: &'a Program, interner: &'a Intern, src_txt: &'a [u8]) -> Analyzer<'a> {
+    pub fn new<'a>(program: &'a Program, interner: &'a Intern, src_text: &'a [u8]) -> Analyzer<'a> {
         Analyzer {
             program,
             interner,
             table: Table::new(),
-            reporter: SemanticReporter::new(src_txt),
+            reporter: SemanticReporter::new(src_text),
         }
     }
 
@@ -54,11 +53,7 @@ impl Analyzer<'_> {
         }
 
         if !self.reporter.err_vec.is_empty() {
-            println!("Error:");
-            for err in &self.reporter.err_vec {
-                println!("{}", err.msg);
-            }
-
+            self.reporter.emit_errors();
             std::process::exit(1);
         }
 
@@ -66,57 +61,25 @@ impl Analyzer<'_> {
         //Probably better off being functional
         let ids: Vec<TypedId> = self.table.sym_table.values().copied().collect();
 
+        //TODO: TypedIds are being reused here instead of the symbol wrapper which does the same thing
+        // But maybe it should be used instead to be less confusing seeming
         for typed_id in ids {
             match typed_id {
                 TypedId::TypeDef(type_def_id) => {
                     _ = self.resolve_typedef(type_def_id);
-                    // let thing = &self.table.typedefs[type_def_id.id as usize];
-                    //
-                    // let name = self.interner.search(thing.name_id.id as usize);
-                    //
-                    // let typed_id = thing.type_id.unwrap();
-                    //
-                    // let ty = if let TypedId::Type(id) = typed_id {
-                    //     &self.table.types[id.id as usize]
-                    // } else {
-                    //     panic!("Typedef broke");
-                    // };
-                    //
-                    // println!("Typedef: name = {}\ntype = {ty:?}", name);
                 }
                 TypedId::Struct(struct_id) => {
                     _ = self.resolve_struct(struct_id);
-                    let thing = &self.table.structs[struct_id.id as usize];
-
-                    let name = self.interner.search(thing.name_id.id as usize);
-
-                    println!("Struct: name = {}\n", name);
-                    dbg!(&thing.fields);
-                    dbg!(&thing.args);
-                    dbg!(&thing.conds);
-
-                    let ty = if let TypedId::Struct(id) = typed_id {
-                        &self.table.structs[id.id as usize]
-                    } else {
-                        panic!("Typedef broke");
-                    };
-                    dbg!(&ty);
-                    panic!("Strucken");
                 }
-                TypedId::Enum(enum_id) => todo!(),
+                TypedId::Builtin(builtintype_id) => todo!(),
                 TypedId::Func(func_id) => todo!(),
+                TypedId::Enum(enum_id) => todo!(),
                 // Maybe call intrinsic type since prim is a lie?
-                TypedId::Type(primitive_id) => todo!(),
             }
         }
 
         if !self.reporter.err_vec.is_empty() {
-            println!("Error:");
-            for err in &self.reporter.err_vec {
-                println!("{}", err.msg);
-            }
-
-            eprintln!("Reported {} error(s)\n", self.reporter.err_vec.len());
+            self.reporter.emit_errors();
             std::process::exit(1);
         }
 
@@ -144,7 +107,7 @@ impl Analyzer<'_> {
             let mut conds = Vec::new();
 
             for expr in &abstract_typedef.conds {
-                conds.push(self.resolve_cond(expr));
+                conds.push(self.resolve_cond(expr)?);
             }
 
             // DIRTY
@@ -154,21 +117,22 @@ impl Analyzer<'_> {
             type_def.conds = conds;
         }
 
-        todo!("Main");
         Ok(())
     }
 
+    //FIX: The code duplication is a top level issue of Keyword being the only one resolving
+    //everything despite being the most generic interface. Possibly needs a 'built-in' TypeExpr
+    //variant, or something to flatten the search by just a little.
     fn resolve_type_expr(&mut self, ty: &TypeExpr) -> Result<TypedId, ()> {
         match ty {
             TypeExpr::Var(name_id, span) => {
                 if let Some(kw) = Keyword::try_as_prim(name_id.id) {
-                    //WARN: This can't actually fail here
                     if let Some(actual) = BuiltinType::try_from_kw(kw) {
-                        let prim_id = PrimitiveId::new(self.table.types.len() as u32);
+                        let prim_id = BuiltinTypeId::new(self.table.builtin_types.len() as u32);
 
-                        self.table.types.push(actual);
+                        self.table.builtin_types.push(actual);
 
-                        return Ok(TypedId::Type(prim_id));
+                        return Ok(TypedId::Builtin(prim_id));
                     }
                 }
 
@@ -177,9 +141,10 @@ impl Analyzer<'_> {
                 }
 
                 let err_name = self.interner.search(name_id.id as usize);
-                let err_msg = format!("Could not find the type \"{err_name}\" defined");
 
-                self.reporter.report_spanned(&err_msg, span);
+                let err_msg = format!("\"{err_name}\" is not defined as a type");
+
+                self.reporter.report_spanned(&err_msg, Some(err_name), span);
 
                 return Err(());
             }
@@ -188,6 +153,13 @@ impl Analyzer<'_> {
                     match kw {
                         Keyword::List => {
                             if generic.args.len() != 1 {
+                                let msg = format!(
+                                    "Expected 1 type within `List`, found {}",
+                                    generic.args.len()
+                                );
+
+                                self.reporter.report_spanned(&msg, None, span);
+
                                 return Err(());
                             }
 
@@ -195,6 +167,13 @@ impl Analyzer<'_> {
                         }
                         Keyword::Map => {
                             if generic.args.len() != 2 {
+                                let msg = format!(
+                                    "Expected 2 types within `Map`, found {}",
+                                    generic.args.len()
+                                );
+
+                                self.reporter.report_spanned(&msg, None, span);
+
                                 return Err(());
                             }
 
@@ -203,14 +182,21 @@ impl Analyzer<'_> {
 
                             let map = BuiltinType::Map(key, val);
 
-                            let prim_id = PrimitiveId::new(self.table.types.len() as u32);
+                            let prim_id = BuiltinTypeId::new(self.table.builtin_types.len() as u32);
 
-                            self.table.types.push(map);
+                            self.table.builtin_types.push(map);
 
-                            Ok(TypedId::Type(prim_id))
+                            Ok(TypedId::Builtin(prim_id))
                         }
                         Keyword::Set => {
                             if generic.args.len() != 1 {
+                                let msg = format!(
+                                    "Expected one type within `Set`, found {}",
+                                    generic.args.len()
+                                );
+
+                                self.reporter.report_spanned(&msg, None, span);
+
                                 return Err(());
                             }
 
@@ -224,7 +210,7 @@ impl Analyzer<'_> {
                                 "Found identifier \"{err_name}\" before generic parameters, but only `List`, `Set`, and `Map` are valid data structures"
                             );
 
-                            self.reporter.report_spanned(&err_msg, span);
+                            self.reporter.report_spanned(&err_msg, Some(err_name), span);
 
                             return Err(());
                         }
@@ -232,33 +218,68 @@ impl Analyzer<'_> {
                 } else {
                     // 2004 dog 2004 television
                     let err_name = self.interner.search(generic.base.id as usize);
+
                     let err_msg = format!(
                         "Found identifier \"{err_name}\" before generic parameters, but only `List`, `Set`, and `Map` are valid data structures"
                     );
 
-                    self.reporter.report_spanned(&err_msg, span);
+                    self.reporter.report_spanned(&err_msg, Some(err_name), span);
 
-                    return Err(());
+                    Err(())
                 }
             }
-            TypeExpr::Any(span) => {
-                let index = self.table.types.len();
+            // Maybe this shouldn't have a span
+            TypeExpr::Any(_) => {
+                let index = self.table.builtin_types.len();
 
-                self.table.types.push(BuiltinType::Any(None));
+                self.table.builtin_types.push(BuiltinType::Any(None));
 
-                Ok(TypedId::Type(PrimitiveId::new(index as u32)))
+                Ok(TypedId::Builtin(BuiltinTypeId::new(index as u32)))
             }
         }
     }
 
-    fn resolve_cond(&mut self, expr: &Expr) -> Cond {
+    //FIX: Duplication issue
+    fn resolve_cond(&mut self, expr: &Expr) -> Result<Cond, ()> {
         match expr {
-            Expr::Var(name_id, span) => todo!(),
-            Expr::Number(num, span) => todo!(),
-            Expr::Literal(name_id, span) => todo!(),
+            //TODO: Possible alias ability
+            Expr::Var(name_id, span) => {
+                if let Some(kw) = Keyword::try_as_kw(name_id.id) {
+                    if let Some(cond) = Cond::try_from_kw(kw) {
+                        return Ok(cond);
+                    }
+                }
+
+                let err_name = self.interner.search(name_id.id as usize);
+
+                let err_msg = format!("\"{err_name}\" is not a valid condition");
+                self.reporter.report_spanned(&err_msg, Some(err_name), span);
+
+                Err(())
+            }
             Expr::Call(call, span) => todo!(),
             Expr::Unary(unary, span) => todo!(),
-            Expr::FieldAccess(field_access, span) => todo!(),
+            // Invalid I think
+            Expr::Literal(name_id, span) => {
+                let err_name = self.interner.search(name_id.id as usize);
+
+                let err_msg = format!("\"{err_name}\" is not a valid condition");
+                self.reporter.report_spanned(&err_msg, Some(err_name), span);
+
+                Err(())
+            }
+            // TODO: Maybe this should be the point where it resolves to a number instead of at the
+            // parser?
+            Expr::Number(num, span) => todo!(),
+            Expr::FieldAccess(field_access, span) => {
+                //TODO: Is this worth evaluating as an expression just to get the name?
+
+                let err_msg = format!("Conditions cannot be accessed as fields");
+
+                self.reporter.report_spanned(&err_msg, None, span);
+
+                Err(())
+            }
         }
     }
 
@@ -271,7 +292,7 @@ impl Analyzer<'_> {
         // DIRTY
         if let Item::Struct(abstract_struct) = ast_struct {
             for type_def in &abstract_struct.fields {
-                let typed_id = self.resolve_type_expr(&type_def.ty).unwrap();
+                let typed_id = self.resolve_type_expr(&type_def.ty)?;
 
                 let field_repre = FieldRepre::new(type_def.name_id, typed_id);
 
@@ -281,30 +302,29 @@ impl Analyzer<'_> {
             }
         }
 
-        unimplemented!();
         Ok(())
     }
 
-    fn resolve_expr(&mut self, exprs: &Vec<Expr>) -> TypedId {
+    fn resolve_expr(&mut self, expr: &Expr) -> TypedId {
         todo!();
     }
 
-    // Maybe put args earlier if possible since not expr
     fn register_typedef(&mut self, type_def: &AbstractTypeDef, ast_id: AstId) {
         let def_id = TypeDefId::new(self.table.typedefs.len() as u32);
 
         let check = self
             .table
             .sym_table
-            // Name span?
             .insert(type_def.name_id, TypedId::TypeDef(def_id));
 
         //TODO: Maybe a span can be had if abstract structures held name spans only?
         if check.is_some() {
             let duplicate = self.interner.search(type_def.name_id.id as usize);
-            let msg = format!("The symbol '{}' appears more than once", duplicate);
 
-            self.reporter.report_basic(&msg);
+            let msg = format!("The symbol \"{}\" appears more than once", duplicate);
+            self.reporter
+                .report_spanned(&msg, None, &type_def.name_span);
+
             return;
         }
 
@@ -323,9 +343,11 @@ impl Analyzer<'_> {
 
         if check.is_some() {
             let duplicate = self.interner.search(structure.name_id.id as usize);
-            let msg = format!("The symbol '{}' appears more than once", duplicate);
 
-            self.reporter.report_basic(&msg);
+            let msg = format!("The symbol \"{}\" appears more than once", duplicate);
+            self.reporter
+                .report_spanned(&msg, None, &structure.name_span);
+
             return;
         }
 
@@ -344,9 +366,11 @@ impl Analyzer<'_> {
 
         if check.is_some() {
             let duplicate = self.interner.search(enumeration.name_id.id as usize);
-            let msg = format!("The symbol '{}' appears more than once", duplicate);
 
-            self.reporter.report_basic(&msg);
+            let msg = format!("The symbol \"{}\" appears more than once", duplicate);
+            self.reporter
+                .report_spanned(&msg, None, &enumeration.name_span);
+
             return;
         }
 

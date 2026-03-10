@@ -17,7 +17,7 @@ pub struct Table {
     pub(super) structs: Vec<StructRepre>,
     pub(super) funcs: Vec<FuncRepre>,
     pub(super) enums: Vec<EnumRepre>,
-    pub(super) types: Vec<BuiltinType>,
+    pub(super) builtin_types: Vec<BuiltinType>,
 }
 
 impl Table {
@@ -28,7 +28,7 @@ impl Table {
             structs: Vec::new(),
             funcs: Vec::new(),
             enums: Vec::new(),
-            types: Vec::new(),
+            builtin_types: Vec::new(),
         }
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use common::{
     builtins::Keyword,
-    symbols::{PrimitiveId, TypedId},
+    symbols::{BuiltinTypeId, TypedId},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -84,35 +84,6 @@ impl Token {
 pub enum TokenKind {
     Id,
     Literal,
-    // START OF TYPES
-    // I8,
-    // U8,
-    // I16,
-    // U16,
-    // F16,
-    // I32,
-    // U32,
-    // F32,
-    // I64,
-    // U64,
-    // F64,
-    // I128,
-    // U128,
-    // F128,
-    // Sized,
-    // Unsized,
-    // Str,
-    // BigInt,
-    // BigFloat,
-    // List,
-    // Set,
-    // Map,
-    // // QUESTIONABLE
-    // Any,
-    // //
-    // Type,
-    // UserType,
-    // END OF TYPES
     Number,
     OBracket,
     CBracket,
@@ -179,31 +150,6 @@ impl Display for TokenKind {
             TokenKind::VerticalBar => write!(f, "|"),
             TokenKind::Illegal => write!(f, "illegal"),
             TokenKind::EOF => write!(f, "<eof>"),
-            // TokenKind::I8 => write!(f, "i8"),
-            // TokenKind::U8 => write!(f, "u8"),
-            // TokenKind::I16 => write!(f, "i16"),
-            // TokenKind::U16 => write!(f, "u16"),
-            // TokenKind::F16 => write!(f, "f16"),
-            // TokenKind::I32 => write!(f, "i32"),
-            // TokenKind::U32 => write!(f, "u32"),
-            // TokenKind::F32 => write!(f, "f32"),
-            // TokenKind::I64 => write!(f, "i64"),
-            // TokenKind::U64 => write!(f, "u64"),
-            // TokenKind::F64 => write!(f, "f64"),
-            // TokenKind::I128 => write!(f, "i128"),
-            // TokenKind::U128 => write!(f, "u128"),
-            // TokenKind::F128 => write!(f, "f128"),
-            // TokenKind::Sized => write!(f, "sized"),
-            // TokenKind::Unsized => write!(f, "unsized"),
-            // TokenKind::Str => write!(f, "str"),
-            // TokenKind::BigInt => write!(f, "BigInt"),
-            // TokenKind::BigFloat => write!(f, "BigFloat"),
-            // TokenKind::Type => write!(f, "type"),
-            // TokenKind::List => write!(f, "List"),
-            // TokenKind::Set => write!(f, "Set"),
-            // TokenKind::Map => write!(f, "Map"),
-            // TokenKind::Any => write!(f, "Any"),
-            // TokenKind::UserType => write!(f, "User type"),
             TokenKind::Poison => write!(f, "<poisoned>"),
         }
     }
@@ -307,52 +253,46 @@ pub enum BuiltinType {
     Str,
     BigInt,
     BigFloat,
-    // Template
-    // TypeDef
-    // ActualType
-    // Maybe stay with typeident since List is NOT a primitive
     List(TypedId),
     Set(TypedId),
-    // ActualType
     Map(TypedId, TypedId),
-    // Activation from None
     Any(Option<TypedId>),
 }
 
 impl BuiltinType {
-    pub fn kind(&self) -> ActualTypeKind {
+    pub fn kind(&self) -> BuiltinTypeKind {
         match self {
-            BuiltinType::I8 => ActualTypeKind::I8,
-            BuiltinType::U8 => ActualTypeKind::U8,
-            BuiltinType::I16 => ActualTypeKind::I16,
-            BuiltinType::U16 => ActualTypeKind::U16,
-            BuiltinType::F16 => ActualTypeKind::F16,
-            BuiltinType::I32 => ActualTypeKind::I32,
-            BuiltinType::U32 => ActualTypeKind::U32,
-            BuiltinType::F32 => ActualTypeKind::F32,
-            BuiltinType::I64 => ActualTypeKind::I64,
-            BuiltinType::U64 => ActualTypeKind::U64,
-            BuiltinType::F64 => ActualTypeKind::F64,
-            BuiltinType::I128 => ActualTypeKind::I128,
-            BuiltinType::U128 => ActualTypeKind::U128,
-            BuiltinType::F128 => ActualTypeKind::F128,
-            BuiltinType::Sized => ActualTypeKind::Sized,
-            BuiltinType::Unsized => ActualTypeKind::Unsized,
-            BuiltinType::Bool => ActualTypeKind::Bool,
-            BuiltinType::Nil => ActualTypeKind::Nil,
-            BuiltinType::Char => ActualTypeKind::Char,
-            BuiltinType::Str => ActualTypeKind::Str,
-            BuiltinType::BigInt => ActualTypeKind::BigInt,
-            BuiltinType::BigFloat => ActualTypeKind::BigFloat,
-            BuiltinType::List(_) => ActualTypeKind::List,
-            BuiltinType::Set(_) => ActualTypeKind::Set,
-            BuiltinType::Map(_, _) => ActualTypeKind::Map,
-            BuiltinType::Any(_) => ActualTypeKind::Any,
+            BuiltinType::I8 => BuiltinTypeKind::I8,
+            BuiltinType::U8 => BuiltinTypeKind::U8,
+            BuiltinType::I16 => BuiltinTypeKind::I16,
+            BuiltinType::U16 => BuiltinTypeKind::U16,
+            BuiltinType::F16 => BuiltinTypeKind::F16,
+            BuiltinType::I32 => BuiltinTypeKind::I32,
+            BuiltinType::U32 => BuiltinTypeKind::U32,
+            BuiltinType::F32 => BuiltinTypeKind::F32,
+            BuiltinType::I64 => BuiltinTypeKind::I64,
+            BuiltinType::U64 => BuiltinTypeKind::U64,
+            BuiltinType::F64 => BuiltinTypeKind::F64,
+            BuiltinType::I128 => BuiltinTypeKind::I128,
+            BuiltinType::U128 => BuiltinTypeKind::U128,
+            BuiltinType::F128 => BuiltinTypeKind::F128,
+            BuiltinType::Sized => BuiltinTypeKind::Sized,
+            BuiltinType::Unsized => BuiltinTypeKind::Unsized,
+            BuiltinType::Bool => BuiltinTypeKind::Bool,
+            BuiltinType::Nil => BuiltinTypeKind::Nil,
+            BuiltinType::Char => BuiltinTypeKind::Char,
+            BuiltinType::Str => BuiltinTypeKind::Str,
+            BuiltinType::BigInt => BuiltinTypeKind::BigInt,
+            BuiltinType::BigFloat => BuiltinTypeKind::BigFloat,
+            BuiltinType::List(_) => BuiltinTypeKind::List,
+            BuiltinType::Set(_) => BuiltinTypeKind::Set,
+            BuiltinType::Map(_, _) => BuiltinTypeKind::Map,
+            BuiltinType::Any(_) => BuiltinTypeKind::Any,
         }
     }
 }
 
-pub enum ActualTypeKind {
+pub enum BuiltinTypeKind {
     I8,
     U8,
     I16,
@@ -413,55 +353,44 @@ impl BuiltinType {
 }
 
 //TEST:
-impl Display for ActualTypeKind {
+impl Display for BuiltinTypeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ActualTypeKind::I8 => write!(f, "i8"),
-            ActualTypeKind::U8 => write!(f, "u8"),
-            ActualTypeKind::I16 => write!(f, "u16"),
-            ActualTypeKind::U16 => write!(f, "u16"),
-            ActualTypeKind::F16 => write!(f, "f16"),
-            ActualTypeKind::I32 => write!(f, "i32"),
-            ActualTypeKind::U32 => write!(f, "u32"),
-            ActualTypeKind::F32 => write!(f, "f32"),
-            ActualTypeKind::I64 => write!(f, "i64"),
-            ActualTypeKind::U64 => write!(f, "u64"),
-            ActualTypeKind::F64 => write!(f, "f64"),
-            ActualTypeKind::I128 => write!(f, "i128"),
-            ActualTypeKind::U128 => write!(f, "u128"),
-            ActualTypeKind::F128 => write!(f, "f128"),
-            ActualTypeKind::Sized => write!(f, "sized"),
-            ActualTypeKind::Unsized => write!(f, "unsized"),
-            ActualTypeKind::Str => write!(f, "str"),
-            ActualTypeKind::Char => write!(f, "char"),
-            ActualTypeKind::Nil => write!(f, "nil"),
-            ActualTypeKind::Bool => write!(f, "bool"),
-            ActualTypeKind::BigInt => write!(f, "BigInt"),
-            ActualTypeKind::BigFloat => write!(f, "BigFloat"),
-            ActualTypeKind::List => write!(f, "List"),
-            ActualTypeKind::Set => write!(f, "Set"),
-            ActualTypeKind::Map => write!(f, "Map"),
-            ActualTypeKind::Any => write!(f, "Any"),
+            BuiltinTypeKind::I8 => write!(f, "i8"),
+            BuiltinTypeKind::U8 => write!(f, "u8"),
+            BuiltinTypeKind::I16 => write!(f, "u16"),
+            BuiltinTypeKind::U16 => write!(f, "u16"),
+            BuiltinTypeKind::F16 => write!(f, "f16"),
+            BuiltinTypeKind::I32 => write!(f, "i32"),
+            BuiltinTypeKind::U32 => write!(f, "u32"),
+            BuiltinTypeKind::F32 => write!(f, "f32"),
+            BuiltinTypeKind::I64 => write!(f, "i64"),
+            BuiltinTypeKind::U64 => write!(f, "u64"),
+            BuiltinTypeKind::F64 => write!(f, "f64"),
+            BuiltinTypeKind::I128 => write!(f, "i128"),
+            BuiltinTypeKind::U128 => write!(f, "u128"),
+            BuiltinTypeKind::F128 => write!(f, "f128"),
+            BuiltinTypeKind::Sized => write!(f, "sized"),
+            BuiltinTypeKind::Unsized => write!(f, "unsized"),
+            BuiltinTypeKind::Str => write!(f, "str"),
+            BuiltinTypeKind::Char => write!(f, "char"),
+            BuiltinTypeKind::Nil => write!(f, "nil"),
+            BuiltinTypeKind::Bool => write!(f, "bool"),
+            BuiltinTypeKind::BigInt => write!(f, "BigInt"),
+            BuiltinTypeKind::BigFloat => write!(f, "BigFloat"),
+            BuiltinTypeKind::List => write!(f, "List"),
+            BuiltinTypeKind::Set => write!(f, "Set"),
+            BuiltinTypeKind::Map => write!(f, "Map"),
+            BuiltinTypeKind::Any => write!(f, "Any"),
         }
     }
 }
-
-// The weight of every enum grows heavy, I don't know what isn't an enum anymore.
-// Just one more enum.
-
-//WARN: May not need to create
-// #[derive(Debug)]
-// pub struct EnumTemplate {
-//     pub(crate) id: SymbolId,
-//     pub(crate) args: Vec<InnerArgs>,
-//     pub(crate) conds: Vec<Cond>,
-//     pub(crate) variants: Vec<SymbolId>,
-// }
 
 //FIXME:
 // No
 // PLEASE change this from a try_from
 // Maybe
+// Definitely
 impl TryFrom<u32> for BuiltinType {
     type Error = ();
 

@@ -1,3 +1,6 @@
+//TODO:
+//STARTUP IDEA:
+// Enums that guide the reporter on how to print info
 use unicode_width::UnicodeWidthChar;
 
 use crate::symbols::Span;
@@ -18,14 +21,15 @@ const SEPARATORS: usize = 60;
 // FIXME: Given 'a: A "[Range()]' span.end reaches past the line causing a subtract overflow.
 // Handling multi-line will likely fix it
 /// Returns line, column and red arrows under given span, with the rest of the line also shown.
-pub fn form_err_diag(src_txt: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
-    let src_str = str::from_utf8(src_txt).expect("Lexer broke");
+pub fn form_err_diag(src_text: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
+    let src_str = str::from_utf8(src_text).expect("Lexer broke");
 
-    let (seg_start, ln) = get_line_start(src_txt, span);
+    let (seg_start, ln) = get_line_start(src_text, span);
 
-    let seg_end = get_line_end(src_txt, seg_start);
+    let seg_end = get_line_end(src_text, seg_start);
 
-    let segment = &src_txt[seg_start..seg_end];
+    //TODO: Move to a function
+    let segment = &src_text[seg_start..seg_end];
 
     // WARN: Suspicious off by one...
     let col = src_str[seg_start..span.start].chars().count() + 1;
@@ -62,16 +66,16 @@ pub fn form_err_diag(src_txt: &[u8], span: &Span, can_color: bool) -> (usize, us
 
 //TEST:
 pub fn form_help_diag(
-    src: &[u8],
+    src_text: &[u8],
     span: &Span,
     msg: &str,
     add: bool,
     suggestion: &str,
     can_color: bool,
 ) -> String {
-    let src_str = str::from_utf8(src).expect("Lexer broke");
+    let src_str = str::from_utf8(src_text).expect("Lexer broke");
 
-    let (seg_start, _) = get_line_start(src, span);
+    let (seg_start, _) = get_line_start(src_text, span);
 
     let op_count = suggestion.len();
 
@@ -112,6 +116,7 @@ pub fn form_help(msg: &str, can_color: bool) -> String {
     }
 }
 
+//TODO: Need to get multi-line
 /// Returns start of `span` in bytes from `src` and the line number it was on
 fn get_line_start(src: &[u8], span: &Span) -> (usize, usize) {
     let mut ln = 1;
@@ -141,11 +146,11 @@ fn get_line_start(src: &[u8], span: &Span) -> (usize, usize) {
     (seg_start, ln)
 }
 
-fn get_line_end(original_text: &[u8], start: usize) -> usize {
-    for i in start..original_text.len() {
-        let b = original_text[i];
+fn get_line_end(src_text: &[u8], start: usize) -> usize {
+    for i in start..src_text.len() {
+        let b = src_text[i];
 
-        if b == b'\r' && original_text.get(i + 1).copied() == Some(b'\n') {
+        if b == b'\r' && src_text.get(i + 1).copied() == Some(b'\n') {
             return i;
         } else if b == b'\n' {
             return i;
@@ -153,5 +158,5 @@ fn get_line_end(original_text: &[u8], start: usize) -> usize {
     }
 
     //WARN: I don't remember why I returned this
-    original_text.len()
+    src_text.len()
 }
