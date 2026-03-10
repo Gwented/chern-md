@@ -2,21 +2,20 @@ use std::collections::HashMap;
 
 use common::symbols::{
     Cond, EnumId, FuncId, InnerArgs, NameId, PrimitiveId, Span, StructId, SymbolId, TypeDefId,
-    TypeIdent,
 };
 
-use crate::token::{ActualType, Token};
+use crate::token::{BuiltinType, Token};
 
 //WARN: THERE ARE MANY WAYS OF DOING THIS SO I AM JUST CHOOSING THIS FOR NOW I AM VERY CONFUSED
 //MAY REMOVE
-#[derive(Debug, Clone)]
-pub enum Symbol {
-    TypeDef(UnresolvedId),
-    Struct(UnresolvedId),
-    Enum(UnresolvedId),
-    Func(UnresolvedId),
-    Prim(UnresolvedId),
-}
+// #[derive(Debug, Clone)]
+// pub enum Symbol {
+//     TypeDef(UnresolvedId),
+//     Struct(UnresolvedId),
+//     Enum(UnresolvedId),
+//     Func(UnresolvedId),
+//     Prim(UnresolvedId),
+// }
 
 #[derive(Debug, Clone, Copy)]
 pub struct UnresolvedId {
@@ -33,14 +32,14 @@ impl UnresolvedId {
 #[derive(Debug)]
 pub struct SymbolTable {
     //Can just be a vec?
-    pub(super) sym_table: HashMap<NameId, Symbol>,
+    // pub(super) sym_table: HashMap<NameId, Symbol>,
     pub(super) typedefs: Vec<TypeDef>,
     pub(super) structs: Vec<Structure>,
     pub(super) funcs: Vec<FuncDef>,
     //WARN: May merge structs and enums
     pub(super) enums: Vec<Enum>,
     // I know this has more than primitives.
-    pub(super) primitives: Vec<ActualType>,
+    pub(super) primitives: Vec<BuiltinType>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,13 +60,12 @@ impl SymbolTable {
             // Push known funks?
             funcs: Vec::new(),
             primitives: Vec::new(),
-            sym_table: todo!(),
+            // sym_table: todo!(),
         };
 
         sym_table
     }
 
-    /// Direct reference to `SymbolTable` symbols
     // pub fn symbols(&self) -> &HashMap<u32, Symbol> {
     //     &self.symbols
     // }
@@ -148,30 +146,30 @@ impl SymbolTable {
     //     &mut self.typedefs[type_id.id as usize]
     // }
 
-    pub fn extract_func(&self, type_id: TypeIdent) -> &FuncDef {
-        &self.funcs[type_id.id as usize]
-    }
-
-    // Is this needed?
-    pub fn extract_func_mut(&mut self, type_id: TypeIdent) -> &mut FuncDef {
-        &mut self.funcs[type_id.id as usize]
-    }
-
-    pub fn extract_struct(&self, type_id: TypeIdent) -> &Structure {
-        &self.structs[type_id.id as usize]
-    }
-
-    pub fn extract_struct_mut(&mut self, type_id: TypeIdent) -> &mut Structure {
-        &mut self.structs[type_id.id as usize]
-    }
-
-    pub fn extract_enum(&self, enum_id: EnumId) -> &Enum {
-        &self.enums[enum_id.id as usize]
-    }
-
-    pub fn extract_enum_mut(&mut self, enum_id: EnumId) -> &mut Enum {
-        &mut self.enums[enum_id.id as usize]
-    }
+    // pub fn extract_func(&self, type_id: TypeIdent) -> &FuncDef {
+    //     &self.funcs[type_id.id as usize]
+    // }
+    //
+    // // Is this needed?
+    // pub fn extract_func_mut(&mut self, type_id: TypeIdent) -> &mut FuncDef {
+    //     &mut self.funcs[type_id.id as usize]
+    // }
+    //
+    // pub fn extract_struct(&self, type_id: TypeIdent) -> &Structure {
+    //     &self.structs[type_id.id as usize]
+    // }
+    //
+    // pub fn extract_struct_mut(&mut self, type_id: TypeIdent) -> &mut Structure {
+    //     &mut self.structs[type_id.id as usize]
+    // }
+    //
+    // pub fn extract_enum(&self, enum_id: EnumId) -> &Enum {
+    //     &self.enums[enum_id.id as usize]
+    // }
+    //
+    // pub fn extract_enum_mut(&mut self, enum_id: EnumId) -> &mut Enum {
+    //     &mut self.enums[enum_id.id as usize]
+    // }
 }
 
 // #[derive(Debug)]
@@ -193,7 +191,7 @@ impl SymbolTable {
 #[derive(Debug)]
 pub struct TypeDef {
     pub name_id: NameId,
-    pub type_id: TypeIdent,
+    // pub type_id: TypeIdent,
     pub args: Vec<InnerArgs>,
     pub conds: Vec<Cond>,
 }
@@ -201,13 +199,13 @@ pub struct TypeDef {
 impl TypeDef {
     pub fn new(
         name_id: NameId,
-        type_id: TypeIdent,
+        // type_id: TypeIdent,
         args: Vec<InnerArgs>,
         conds: Vec<Cond>,
     ) -> TypeDef {
         TypeDef {
             name_id,
-            type_id,
+            // type_id,
             args,
             conds,
         }
@@ -218,27 +216,27 @@ impl TypeDef {
 pub struct Structure {
     // Should this be a symbol or type id?
     pub(crate) name_id: NameId,
-    pub(crate) type_id: TypeIdent,
+    // pub(crate) type_id: TypeIdent,
     pub(crate) args: Vec<InnerArgs>,
     // May remove conditions
     pub(crate) conds: Vec<Cond>,
     // Fields can be variants or separate strugg <-- Sgwom
     //WARN:
-    pub(crate) fields: Vec<TypeIdent>,
+    // pub(crate) fields: Vec<TypeIdent>,
 }
 
-impl Structure {
-    pub(crate) fn new(name_id: NameId, type_id: TypeIdent) -> Structure {
-        Structure {
-            name_id,
-            type_id,
-            args: Vec::new(),
-            conds: Vec::new(),
-            fields: Vec::new(),
-        }
-    }
-}
-
+// impl Structure {
+//     pub(crate) fn new(name_id: NameId, type_id: TypeIdent) -> Structure {
+//         Structure {
+//             name_id,
+//             type_id,
+//             args: Vec::new(),
+//             conds: Vec::new(),
+//             fields: Vec::new(),
+//         }
+//     }
+// }
+//
 //TODO: Maybe name these resolved for clarity?
 // Should parents have conditions?
 #[derive(Debug)]

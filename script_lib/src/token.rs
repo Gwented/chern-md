@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use common::{primitives::Keyword, symbols::PrimitiveId};
+use common::{
+    builtins::Keyword,
+    symbols::{PrimitiveId, TypedId},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Token {
@@ -281,7 +284,7 @@ impl TokenKind {
 
 //TODO: Call it builtin?
 #[derive(Debug)]
-pub enum ActualType {
+pub enum BuiltinType {
     I8,
     U8,
     I16,
@@ -308,43 +311,43 @@ pub enum ActualType {
     // TypeDef
     // ActualType
     // Maybe stay with typeident since List is NOT a primitive
-    List(PrimitiveId),
-    Set(PrimitiveId),
+    List(TypedId),
+    Set(TypedId),
     // ActualType
-    Map(PrimitiveId, PrimitiveId),
+    Map(TypedId, TypedId),
     // Activation from None
-    Any(Option<PrimitiveId>),
+    Any(Option<TypedId>),
 }
 
-impl ActualType {
+impl BuiltinType {
     pub fn kind(&self) -> ActualTypeKind {
         match self {
-            ActualType::I8 => ActualTypeKind::I8,
-            ActualType::U8 => ActualTypeKind::U8,
-            ActualType::I16 => ActualTypeKind::I16,
-            ActualType::U16 => ActualTypeKind::U16,
-            ActualType::F16 => ActualTypeKind::F16,
-            ActualType::I32 => ActualTypeKind::I32,
-            ActualType::U32 => ActualTypeKind::U32,
-            ActualType::F32 => ActualTypeKind::F32,
-            ActualType::I64 => ActualTypeKind::I64,
-            ActualType::U64 => ActualTypeKind::U64,
-            ActualType::F64 => ActualTypeKind::F64,
-            ActualType::I128 => ActualTypeKind::I128,
-            ActualType::U128 => ActualTypeKind::U128,
-            ActualType::F128 => ActualTypeKind::F128,
-            ActualType::Sized => ActualTypeKind::Sized,
-            ActualType::Unsized => ActualTypeKind::Unsized,
-            ActualType::Bool => ActualTypeKind::Bool,
-            ActualType::Nil => ActualTypeKind::Nil,
-            ActualType::Char => ActualTypeKind::Char,
-            ActualType::Str => ActualTypeKind::Str,
-            ActualType::BigInt => ActualTypeKind::BigInt,
-            ActualType::BigFloat => ActualTypeKind::BigFloat,
-            ActualType::List(_) => ActualTypeKind::List,
-            ActualType::Set(_) => ActualTypeKind::Set,
-            ActualType::Map(_, _) => ActualTypeKind::Map,
-            ActualType::Any(_) => ActualTypeKind::Any,
+            BuiltinType::I8 => ActualTypeKind::I8,
+            BuiltinType::U8 => ActualTypeKind::U8,
+            BuiltinType::I16 => ActualTypeKind::I16,
+            BuiltinType::U16 => ActualTypeKind::U16,
+            BuiltinType::F16 => ActualTypeKind::F16,
+            BuiltinType::I32 => ActualTypeKind::I32,
+            BuiltinType::U32 => ActualTypeKind::U32,
+            BuiltinType::F32 => ActualTypeKind::F32,
+            BuiltinType::I64 => ActualTypeKind::I64,
+            BuiltinType::U64 => ActualTypeKind::U64,
+            BuiltinType::F64 => ActualTypeKind::F64,
+            BuiltinType::I128 => ActualTypeKind::I128,
+            BuiltinType::U128 => ActualTypeKind::U128,
+            BuiltinType::F128 => ActualTypeKind::F128,
+            BuiltinType::Sized => ActualTypeKind::Sized,
+            BuiltinType::Unsized => ActualTypeKind::Unsized,
+            BuiltinType::Bool => ActualTypeKind::Bool,
+            BuiltinType::Nil => ActualTypeKind::Nil,
+            BuiltinType::Char => ActualTypeKind::Char,
+            BuiltinType::Str => ActualTypeKind::Str,
+            BuiltinType::BigInt => ActualTypeKind::BigInt,
+            BuiltinType::BigFloat => ActualTypeKind::BigFloat,
+            BuiltinType::List(_) => ActualTypeKind::List,
+            BuiltinType::Set(_) => ActualTypeKind::Set,
+            BuiltinType::Map(_, _) => ActualTypeKind::Map,
+            BuiltinType::Any(_) => ActualTypeKind::Any,
         }
     }
 }
@@ -379,31 +382,31 @@ pub enum ActualTypeKind {
 }
 
 // SHOULD THIS ERR?
-impl ActualType {
-    pub fn from_keyword(kw: Keyword) -> Option<ActualType> {
+impl BuiltinType {
+    pub fn try_from_kw(kw: Keyword) -> Option<BuiltinType> {
         match kw {
-            Keyword::I8 => Some(ActualType::I8),
-            Keyword::U8 => Some(ActualType::U8),
-            Keyword::I16 => Some(ActualType::I16),
-            Keyword::U16 => Some(ActualType::U16),
-            Keyword::F16 => Some(ActualType::F16),
-            Keyword::I32 => Some(ActualType::I32),
-            Keyword::U32 => Some(ActualType::U32),
-            Keyword::F32 => Some(ActualType::F32),
-            Keyword::I64 => Some(ActualType::I64),
-            Keyword::U64 => Some(ActualType::U64),
-            Keyword::F64 => Some(ActualType::F64),
-            Keyword::I128 => Some(ActualType::I128),
-            Keyword::U128 => Some(ActualType::U128),
-            Keyword::F128 => Some(ActualType::F128),
-            Keyword::Sized => Some(ActualType::Sized),
-            Keyword::Unsized => Some(ActualType::Unsized),
-            Keyword::Char => Some(ActualType::Char),
-            Keyword::Str => Some(ActualType::Str),
-            Keyword::Bool => Some(ActualType::Bool),
-            Keyword::Nil => Some(ActualType::Nil),
-            Keyword::BigInt => Some(ActualType::BigInt),
-            Keyword::BigFloat => Some(ActualType::BigFloat),
+            Keyword::I8 => Some(BuiltinType::I8),
+            Keyword::U8 => Some(BuiltinType::U8),
+            Keyword::I16 => Some(BuiltinType::I16),
+            Keyword::U16 => Some(BuiltinType::U16),
+            Keyword::F16 => Some(BuiltinType::F16),
+            Keyword::I32 => Some(BuiltinType::I32),
+            Keyword::U32 => Some(BuiltinType::U32),
+            Keyword::F32 => Some(BuiltinType::F32),
+            Keyword::I64 => Some(BuiltinType::I64),
+            Keyword::U64 => Some(BuiltinType::U64),
+            Keyword::F64 => Some(BuiltinType::F64),
+            Keyword::I128 => Some(BuiltinType::I128),
+            Keyword::U128 => Some(BuiltinType::U128),
+            Keyword::F128 => Some(BuiltinType::F128),
+            Keyword::Sized => Some(BuiltinType::Sized),
+            Keyword::Unsized => Some(BuiltinType::Unsized),
+            Keyword::Char => Some(BuiltinType::Char),
+            Keyword::Str => Some(BuiltinType::Str),
+            Keyword::Bool => Some(BuiltinType::Bool),
+            Keyword::Nil => Some(BuiltinType::Nil),
+            Keyword::BigInt => Some(BuiltinType::BigInt),
+            Keyword::BigFloat => Some(BuiltinType::BigFloat),
             _ => None,
         }
     }
@@ -459,33 +462,33 @@ impl Display for ActualTypeKind {
 // No
 // PLEASE change this from a try_from
 // Maybe
-impl TryFrom<u32> for ActualType {
+impl TryFrom<u32> for BuiltinType {
     type Error = ();
 
     fn try_from(v: u32) -> Result<Self, Self::Error> {
         match v {
-            0 => Ok(ActualType::I8),
-            1 => Ok(ActualType::U8),
-            2 => Ok(ActualType::I16),
-            3 => Ok(ActualType::U16),
-            4 => Ok(ActualType::F16),
-            5 => Ok(ActualType::I32),
-            6 => Ok(ActualType::U32),
-            7 => Ok(ActualType::F32),
-            8 => Ok(ActualType::I64),
-            9 => Ok(ActualType::U64),
-            10 => Ok(ActualType::F64),
-            11 => Ok(ActualType::I128),
-            12 => Ok(ActualType::U128),
-            13 => Ok(ActualType::F128),
-            14 => Ok(ActualType::Sized),
-            15 => Ok(ActualType::Unsized),
-            16 => Ok(ActualType::Char),
-            17 => Ok(ActualType::Str),
-            18 => Ok(ActualType::Bool),
-            19 => Ok(ActualType::Nil),
-            20 => Ok(ActualType::BigInt),
-            21 => Ok(ActualType::BigFloat),
+            0 => Ok(BuiltinType::I8),
+            1 => Ok(BuiltinType::U8),
+            2 => Ok(BuiltinType::I16),
+            3 => Ok(BuiltinType::U16),
+            4 => Ok(BuiltinType::F16),
+            5 => Ok(BuiltinType::I32),
+            6 => Ok(BuiltinType::U32),
+            7 => Ok(BuiltinType::F32),
+            8 => Ok(BuiltinType::I64),
+            9 => Ok(BuiltinType::U64),
+            10 => Ok(BuiltinType::F64),
+            11 => Ok(BuiltinType::I128),
+            12 => Ok(BuiltinType::U128),
+            13 => Ok(BuiltinType::F128),
+            14 => Ok(BuiltinType::Sized),
+            15 => Ok(BuiltinType::Unsized),
+            16 => Ok(BuiltinType::Char),
+            17 => Ok(BuiltinType::Str),
+            18 => Ok(BuiltinType::Bool),
+            19 => Ok(BuiltinType::Nil),
+            20 => Ok(BuiltinType::BigInt),
+            21 => Ok(BuiltinType::BigFloat),
             // 25 => Ok(ReservedKeyword::Bind),
             // 26 => Ok(ReservedKeyword::Var),
             // 27 => Ok(ReservedKeyword::Nest),

@@ -1,10 +1,13 @@
 @def
 var->
-    name: str
+    name: st
+    sigma: Mapp<str>
 @end
+
 /*nest->
+    // Can IN-PROGRAM hold args but not possible in parser
     struct Person {
-        p: Person
+        p: Person #warn
     }
 */
 /*

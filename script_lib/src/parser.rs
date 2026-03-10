@@ -1,3 +1,5 @@
+//FIXME: Assign spans to parts of ast
+//FIXME: Have conditions go through general function that returns expr
 pub mod ast;
 mod context;
 // Unpub this
@@ -11,9 +13,9 @@ use crate::parser::context::Context;
 use crate::parser::error::Branch;
 use crate::symbols::SpannedToken;
 use crate::token::{Token, TokenKind};
+use common::builtins::{self, Keyword};
 use common::intern::Intern;
-use common::primitives::Keyword;
-use common::symbols::{InnerArgs, NameId};
+use common::symbols::{InnerArgs, NameId, Span};
 
 // May be lower
 const MAX_ERRORS: u8 = 3;
@@ -56,12 +58,11 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         interner,
                     );
 
-                    //TODO: Fix loop to not stop until another section is seen
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(plain_id) = ctx.peek_tok()
-                            && interner.is_section(plain_id)
+                            && builtins::is_section(plain_id)
                                 // Oh my
-                            && ctx.peek_ahead(1).token.kind() != TokenKind::Colon
+                            && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
                         }
@@ -87,7 +88,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         // May hallucinate an error where a colon is present making it seem as
                         // though you cannot name errors section names
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && interner.is_section(name_id)
+                            && builtins::is_section(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -99,7 +100,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                     }
                 }
                 id if id == Keyword::Complex as u32 => {
-                    todo!();
+                    todo!("Complex not done");
                     ctx.advance_tok();
 
                     _ = ctx.expect_verbose(
@@ -112,7 +113,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && interner.is_section(name_id)
+                            && builtins::is_section(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -160,17 +161,9 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
     }
 
     if !ctx.err_vec.is_empty() {
-        //FIX: ANSI
-        // Should I even be using this macro?
-        // Also this is odd fix it.
-        eprintln!("From path: {}", file!());
-        eprint!("\x1b[31mError\x1b[0m: ");
+        // This COULD just be one `emit_errors()?` but not sure
+        ctx.emit_errors();
 
-        for err in ctx.err_vec.iter() {
-            eprintln!("{}\n", err.msg);
-        }
-
-        eprintln!("Reported {} error(s)\n", ctx.err_vec.len());
         std::process::exit(1);
     }
 
@@ -194,9 +187,6 @@ fn parse_bind_sect(
 
     let name_id = NameId::new(name_id);
 
-    // I don't know...
-    // let bind = Item::Bind(AbstractBind::new(name_id));
-
     program.set_bind(name_id);
 
     Ok(())
@@ -215,11 +205,13 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDe
 
     let err_name = interner.search(plain_id as usize);
 
+    dbg!(ctx.peek_tok());
+
     ctx.expect_verbose(
         TokenKind::Colon,
         &format!("Expected a ':' after identifier \"{err_name}\" to declare a type, found "),
         "",
-        Branch::VarType,
+        Branch::Var,
         interner,
     )?;
 
@@ -265,7 +257,6 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDe
             );
         }
     }
-    dbg!(&conds);
 
     let mut args: Vec<InnerArgs> = Vec::new();
 
@@ -282,7 +273,6 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDe
             if err_count > MAX_ERRORS {
                 break;
             }
-            dbg!(err_count);
 
             err_count += 1;
         }
@@ -302,31 +292,36 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDe
 // ENFORCE TYPE NAMING FOR GENERICS AT LEAST
 fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
     match ctx.peek_tok() {
-        // TODO: Maybe make this iterative
         Token::Id(id) if ctx.peek_ahead(1).token.kind() == TokenKind::OAngleBracket => {
+            let start = ctx.peek_span().start;
+
             ctx.skip(2);
 
             let name_id = NameId::new(id);
 
-            let args = parse_generic(ctx, interner)?;
+            // Needs to return the end for US
+            let (args, end) = parse_generic(ctx, interner)?;
             let generic = Generic::new(name_id, args);
 
-            Ok(TypeExpr::Generic(generic))
+            let span = Span::new(start, end);
+
+            Ok(TypeExpr::Generic(generic, span))
         }
         Token::Id(id) => {
-            ctx.advance_tok();
+            let span = ctx.advance_span();
 
             let name_id = NameId::new(id);
 
-            Ok(TypeExpr::Var(name_id))
+            Ok(TypeExpr::Var(name_id, span))
         }
         Token::QuestionMark => {
-            ctx.advance_tok();
+            let span = ctx.advance_span();
 
-            Ok(TypeExpr::Any)
+            Ok(TypeExpr::Any(span))
         }
         Token::Literal(id) | Token::Number(id) => {
             let name = interner.search(id as usize);
+
             let kind = ctx.peek_kind();
 
             ctx.advance_tok();
@@ -360,19 +355,21 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
     }
 }
 
-fn parse_generic(ctx: &mut Context, interner: &Intern) -> Result<Vec<TypeExpr>, Token> {
+//WARN: USING BASIC SPAN IMPLEMENTATION AND MAY CHANGE
+fn parse_generic(ctx: &mut Context, interner: &Intern) -> Result<(Vec<TypeExpr>, usize), Token> {
     let mut args: Vec<TypeExpr> = Vec::new();
 
-    // farg <-
-    let ty = parse_type(ctx, interner)?;
-    args.push(ty);
+    // I'M NOT NAMING IT ARG1 OR ARG2 WE DON'T USE NUMBERS
+    let farg = parse_type(ctx, interner)?;
+    args.push(farg);
 
     if ctx.peek_kind() == TokenKind::Comma {
         ctx.advance_tok();
-        let ty = parse_type(ctx, interner)?;
-        // sarg <-
-        args.push(ty);
+        let sarg = parse_type(ctx, interner)?;
+        args.push(sarg);
     }
+
+    let end = ctx.peek_span().end;
 
     ctx.expect_verbose(
         TokenKind::CAngleBracket,
@@ -382,7 +379,7 @@ fn parse_generic(ctx: &mut Context, interner: &Intern) -> Result<Vec<TypeExpr>, 
         interner,
     )?;
 
-    Ok(args)
+    Ok((args, end))
 }
 
 fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
@@ -394,6 +391,7 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
         interner,
     )?;
 
+    // FIX: Change from try_from to Some
     InnerArgs::try_from(interner.search(id as usize)).or_else(|invalid_id| {
         let msg = format!("The argument \"#{invalid_id}\" does not exist");
         ctx.report_verbose(&msg, Branch::VarTypeArgs);
@@ -402,60 +400,29 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
     })
 }
 
-// TODO: Maybe not need ast passed everywhere
 fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
     match ctx.peek_tok() {
+        Token::Id(id) if ctx.peek_ahead(1).token.kind() == TokenKind::OParen => {
+            let name_id = NameId::new(id);
+            let name_span = ctx.peek_span();
+
+            //FIX: CHECK IF THIS WORKS PLEASE
+            ctx.skip(2);
+
+            let (args, end) = handle_func(ctx, interner)?;
+
+            let func_span = Span::new(name_span.start, end);
+
+            let callee = Box::new(Expr::Var(name_id, name_span));
+
+            Ok(Expr::Call(Call::new(callee, args), func_span))
+        }
         Token::Id(id) => {
-            match Keyword::try_as_kw(id) {
-                Some(prim) => match prim {
-                    //TODO: Use or for this..
-                    //Can likely funnel this all into a singular function that just returns Expr
-                    //which could be var or call making this less odd
-                    Keyword::IsEmpty => {
-                        ctx.advance_tok();
+            let span = ctx.advance_span();
 
-                        let name_id = NameId::new(id);
+            let name_id = NameId::new(id);
 
-                        Ok(Expr::Var(name_id))
-                    }
-                    Keyword::IsWhitespace => {
-                        ctx.advance_tok();
-
-                        let name_id = NameId::new(id);
-
-                        Ok(Expr::Var(name_id))
-                    }
-                    _ => {
-                        ctx.advance_tok();
-
-                        let name_id = NameId::new(id);
-
-                        let func_name = interner.search(id as usize);
-
-                        let args = handle_func_args(ctx, func_name, interner)?;
-
-                        let callee = Box::new(Expr::Var(name_id));
-
-                        //WARN: Could be wrong
-                        Ok(Expr::Call(Call::new(callee, args)))
-                    }
-                },
-                //FIX:
-                None => {
-                    ctx.advance_tok();
-
-                    let name_id = NameId::new(id);
-
-                    let func_name = interner.search(id as usize);
-
-                    let args = handle_func_args(ctx, func_name, interner)?;
-
-                    let callee = Box::new(Expr::Var(name_id));
-
-                    //WARN: Could be wrong
-                    Ok(Expr::Call(Call::new(callee, args)))
-                }
-            }
+            Ok(Expr::Var(name_id, span))
         }
         Token::Literal(id) | Token::Number(id) => {
             let name = interner.search(id as usize);
@@ -467,8 +434,8 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             Err(Token::Poison)
         }
         Token::ExclamationPoint => {
-            //TODO: Probably should just use booleans this is a bit much
-            ctx.advance_tok();
+            //FIXME: SPAN IS INCOMPLETE
+            let span = ctx.advance_span();
 
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
@@ -485,7 +452,8 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
 
             let unary = Unary::new(UnaryOp::Not, Box::new(wrapped));
 
-            Ok(Expr::Unary(unary))
+            //WARN:
+            Ok(Expr::Unary(unary, span))
         }
         t => {
             ctx.advance_tok();
@@ -498,49 +466,38 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
     }
 }
 
-//TODO: Make this a general function that just returns expr for keywords and funcs to be AMONG
-//Or not I don't know.
-fn handle_func_args(
-    ctx: &mut Context,
-    func_name: &str,
-    interner: &Intern,
-) -> Result<Vec<Expr>, Token> {
+//FIXME: MAKE THIS GENERAL FOR KWS AND FUNCS
+fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize), Token> {
     // Should this be terminal?
-    _ = ctx.expect_verbose(
-        TokenKind::OParen,
-        // Bit convoluted
-        &format!("Expected '(' to declare parameters for the function \"{func_name}\", found "),
-        "",
-        Branch::VarFuncArgs,
-        interner,
-    );
 
     let mut args: Vec<Expr> = Vec::new();
 
     while ctx.peek_kind() != TokenKind::CParen {
         match ctx.peek_tok() {
             Token::Id(id) => {
-                ctx.advance_tok();
+                let span = ctx.advance_span();
 
                 let name_id = NameId::new(id);
 
-                args.push(Expr::Var(name_id));
+                args.push(Expr::Var(name_id, span));
             }
             Token::Literal(id) => {
-                ctx.advance_tok();
+                let span = ctx.advance_span();
 
-                // Should be called something more close to value maybe?
                 let name_id = NameId::new(id);
 
-                args.push(Expr::Literal(name_id));
+                args.push(Expr::Literal(name_id, span));
             }
             Token::Number(id) => {
-                ctx.advance_tok();
+                let span = ctx.advance_span();
 
                 //WARN: Maybe change this later to remain a string but ok for now
-                let num: i64 = interner.search(id as usize).parse().expect("Lexer broke");
+                let num: i64 = interner
+                    .search(id as usize)
+                    .parse()
+                    .expect("Lexer broke or number too big I GUESS. I guess.");
 
-                args.push(Expr::Number(num));
+                args.push(Expr::Number(num, span));
             }
             Token::CParen => break,
             Token::EOF => return Err(Token::Poison),
@@ -570,9 +527,9 @@ fn handle_func_args(
         )?;
     }
 
-    ctx.advance_tok();
+    let end = ctx.advance_span().end;
 
-    Ok(args)
+    Ok((args, end))
 }
 
 fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> {
@@ -729,6 +686,8 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
     let ty_opt = if ctx.peek_kind() == TokenKind::OParen {
         ctx.advance_tok();
 
+        let type_span = ctx.peek_span();
+
         let type_id = ctx.expect_id_verbose(
             TokenKind::Id,
             &format!("Expected a type within variant \"{err_name}\", found "),
@@ -747,7 +706,8 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
             interner,
         )?;
 
-        Some(TypeExpr::Var(type_name))
+        //WARN:
+        Some(TypeExpr::Var(type_name, type_span))
     } else {
         None
     };

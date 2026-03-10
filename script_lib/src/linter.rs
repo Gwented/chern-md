@@ -68,17 +68,17 @@ pub fn print_all(program: &Program, interner: &Intern) {
 fn print_type(ty: &TypeExpr, indent: usize, interner: &Intern) {
     let spaces = " ".repeat(indent);
     match ty {
-        TypeExpr::Var(type_id) => {
+        TypeExpr::Var(type_id, _) => {
             let type_name = interner.search(type_id.id as usize);
             println!("{spaces}type: {type_name}");
         }
-        TypeExpr::Generic(generic) => {
+        TypeExpr::Generic(generic, _) => {
             let base_name = interner.search(generic.base.id as usize);
             println!("{spaces}generic: {base_name} [");
             print_generic(&generic.args, indent + 2, interner);
             println!("{spaces}]");
         }
-        TypeExpr::Any => {
+        TypeExpr::Any(_) => {
             println!("{spaces}Any");
         }
     }
@@ -119,19 +119,19 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
     // BUT I NEED TO KNOW
     for expr in conds {
         match expr {
-            Expr::Var(name_id) => {
+            Expr::Var(name_id, _) => {
                 let name = interner.search(name_id.id as usize);
                 println!("{spaces}condition: {name}")
             }
-            Expr::Number(num) => {
+            Expr::Number(num, _) => {
                 println!("{spaces}number: {num}")
             }
-            Expr::Literal(name_id) => {
+            Expr::Literal(name_id, _) => {
                 let name = interner.search(name_id.id as usize);
                 println!("{spaces}{name}")
             }
-            Expr::Call(call) => {
-                if let Expr::Var(name_id) = *call.callee {
+            Expr::Call(call, _) => {
+                if let Expr::Var(name_id, _) = *call.callee {
                     let name = interner.search(name_id.id as usize);
                     println!("{spaces}{name} [")
                 }
@@ -139,18 +139,18 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
                 print_exprs(&call.exprs, indent, interner);
                 println!("{spaces}]")
             }
-            Expr::Unary(unary) => {
+            Expr::Unary(unary, _) => {
                 println!("{spaces}Unary [");
                 println!("{spaces}{:?}", unary.op);
 
-                if let Expr::Var(name_id) = *unary.expr {
+                if let Expr::Var(name_id, _) = *unary.expr {
                     let name = interner.search(name_id.id as usize);
                     println!("{spaces}{name}");
                 }
 
                 println!("{spaces}]");
             }
-            Expr::FieldAccess(field_access) => {
+            Expr::FieldAccess(field_access, _) => {
                 println!("{spaces}FieldAccess [");
                 let field_name = interner.search(field_access.field.id as usize);
 

@@ -1,20 +1,36 @@
 use std::collections::HashMap;
 
-use common::symbols::{
-    AstId, Cond, EnumId, FuncId, InnerArgs, NameId, PrimitiveId, StructId, SymbolId, TypeDefId,
-};
+use common::symbols::{AstId, Cond, InnerArgs, NameId, TypedId};
 
-use crate::token::ActualType;
+use crate::token::BuiltinType;
 
-// Fantastic naming
+// What is a drop? I am new to thinking i have never thought before what is RAII
+// is that a gui framework
+pub struct Table {
+    //FIXME:
+    //FIXME:
+    //FIXME:
+    //FIXME: MUCH RATHER USE IF LET
+    //Maybe
+    pub(super) sym_table: HashMap<NameId, TypedId>,
+    pub(super) typedefs: Vec<TypeDefRepre>,
+    pub(super) structs: Vec<StructRepre>,
+    pub(super) funcs: Vec<FuncRepre>,
+    pub(super) enums: Vec<EnumRepre>,
+    pub(super) types: Vec<BuiltinType>,
+}
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum TypedId {
-    Struct(StructId),
-    Enum(EnumId),
-    TypeDef(TypeDefId),
-    Func(FuncId),
-    Type(PrimitiveId),
+impl Table {
+    pub fn new() -> Table {
+        Table {
+            sym_table: HashMap::new(),
+            typedefs: Vec::new(),
+            structs: Vec::new(),
+            funcs: Vec::new(),
+            enums: Vec::new(),
+            types: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -115,33 +131,5 @@ pub(super) struct FieldRepre {
 impl FieldRepre {
     pub fn new(name_id: NameId, ty: TypedId) -> FieldRepre {
         FieldRepre { name_id, ty }
-    }
-}
-
-// What is a drop? I am new to thinking i have never thought before what is RAII
-// is that a gui framework
-pub struct Table {
-    //FIXME:
-    //FIXME:
-    //FIXME:
-    //FIXME: MUCH RATHER USE IF LET
-    pub(super) sym_table: HashMap<NameId, TypedId>,
-    pub(super) typedefs: Vec<TypeDefRepre>,
-    pub(super) structs: Vec<StructRepre>,
-    pub(super) funcs: Vec<FuncRepre>,
-    pub(super) enums: Vec<EnumRepre>,
-    pub(super) types: Vec<ActualType>,
-}
-
-impl Table {
-    pub fn new() -> Table {
-        Table {
-            sym_table: HashMap::new(),
-            typedefs: Vec::new(),
-            structs: Vec::new(),
-            funcs: Vec::new(),
-            enums: Vec::new(),
-            types: Vec::new(),
-        }
     }
 }

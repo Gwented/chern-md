@@ -1,4 +1,4 @@
-pub static KEYWORDS_ARRAY: [&str; 37] = [
+pub static KEYWORDS_ARRAY: [&str; 38] = [
     // primitives
     "i8", // 0
     "u8",
@@ -33,6 +33,8 @@ pub static KEYWORDS_ARRAY: [&str; 37] = [
     "var", // 28
     "nest",
     "complex", // 30
+    "override",
+    //TODO: Add override
     // Directives
     "IsEmpty",
     "IsWhitespace", // 32
@@ -78,12 +80,13 @@ pub enum Keyword {
     Var = 28,
     Nest = 29,
     Complex = 30,
-    IsEmpty = 31,
-    IsWhitespace = 32,
-    Range = 33,
-    StartsW = 34,
-    EndsW = 35,
-    Contains = 36,
+    Override = 31,
+    IsEmpty = 32,
+    IsWhitespace = 33,
+    Range = 34,
+    StartsW = 35,
+    EndsW = 36,
+    Contains = 37,
 }
 
 impl Keyword {
@@ -121,12 +124,13 @@ impl Keyword {
             28 => Some(Keyword::Var),
             29 => Some(Keyword::Nest),
             30 => Some(Keyword::Complex),
-            31 => Some(Keyword::IsEmpty),
-            32 => Some(Keyword::IsWhitespace),
-            33 => Some(Keyword::Range),
-            34 => Some(Keyword::StartsW),
-            35 => Some(Keyword::EndsW),
-            36 => Some(Keyword::Contains),
+            31 => Some(Keyword::Override),
+            32 => Some(Keyword::IsEmpty),
+            33 => Some(Keyword::IsWhitespace),
+            34 => Some(Keyword::Range),
+            35 => Some(Keyword::StartsW),
+            36 => Some(Keyword::EndsW),
+            37 => Some(Keyword::Contains),
             _ => None,
         }
     }
@@ -163,7 +167,18 @@ impl Keyword {
         None
     }
 
-    // Maybe match as kw first?
+    pub fn try_as_data_struct(id: u32) -> Option<Keyword> {
+        if let Some(kw) = Self::try_as_kw(id) {
+            match kw {
+                Keyword::List | Keyword::Map => todo!(),
+                Keyword::Set => return Some(kw),
+                _ => return None,
+            }
+        }
+
+        None
+    }
+
     pub fn try_as_cond(id: u32) -> Option<Keyword> {
         if let Some(kw) = Self::try_as_kw(id) {
             match kw {
@@ -186,5 +201,5 @@ pub fn is_type(id: u32) -> bool {
 }
 
 pub fn is_section(id: u32) -> bool {
-    (27..=30).contains(&id)
+    (27..=31).contains(&id)
 }

@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 #[derive(Debug)]
-// Override errors maybe if I get more context that the hard-coded portion?
-pub struct Diagnostic {
+// I'm new to thinking. Anyone have some beginner thoughts?
+pub(super) struct Diagnostic {
     //FIX:
     pub(super) msg: String,
     pub(super) branch: Branch,

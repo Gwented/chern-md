@@ -1,4 +1,4 @@
-use common::symbols::{InnerArgs, NameId};
+use common::symbols::{InnerArgs, NameId, Span};
 
 // Going for convention...
 // Aliases too.
@@ -32,8 +32,9 @@ impl Program {
 
 #[derive(Debug)]
 pub enum Item {
-    //FIX: WILL REMOVE
-    // DO I SECTION THIS?
+    //                                                 name: str [!IsEmpty, Range(0,5)]
+    //TODO: Should these have spans? Do we REALLY want ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    //
     Var(AbstractTypeDef),
     Struct(AbstractStruct),
     Enum(AbstractEnum),
@@ -42,13 +43,13 @@ pub enum Item {
 
 #[derive(Debug)]
 pub enum Expr {
-    Var(NameId),
+    Var(NameId, Span),
     // isize?
-    Number(i64),
-    Literal(NameId),
-    Call(Call),
-    FieldAccess(FieldAccess),
-    Unary(Unary),
+    Number(i64, Span),
+    Literal(NameId, Span),
+    Call(Call, Span),
+    FieldAccess(FieldAccess, Span),
+    Unary(Unary, Span),
 }
 
 #[derive(Debug)]
@@ -67,10 +68,10 @@ impl Call {
 // WHAT IS A TUPLE I HAVE NOT HEARD OF THAT BEFORE I AM NEW TO THINKING HAS ANYONE THOUGHT BEFORE?
 #[derive(Debug)]
 pub enum TypeExpr {
-    Var(NameId),
+    Var(NameId, Span),
     //_Generic
-    Generic(Generic),
-    Any,
+    Generic(Generic, Span),
+    Any(Span),
 }
 
 // Maybe put in enum exclusively if not needed outside

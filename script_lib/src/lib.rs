@@ -9,8 +9,8 @@ pub mod token;
 mod tests {
 
     use common::{
+        builtins::{self, Keyword},
         intern::Intern,
-        primitives::{self, Keyword},
         storage::FileLoader,
     };
 
@@ -48,6 +48,7 @@ mod tests {
     // #[ignore = "Hi"]
     // FIX: Please make a better test I am scared
     // No
+    // Ok I'm scared too
     #[test]
     fn primitives_test() {
         let interner = Intern::init();
@@ -87,6 +88,7 @@ mod tests {
         assert_eq!("var", interner.search(Keyword::Var as usize));
         assert_eq!("nest", interner.search(Keyword::Nest as usize));
         assert_eq!("complex", interner.search(Keyword::Complex as usize));
+        assert_eq!("override", interner.search(Keyword::Override as usize));
         // Keywords & Funcs
         assert_eq!("IsEmpty", interner.search(Keyword::IsEmpty as usize));
         assert_eq!(
@@ -99,10 +101,7 @@ mod tests {
         assert_eq!("Contains", interner.search(Keyword::Contains as usize));
 
         // Uh
-        assert_eq!(
-            primitives::KEYWORDS_ARRAY.len() - 1,
-            Keyword::Contains as usize
-        );
+        assert_eq!(builtins::KEYWORDS_ARRAY.len() - 1, 37);
     }
 
     #[test]

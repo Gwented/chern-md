@@ -3,10 +3,12 @@ use unicode_width::UnicodeWidthChar;
 use crate::symbols::Span;
 
 //FIX: ANSI
-const RED: &str = "\x1b[31m";
-const GREEN: &str = "\x1b[32m";
-const ORANGE: &str = "\x1b[33m";
-const NC: &str = "\x1b[0m";
+//Is this weird to be pub?
+// Should these have a color.rs?
+pub const RED: &str = "\x1b[31m";
+pub const GREEN: &str = "\x1b[32m";
+pub const ORANGE: &str = "\x1b[33m";
+pub const NC: &str = "\x1b[0m";
 
 const SEPARATORS: usize = 60;
 
@@ -15,14 +17,15 @@ const SEPARATORS: usize = 60;
 
 // FIXME: Given 'a: A "[Range()]' span.end reaches past the line causing a subtract overflow.
 // Handling multi-line will likely fix it
-pub fn form_err_diag(src: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
-    let src_str = str::from_utf8(src).expect("Lexer broke");
+/// Returns line, column and red arrows under given span, with the rest of the line also shown.
+pub fn form_err_diag(src_txt: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
+    let src_str = str::from_utf8(src_txt).expect("Lexer broke");
 
-    let (seg_start, ln) = get_line_start(src, span);
+    let (seg_start, ln) = get_line_start(src_txt, span);
 
-    let seg_end = get_line_end(src, seg_start);
+    let seg_end = get_line_end(src_txt, seg_start);
 
-    let segment = &src[seg_start..seg_end];
+    let segment = &src_txt[seg_start..seg_end];
 
     // WARN: Suspicious off by one...
     let col = src_str[seg_start..span.start].chars().count() + 1;

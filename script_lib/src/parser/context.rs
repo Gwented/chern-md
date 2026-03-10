@@ -11,8 +11,6 @@ use crate::{
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
-// A C programmer got lost.
-
 // C_ == current. A_ == ahead
 
 // ALL SET LOGIC AND PARSE LOGIC NEED TO WORK WITH EACH OTHER
@@ -21,7 +19,7 @@ const TOTAL_SEPARATORS: usize = 60;
 const C_BASE_EXIT_SET: u64 = token::EOF | token::ILLEGAL | token::C_CURLY_BRACKET;
 const A_BASE_EXIT_SET: u64 = token::SLIM_ARROW;
 
-const C_BRANCH_VAR_SET: u64 = C_BASE_EXIT_SET | token::O_BRACKET;
+const C_BRANCH_VAR_SET: u64 = C_BASE_EXIT_SET;
 const A_BRANCH_VAR_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
 // WARN: NestType should probably be responsible for C_CURLY but maybe not
@@ -66,6 +64,7 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// Returns a name id on success and the failed token on error.
     pub(super) fn expect_id_verbose(
         &mut self,
         expected: TokenKind,
@@ -98,10 +97,10 @@ impl<'a> Context<'a> {
 
         let msg = if let Some(id) = id_opt {
             let name_id = interner.search(id as usize);
-            format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n\n|[{ln}:{col}]|\n{segment}{help}",)
+            format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n\n[{ln}:{col}]\n{segment}{help}",)
         } else {
             format!(
-                "(in {branch})\n{bmsg}'{}'{amsg}\n\n|[{ln}:{col}]|\n{segment}{help}",
+                "(in {branch})\n{bmsg}'{}'{amsg}\n\n[{ln}:{col}]\n{segment}{help}",
                 found.token.kind()
             )
         };
@@ -125,9 +124,10 @@ impl<'a> Context<'a> {
         let (ln, col, segment) =
             reporter::form_err_diag(self.src_text, &found.span, self.can_color);
 
-        let separator = "-".repeat(TOTAL_SEPARATORS);
+        let separators = "-".repeat(TOTAL_SEPARATORS);
 
-        let msg = format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}");
+        let msg =
+            format!("(in {branch})\n{msg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separators}");
 
         self.recover(branch);
 
@@ -136,7 +136,7 @@ impl<'a> Context<'a> {
         self.err_vec.push(report);
     }
 
-    /// Fully curated version of `expect_basic`
+    /// Returns the found token on success and failure
     // Return token based off of it's most probable path?
     pub(super) fn expect_verbose(
         &mut self,
@@ -158,7 +158,7 @@ impl<'a> Context<'a> {
             let (ln, col, segment) =
                 reporter::form_err_diag(self.src_text, &found.span, self.can_color);
 
-            let separator = "-".repeat(TOTAL_SEPARATORS);
+            let separators = "-".repeat(TOTAL_SEPARATORS);
 
             let help = self
                 .try_help(expected, found.token.kind(), branch)
@@ -168,12 +168,12 @@ impl<'a> Context<'a> {
                 let name = interner.search(id as usize);
 
                 format!(
-                    "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                    "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separators}",
                     found.token.kind()
                 )
             } else {
                 format!(
-                    "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separator}",
+                    "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separators}",
                     found.token.kind()
                 )
             };
@@ -201,10 +201,10 @@ impl<'a> Context<'a> {
         let (ln, col, segment) =
             reporter::form_err_diag(self.src_text, &found.span, self.can_color);
 
-        let separator = "-".repeat(TOTAL_SEPARATORS);
+        let separators = "-".repeat(TOTAL_SEPARATORS);
 
         let msg = format!(
-            "(in {branch})\nExpected {emsg}, found {fmsg}\n\n|[{ln}:{col}]|\n{segment}\n{help}{separator}",
+            "(in {branch})\nExpected {emsg}, found {fmsg}\n\n|[{ln}:{col}]|\n{segment}\n{help}{separators}",
         );
 
         self.recover(branch);
@@ -250,12 +250,7 @@ impl<'a> Context<'a> {
     }
 
     //TEST:
-    pub(super) fn try_help(
-        &self,
-        expected: TokenKind,
-        found: TokenKind,
-        branch: Branch,
-    ) -> Option<String> {
+    fn try_help(&self, expected: TokenKind, found: TokenKind, branch: Branch) -> Option<String> {
         let prev_tok = self.tokens.get(self.pos.saturating_sub(2))?.clone();
         let prev_kind = prev_tok.token.kind();
 
@@ -314,6 +309,23 @@ impl<'a> Context<'a> {
         }
     }
 
+    pub(super) fn emit_errors(&self) {
+        let initial_err = if self.can_color {
+            format!("{}Error{}", reporter::RED, reporter::NC)
+        } else {
+            format!("Error")
+        };
+
+        println!("From path => {{}}");
+        println!("{initial_err}:");
+
+        for err in &self.err_vec {
+            println!("{}", err.msg);
+        }
+
+        eprintln!("Reported {} error(s)\n", self.err_vec.len());
+    }
+
     pub(super) fn skip(&mut self, dest: usize) -> () {
         self.pos += dest;
     }
@@ -325,10 +337,6 @@ impl<'a> Context<'a> {
             .unwrap_or(Token::EOF)
     }
 
-    pub(super) fn peek_ahead(&self, dest: usize) -> &SpannedToken {
-        &self.tokens[self.pos + dest]
-    }
-
     pub(super) fn peek_kind(&self) -> TokenKind {
         self.tokens
             .get(self.pos)
@@ -336,8 +344,23 @@ impl<'a> Context<'a> {
             .unwrap_or(TokenKind::EOF)
     }
 
+    pub(super) fn peek_ahead(&self, dest: usize) -> &SpannedToken {
+        &self.tokens[self.pos + dest]
+    }
+
     pub(super) fn advance_tok(&mut self) -> Token {
         let t = self.tokens[self.pos].token;
+        self.pos += 1;
+        t
+    }
+
+    pub(super) fn peek_span(&mut self) -> Span {
+        let t = self.tokens[self.pos].span.clone();
+        t
+    }
+
+    pub(super) fn advance_span(&mut self) -> Span {
+        let t = self.tokens[self.pos].span.clone();
         self.pos += 1;
         t
     }

@@ -31,7 +31,7 @@ fn main() {
 
     linter::print_all(&program, &interner);
 
-    let stuff = Analyzer::new(&program, &interner).analyze();
+    let stuff = Analyzer::new(&program, &interner, &data).analyze();
 
     println!("{} ms", start.elapsed().as_millis());
 }

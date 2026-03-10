@@ -21,22 +21,13 @@ impl SymbolId {
     }
 }
 
-// Because of TypeId in Crust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TypeIdent {
-    pub id: u32,
-}
-
-impl TypeIdent {
-    pub fn new(id: u32) -> TypeIdent {
-        TypeIdent { id }
-    }
-}
-
-impl From<u32> for TypeIdent {
-    fn from(v: u32) -> Self {
-        TypeIdent::new(v)
-    }
+#[derive(Debug, Clone, Copy)]
+pub enum TypedId {
+    Struct(StructId),
+    Enum(EnumId),
+    TypeDef(TypeDefId),
+    Func(FuncId),
+    Type(PrimitiveId),
 }
 
 // FIXME: Does not seem needed since there are no functions only definitions.
