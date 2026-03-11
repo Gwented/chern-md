@@ -13,7 +13,6 @@ pub struct Intern {
     pos: usize,
 }
 
-//TODO: CONCERNING INTRINSIC VALUES
 impl Intern {
     pub fn init() -> Intern {
         let mut interner = Intern {
@@ -22,7 +21,6 @@ impl Intern {
             pos: builtins::KEYWORDS_ARRAY.len(),
         };
 
-        // TODO: Is this ok?
         for (id, keyword) in builtins::KEYWORDS_ARRAY.iter().enumerate() {
             interner.map.insert(keyword.to_string(), id as u32);
             interner.stored.push(keyword.to_string());

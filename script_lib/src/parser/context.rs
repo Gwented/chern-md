@@ -73,16 +73,29 @@ impl<'a> Context<'a> {
     ) -> Result<u32, Token> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
+
         // WARN: IF ANYTHING GOES WRONG ADD THE IF STATEMENTS BACK FOR EOF
 
+        //TODO: ALLOW ILLEGAL AND CHAR TO BE DISPLAYED
         let id_opt = match found.token {
-            Token::Id(id) | Token::Literal(id) | Token::Integer(id) => {
+            Token::Id(id)
+            | Token::Literal(id)
+            | Token::Integer(id)
+            | Token::Float(id)
+            //NOTE: This is a little weird
+            | Token::Illegal(id)
+            //FIX:
+              => {
                 if found.token.kind() == expected {
                     return Ok(id);
                 }
 
                 Some(id)
             }
+            //TODO:
+            // Token::Char(ch) => {
+            //     todo!("Not allowed to make character errors as of right now");
+            // }
             _ => None,
         };
 

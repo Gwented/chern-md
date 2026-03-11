@@ -46,10 +46,25 @@ impl<R: Read> FileLoader<R> {
 
                     let start_line = self.lines_read;
 
-                    if self.read_quotes().is_err() {
+                    if self.read_quotes(b'\"').is_err() {
                         let msg = format!(
                             //FIX: Should print path
                             "Found unclosed quotes at line {} which reached <eof>",
+                            start_line
+                        );
+
+                        return Err(msg);
+                    }
+                }
+                b'\'' => {
+                    self.advance();
+
+                    let start_line = self.lines_read;
+
+                    if self.read_quotes(b'\'').is_err() {
+                        let msg = format!(
+                            //FIX: Should print path
+                            "Found unclosed single quotes at line {} which reached <eof>",
                             start_line
                         );
 
@@ -94,7 +109,6 @@ impl<R: Read> FileLoader<R> {
                         );
                         return Err(msg);
                     }
-
                     self.advance();
                 }
                 _ => {
@@ -112,19 +126,18 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    //FIX: I DON'T CARE ADD THE FLOATS
-    //Ok sorry
     /// Returns a result instead of an option because if there are unclosed quotes and this method
     /// fails, it would need return a Some value which DOESN'T represent a failure, making it
     /// misleading.
-    fn read_quotes(&mut self) -> Result<(), ()> {
+    // TODO: LEXER SHOULD ALSO HANDLE THIS ALONE
+    // Is this even worth being an enum?
+    fn read_quotes(&mut self, quote_type: u8) -> Result<(), ()> {
         while let Some(b) = self.peek() {
-            //FIX: WHAT
             match b {
                 b'\\' => {
                     self.skip(2);
                 }
-                b'\"' => {
+                b if b == quote_type => {
                     self.advance();
                     return Ok(());
                 }
@@ -148,10 +161,11 @@ impl<R: Read> FileLoader<R> {
     fn handle_multi_comment(&mut self) -> Result<(), String> {
         let mut depth = 1;
         let comment_start = self.lines_read;
+
         while let Some(current_byte) = self.peek()
             && depth > 0
         {
-            //FIX: Simplify this
+            //TODO: Simplify this
             if let Some(next_byte) = self.peek_ahead(1) {
                 if current_byte == b'/' && next_byte == b'*' {
                     depth += 1;

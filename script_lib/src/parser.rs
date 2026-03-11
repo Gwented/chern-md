@@ -1,5 +1,4 @@
 //FIXME: All top level structures need to be able to take arguments
-//FIXME: MORE GENERAL ARGUMENT FUNCTION TO REDUCE CODE DUPLICATION AND ALLOW FOR TOP LEVEL ARGS
 pub mod ast;
 mod context;
 // Unpub this
@@ -247,7 +246,6 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
     program
 }
 
-//FIXME:
 fn parse_bind_stmt(
     ctx: &mut Context,
     program: &mut Program,
@@ -420,7 +418,6 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
         Token::Poison => {
             panic!("Touched <poison>");
         }
-        //TODO:
         t => {
             dbg!(ctx.peek_tok());
             ctx.advance_tok();
@@ -503,7 +500,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
 
             Ok(Expr::Var(name_id, span))
         }
-        Token::Literal(id) | Token::Integer(id) | Token::Illegal(id) => {
+        Token::Literal(id) | Token::Integer(id) | Token::Float(id) | Token::Illegal(id) => {
             let err_tok = ctx.advance_tok();
 
             let name = interner.search(id as usize);

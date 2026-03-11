@@ -6,8 +6,7 @@ use common::symbols::{InnerArgs, NameId, Span};
 
 #[derive(Debug)]
 pub struct Program {
-    // MAYBE SHOULDN't BE A NAME ID I DONT KNOW
-    //FIX: Inconsistent
+    // MAYBE SHOULDN'T BE A NAME ID I DONT KNOW
     pub bind: Option<NameId>,
     pub items: Vec<Item>,
 }
@@ -134,7 +133,6 @@ impl AbstractStruct {
         name_span: Span,
         args: Vec<InnerArgs>,
         conds: Vec<Expr>,
-        //TODO: Change both enum and struct of field
         fields: Vec<AbstractTypeDef>,
     ) -> AbstractStruct {
         AbstractStruct {

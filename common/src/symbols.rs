@@ -97,7 +97,7 @@ impl TypeDefId {
     }
 }
 
-//FIX: Should maybe be somewhere else but fine for now
+//TODO: Should maybe be somewhere else but fine for now
 #[derive(Debug, Clone)]
 pub struct Span {
     pub start: usize,

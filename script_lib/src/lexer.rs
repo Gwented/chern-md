@@ -5,20 +5,20 @@ use crate::{symbols::SpannedToken, token::Token};
 
 /// Known size in bytes for `@def` and `@end`
 const DEFINITION_SIZE: usize = 4;
+
 const MAX_ILLEGAL_TOKS: u8 = 7;
 
 pub struct Lexer<'a> {
-    bytes: &'a [u8],
+    src_bytes: &'a [u8],
     pos: usize,
 }
 
-//FIXME: Add floats
 impl Lexer<'_> {
     // WARN: The file is fully dependent on being able to lex from a certain point so the @ confirmation
     // here should MAYBE be removed
     pub fn new(bytes: &[u8], lex_start: usize) -> Lexer<'_> {
         Lexer {
-            bytes,
+            src_bytes: bytes,
             pos: 0 + lex_start,
         }
     }
@@ -166,7 +166,7 @@ impl Lexer<'_> {
                         break;
                     } else {
                         illegal_toks += 1;
-                        tokens.push(self.recover_illegal(interner));
+                        tokens.push(self.recover_illegal(None, interner));
                     }
                 }
                 '.' => {
@@ -175,7 +175,6 @@ impl Lexer<'_> {
                     if self.peek_ahead(1) == b'.' && self.peek_ahead(2) == b'=' {
                         self.skip(2);
 
-                        //TODO: Remove this concept
                         tokens.push(SpannedToken {
                             token: Token::DotRange,
                             span: Span::new(start, end),
@@ -206,9 +205,13 @@ impl Lexer<'_> {
                     self.advance();
                 }
                 '"' => {
-                    //FIX: Add clarity for -1. Maybe return the token itself.
                     self.advance();
                     tokens.push(self.read_quotes(interner));
+                }
+                //WARN: Seems fine
+                '\'' => {
+                    self.advance();
+                    tokens.push(self.read_char(interner));
                 }
                 '+' => {
                     tokens.push(SpannedToken {
@@ -303,7 +306,7 @@ impl Lexer<'_> {
                 _ => {
                     illegal_toks += 1;
 
-                    tokens.push(self.recover_illegal(interner));
+                    tokens.push(self.recover_illegal(None, interner));
                     if illegal_toks > MAX_ILLEGAL_TOKS {
                         // TODO: Maybe this should be at the end because technically @ is illegal too
                         eprintln!("Maximum illegal tokens found.\nReporting then aborting...");
@@ -320,7 +323,7 @@ impl Lexer<'_> {
             }
         }
 
-        //WARN: This also isn't possible after the loader so may remove
+        //TODO: This also isn't possible after the loader so may remove
         //Also odd handling
         if in_def && illegal_toks == MAX_ILLEGAL_TOKS {
             // Should abort
@@ -332,67 +335,58 @@ impl Lexer<'_> {
     }
 
     fn read_id(&mut self, interner: &mut Intern) -> SpannedToken {
-        let mut ident = Vec::with_capacity(4);
-
         let start = self.pos;
 
-        while self.pos < self.bytes.len() && self.peek_char().is_alphanumeric()
+        while self.pos < self.src_bytes.len() && self.peek_char().is_alphanumeric()
             || self.peek() == b'_'
         {
-            let byte = self.advance_char();
-            ident.push(byte);
+            self.advance_char();
         }
 
         // Is one off since advance moves forward as a final step
-        let end = self.pos - 1;
+        let end = self.pos;
 
-        let ident: String = ident.iter().collect();
+        let id_str = str::from_utf8(&self.src_bytes[start..end])
+            .expect("Cannot fail due to loop only accepting valid UTF-8 characters.");
 
-        //FIX: Either peek ahead char OR handle it here
-        if ident == "_" {
-            panic!("Please");
-        }
-
-        let id = interner.intern(&ident);
+        let id = interner.intern(&id_str);
 
         SpannedToken {
             token: Token::Id(id),
-            span: Span::new(start, end),
+            // Offset due to advance being done before leaving loop.
+            span: Span::new(start, end - 1),
         }
     }
 
     fn read_num(&mut self, interner: &mut Intern) -> SpannedToken {
-        let mut id = String::new();
         let start = self.pos;
 
         let mut is_float = false;
 
-        //FIXME: Weirdly redundant
-        while self.pos < self.bytes.len() && self.peek().is_ascii_digit()
-            || self.peek() == b'_'
-            //TEST:
-            || self.peek() == b'.'
-        {
-            if self.peek() == b'_' {
-                self.advance();
-                continue;
+        //FIXME: Maybe take other notations. I don't know I'm scared
+        while self.pos < self.src_bytes.len() {
+            match self.peek() {
+                b'0'..=b'9' => {
+                    self.advance();
+                }
+                //NOTE: Checking if next could be "..=" to avoid collision
+                b'.' if !is_float && self.peek_ahead(1) != b'.' => {
+                    is_float = true;
+                }
+                b'.' if !is_float && self.peek_ahead(1) == b'.' => break,
+                b'_' => {
+                    self.advance();
+                }
+                _ => break,
             }
-
-            if !is_float && self.peek() == b'.' {
-                is_float = true;
-            } else if is_float && self.peek() == b'.' {
-                return self.recover_illegal(interner);
-            }
-
-            let byte = self.advance();
-
-            id.push(byte as char);
         }
 
-        //WARN:
-        let end = self.pos - 1;
+        let end = self.pos;
 
-        let id = interner.intern(&id);
+        let id_str = str::from_utf8(&self.src_bytes[start..end])
+            .expect("Cannot fail due to match only allowing ascii characters.");
+
+        let id = interner.intern(id_str);
 
         if !is_float {
             SpannedToken {
@@ -407,82 +401,194 @@ impl Lexer<'_> {
         }
     }
 
-    //FIX: Currently fixing quote offset with - 1 but should likely just return start, end, tok
+    //TODO: Check if this still works if quotes are unclosed WITHOUT the loader
     fn read_quotes(&mut self, interner: &mut Intern) -> SpannedToken {
-        let mut path: Vec<u8> = Vec::with_capacity(10);
-        //WARN: THIS WAS CHANGED SEE IF IT BROKE
-        let start = self.pos - 1;
+        let start = self.pos;
 
-        //FIXME: ACTUALLY IMPLEMENT THEIR FUNCTIONALITIES EVENTUALLY
-        let escape_sequences = [b'n', b'r', b'\"', b'0', b'\\', b'x'];
-
-        while self.pos < self.bytes.len() {
+        while self.pos < self.src_bytes.len() {
             match self.peek() {
                 b'\\' => {
-                    let a = self.advance();
+                    let escape_start = self.pos - 1;
+                    self.advance();
 
-                    path.push(a);
-
-                    if !escape_sequences.contains(&self.peek()) {
-                        return self.recover_illegal(interner);
+                    if let Some(_) = self.read_escape() {
+                    } else {
+                        return self.recover_illegal(Some(escape_start), interner);
                     }
-
-                    let b = self.advance();
-
-                    path.push(b);
                 }
-                b'\"' => {
+                b'"' => {
                     self.advance();
                     break;
                 }
-                _ => path.push(self.advance()),
+                _ => {
+                    self.advance();
+                }
             }
         }
 
-        //WARN: Compenstation for quotes being ignored
         let end = self.pos - 1;
 
-        //TODO: Cleaner handle of failure to close string.
-        //I believe the Java File file = new File(); detects this innately
-        if self.pos == self.bytes.len() {
-            let resp_id = interner.intern("Failed to close string literal and found <eof>");
-            return SpannedToken {
-                token: Token::Illegal(resp_id),
-                span: Span::new(start, end),
-            };
-        }
-
-        let path_res = str::from_utf8(path.as_slice());
+        let path_res = str::from_utf8(&self.src_bytes[start..end]);
 
         match path_res {
             Ok(p) => {
                 let path_id = interner.intern(p);
                 SpannedToken {
                     token: Token::Literal(path_id),
-                    span: Span::new(start, end),
+                    span: Span::new(start - 1, end),
                 }
             }
             Err(_) => {
                 let response = "Invalid UTF-8. Could not parse literal.";
+
                 let id = interner.intern(response);
+
                 SpannedToken {
                     token: Token::Illegal(id),
-                    span: Span::new(start, end),
+                    span: Span::new(start - 1, end),
                 }
             }
         }
     }
 
+    //TODO: Check if this still works if quotes are unclosed WITHOUT the loader
+    fn read_char(&mut self, interner: &mut Intern) -> SpannedToken {
+        //WARN: This offset is really DIRTY and should be fixed
+        let start = self.pos;
+
+        let mut result_char: Option<char> = None;
+        let mut char_count: usize = 0;
+
+        while self.pos < self.src_bytes.len() {
+            match self.peek() {
+                b'\\' => {
+                    let escape_start = self.pos - 1;
+                    self.advance();
+
+                    match self.read_escape() {
+                        Some(ch) => {
+                            dbg!(ch);
+                            result_char = Some(ch);
+                            char_count += 1;
+                        }
+                        None => {
+                            return self.recover_illegal(Some(escape_start), interner);
+                        }
+                    }
+                }
+                b'\'' => {
+                    self.advance();
+                    break;
+                }
+                _ => {
+                    let ch = self.peek_char();
+                    result_char = Some(ch);
+
+                    char_count += 1;
+
+                    self.advance_char();
+                    dbg!(self.peek_char());
+                }
+            }
+        }
+
+        if char_count > 1 {
+            return self.recover_illegal(Some(start - 1), interner);
+        }
+
+        let end = self.pos - 1;
+
+        match result_char {
+            Some(ch) => SpannedToken {
+                token: Token::Char(ch),
+                span: Span::new(start - 1, end),
+            },
+            None => {
+                let id = interner.intern("empty character literal");
+                SpannedToken {
+                    token: Token::Illegal(id),
+                    span: Span::new(start - 1, end),
+                }
+            }
+        }
+    }
+
+    fn read_escape(&mut self) -> Option<char> {
+        match self.peek() {
+            b'n' => {
+                self.advance();
+                Some('\n')
+            }
+            b'r' => {
+                self.advance();
+                Some('\r')
+            }
+            b't' => {
+                self.advance();
+                Some('\t')
+            }
+            b'\\' => {
+                self.advance();
+                Some('\\')
+            }
+            b'0' => {
+                self.advance();
+                Some('\0')
+            }
+            b'\'' => {
+                self.advance();
+                Some('\'')
+            }
+            b'"' => {
+                self.advance();
+                Some('"')
+            }
+            b'x' => {
+                self.advance();
+                let mut val: u8 = 0;
+                let mut count = 0;
+
+                // This could be a black box risk more so than bit-wise sets but stays for now
+                while count < 2 {
+                    let c = self.peek();
+
+                    let digit = match c {
+                        b'0'..=b'9' => c - b'0',
+                        b'a'..=b'f' => c - b'a' + 10,
+                        b'A'..=b'F' => c - b'A' + 10,
+                        _ => break,
+                    };
+
+                    val = (val << 4) | digit;
+                    self.advance();
+                    count += 1;
+                }
+
+                if count == 2 {
+                    let next = self.peek();
+                    if matches!(next, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F') {
+                        None
+                    } else {
+                        Some(val as char)
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
     fn peek(&self) -> u8 {
-        self.bytes.get(self.pos).copied().unwrap_or(b'\0')
+        self.src_bytes.get(self.pos).copied().unwrap_or(b'\0')
     }
 
     fn is_def_start(&self) -> bool {
-        if self.pos + 3 > self.bytes.len() {
+        if self.pos + 3 > self.src_bytes.len() {
             return false;
         }
 
-        let possible_start = &self.bytes[self.pos..=self.pos + 3];
+        let possible_start = &self.src_bytes[self.pos..=self.pos + 3];
 
         if possible_start == "@def".as_bytes() {
             return true;
@@ -492,11 +598,11 @@ impl Lexer<'_> {
     }
 
     fn is_def_end(&mut self) -> bool {
-        if self.pos + 3 > self.bytes.len() {
+        if self.pos + 3 > self.src_bytes.len() {
             return false;
         }
 
-        let possible_end = &self.bytes[self.pos..=self.pos + 3];
+        let possible_end = &self.src_bytes[self.pos..=self.pos + 3];
 
         if possible_end == "@end".as_bytes() {
             return true;
@@ -505,24 +611,25 @@ impl Lexer<'_> {
         false
     }
 
-    fn recover_illegal(&mut self, interner: &mut Intern) -> SpannedToken {
-        let start = self.pos;
+    //WARN: WATCH THIS CLOSELY THERE COULD BE OFFSET MISTAKES
+    fn recover_illegal(&mut self, start: Option<usize>, interner: &mut Intern) -> SpannedToken {
+        let start = if let Some(s) = start { s } else { self.pos };
 
-        let mut err_str = String::new();
-
-        while !self.peek_char().is_whitespace() {
-            let ch = self.advance_char();
-            err_str.push(ch);
+        while self.pos < self.src_bytes.len() && !self.peek_char().is_whitespace() {
+            self.advance_char();
         }
-
         //WARN: Same behavior as read_id
-        let end = self.pos - 1;
+        let end = self.pos;
+
+        let err_str = str::from_utf8(&self.src_bytes[start..end])
+            .expect("Cannot fail due to loop only accepting valid UTF-8");
 
         let id = interner.intern(&err_str);
 
         SpannedToken {
             token: Token::Illegal(id),
-            span: Span::new(start, end),
+            // Same offset reason as all other spans
+            span: Span::new(start, end - 1),
         }
     }
 
@@ -533,11 +640,11 @@ impl Lexer<'_> {
             return b as char;
         }
 
-        let end = std::cmp::min(self.pos + 3, self.bytes.len());
+        let end = std::cmp::min(self.pos + 3, self.src_bytes.len());
 
-        let chunk = &self.bytes[self.pos..end];
+        let chunk = &self.src_bytes[self.pos..end];
 
-        // // Lazy evaluation to avoid utf-8 checking entire self.bytes
+        // Lazy evaluation to avoid utf-8 checking entire self.bytes
         std::str::from_utf8(chunk)
             .ok()
             .and_then(|c| c.chars().next())
@@ -555,7 +662,7 @@ impl Lexer<'_> {
         let mut depth = 1;
         // Avoiding recursion...
         // But why?
-        while self.pos < self.bytes.len() && depth > 0 {
+        while self.pos < self.src_bytes.len() && depth > 0 {
             if self.peek() == b'/' && self.peek_ahead(1) == b'*' {
                 self.skip(1);
                 depth += 1;
@@ -579,11 +686,10 @@ impl Lexer<'_> {
     }
 
     fn peek_ahead(&mut self, dest: usize) -> u8 {
-        self.bytes.get(self.pos + dest).copied().unwrap_or(b'\0')
-    }
-
-    fn peek_ahead_char(&mut self, dest: usize) -> u8 {
-        self.bytes.get(self.pos + dest).copied().unwrap_or(b'\0')
+        self.src_bytes
+            .get(self.pos + dest)
+            .copied()
+            .unwrap_or(b'\0')
     }
 
     fn advance(&mut self) -> u8 {

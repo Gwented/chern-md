@@ -6,7 +6,6 @@ use unicode_width::UnicodeWidthChar;
 use crate::symbols::Span;
 
 //FIX: ANSI
-//Is this weird to be pub?
 // Should these have a color.rs?
 pub const RED: &str = "\x1b[31m";
 pub const GREEN: &str = "\x1b[32m";
@@ -18,8 +17,6 @@ const SEPARATORS: usize = 60;
 //TODO: Handle multi-line errors
 // Store \n array for binary search NOT now. DO NOT. do it now.
 
-// FIXME: Given 'a: A "[Range()]' span.end reaches past the line causing a subtract overflow.
-// Handling multi-line will likely fix it
 /// Returns line, column and red arrows under given span, with the rest of the line also shown.
 pub fn form_err_diag(src_text: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
     let src_str = str::from_utf8(src_text).expect("Lexer broke");
