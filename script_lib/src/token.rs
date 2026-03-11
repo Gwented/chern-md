@@ -31,14 +31,15 @@ pub enum Token {
     Slash,
     HashSymbol,
     Percent,
+    Plus,
+    Asterisk,
     Hyphen,
     // At,
     ExclamationPoint,
-    Asterisk,
     DoubleQuotes,
     Tilde,
-    Dot,
     VerticalBar,
+    Dot,
     Poison,
     EOF,
 }
@@ -69,6 +70,7 @@ impl Token {
             Token::Colon => TokenKind::Colon,
             Token::OParen => TokenKind::OParen,
             Token::CParen => TokenKind::CParen,
+            Token::Plus => TokenKind::Plus,
             Token::Hyphen => TokenKind::Hyphen,
             Token::ExclamationPoint => TokenKind::ExclamationPoint,
             Token::Asterisk => TokenKind::Asterisk,
@@ -106,6 +108,7 @@ pub enum TokenKind {
     Colon,
     OParen,
     CParen,
+    Plus,
     Hyphen,
     // At,
     ExclamationPoint,
@@ -124,8 +127,8 @@ impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TokenKind::Id => write!(f, "identifier"),
-            TokenKind::Literal => write!(f, "literal"),
-            TokenKind::Integer => write!(f, "number"),
+            TokenKind::Literal => write!(f, "string literal"),
+            TokenKind::Integer => write!(f, "integer"),
             TokenKind::Float => write!(f, "float"),
             TokenKind::OBracket => write!(f, "["),
             TokenKind::CBracket => write!(f, "]"),
@@ -144,6 +147,7 @@ impl Display for TokenKind {
             TokenKind::Colon => write!(f, ":"),
             TokenKind::OParen => write!(f, "("),
             TokenKind::CParen => write!(f, ")"),
+            TokenKind::Plus => write!(f, "+"),
             TokenKind::Hyphen => write!(f, "-"),
             TokenKind::ExclamationPoint => write!(f, "!"),
             TokenKind::Asterisk => write!(f, "*"),
@@ -161,6 +165,7 @@ impl Display for TokenKind {
 
 // IS THIS EVEN OPTIMAL?
 // I DID NOT KNOW ABOUT PUB CONST AT ALL
+// FIX: NEED CATCH ALL
 pub const ID: u64 = 1 << 0;
 pub const LITERAL: u64 = 1 << 1;
 pub const INTEGER: u64 = 1 << 2;
@@ -183,16 +188,17 @@ pub const PERCENT: u64 = 1 << 18;
 pub const COLON: u64 = 1 << 19;
 pub const O_PAREN: u64 = 1 << 20;
 pub const C_PAREN: u64 = 1 << 21;
-pub const HYPHEN: u64 = 1 << 22;
-pub const EXCLAMATION_POINT: u64 = 1 << 23;
+pub const PLUS: u64 = 1 << 22;
+pub const HYPHEN: u64 = 1 << 23;
 pub const ASTERISK: u64 = 1 << 24;
-pub const DOUBLE_QUOTES: u64 = 1 << 25;
-pub const TILDE: u64 = 1 << 26;
-pub const DOT: u64 = 1 << 27;
-pub const VERTICAL_BAR: u64 = 1 << 28;
-pub const ILLEGAL: u64 = 1 << 29;
-pub const POISON: u64 = 1 << 30;
-pub const EOF: u64 = 1 << 31;
+pub const EXCLAMATION_POINT: u64 = 1 << 25;
+pub const DOUBLE_QUOTES: u64 = 1 << 26;
+pub const TILDE: u64 = 1 << 27;
+pub const DOT: u64 = 1 << 28;
+pub const VERTICAL_BAR: u64 = 1 << 29;
+pub const ILLEGAL: u64 = 1 << 30;
+pub const POISON: u64 = 1 << 31;
+pub const EOF: u64 = 1 << 32;
 
 //FIX: PLEASE ASSERT THIS THING
 impl TokenKind {
@@ -221,6 +227,7 @@ impl TokenKind {
             TokenKind::Colon => COLON,
             TokenKind::OParen => O_PAREN,
             TokenKind::CParen => C_PAREN,
+            TokenKind::Plus => PLUS,
             TokenKind::Hyphen => HYPHEN,
             TokenKind::ExclamationPoint => EXCLAMATION_POINT,
             TokenKind::Asterisk => ASTERISK,
@@ -235,7 +242,6 @@ impl TokenKind {
     }
 }
 
-//TODO: Call it builtin?
 #[derive(Debug)]
 pub enum BuiltinType {
     I8,

@@ -34,13 +34,11 @@ invalid()
 NO ALIASES PLEASE NO
 --
 
+# DOES NOT EXIST YET
+`~`: Name bypass operator. ~str
 
----- REMOVE ONE
-# Will likely remove this one
-`~`: Approximation operator acts as a range. Equivalent to: 0 <= x <= 6, 0..=6.
-
+// May remove this
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
------
 
 ## [Predicates]
 `IsEmpty`: Checks if the given array or string has a length of 0.

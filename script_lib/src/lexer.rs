@@ -1,3 +1,4 @@
+//FIXME: _ should be reserved for other purposes
 use common::{intern::Intern, symbols::Span};
 
 use crate::{symbols::SpannedToken, token::Token};
@@ -144,14 +145,6 @@ impl Lexer<'_> {
 
                     self.advance();
                 }
-                '?' => {
-                    tokens.push(SpannedToken {
-                        token: Token::QuestionMark,
-                        span: Span::new(self.pos, self.pos),
-                    });
-
-                    self.advance();
-                }
                 '@' => {
                     // Allows for same behavior even in file with serialized data
                     // TODO: Should this be partially removed? Should @ be preserved?
@@ -217,6 +210,14 @@ impl Lexer<'_> {
                     self.advance();
                     tokens.push(self.read_quotes(interner));
                 }
+                '+' => {
+                    tokens.push(SpannedToken {
+                        token: Token::Plus,
+                        span: Span::new(self.pos, self.pos),
+                    });
+
+                    self.advance();
+                }
                 '-' => {
                     let (start, mut end) = (self.pos, self.pos);
 
@@ -235,17 +236,9 @@ impl Lexer<'_> {
 
                     self.advance();
                 }
-                '=' => {
+                '*' => {
                     tokens.push(SpannedToken {
-                        token: Token::Equals,
-                        span: Span::new(self.pos, self.pos),
-                    });
-
-                    self.advance();
-                }
-                '~' => {
-                    tokens.push(SpannedToken {
-                        token: Token::Tilde,
+                        token: Token::Asterisk,
                         span: Span::new(self.pos, self.pos),
                     });
 
@@ -267,9 +260,33 @@ impl Lexer<'_> {
                         self.advance();
                     }
                 }
+                '=' => {
+                    tokens.push(SpannedToken {
+                        token: Token::Equals,
+                        span: Span::new(self.pos, self.pos),
+                    });
+
+                    self.advance();
+                }
+                '~' => {
+                    tokens.push(SpannedToken {
+                        token: Token::Tilde,
+                        span: Span::new(self.pos, self.pos),
+                    });
+
+                    self.advance();
+                }
                 '!' => {
                     tokens.push(SpannedToken {
                         token: Token::ExclamationPoint,
+                        span: Span::new(self.pos, self.pos),
+                    });
+
+                    self.advance();
+                }
+                '?' => {
+                    tokens.push(SpannedToken {
+                        token: Token::QuestionMark,
                         span: Span::new(self.pos, self.pos),
                     });
 
@@ -331,6 +348,11 @@ impl Lexer<'_> {
 
         let ident: String = ident.iter().collect();
 
+        //FIX: Either peek ahead char OR handle it here
+        if ident == "_" {
+            panic!("Please");
+        }
+
         let id = interner.intern(&ident);
 
         SpannedToken {
@@ -345,24 +367,24 @@ impl Lexer<'_> {
 
         let mut is_float = false;
 
-        // TODO: Match specific handling for underscores for cleanliness.
-        // Clean code, clean architecture, SOLID principles
+        //FIXME: Weirdly redundant
         while self.pos < self.bytes.len() && self.peek().is_ascii_digit()
             || self.peek() == b'_'
             //TEST:
             || self.peek() == b'.'
         {
-            let byte = self.advance();
-
-            if byte == b'_' {
+            if self.peek() == b'_' {
+                self.advance();
                 continue;
             }
 
-            if !is_float && byte == b'.' {
+            if !is_float && self.peek() == b'.' {
                 is_float = true;
-            } else if is_float && byte == b'.' {
-                self.recover_illegal(interner);
+            } else if is_float && self.peek() == b'.' {
+                return self.recover_illegal(interner);
             }
+
+            let byte = self.advance();
 
             id.push(byte as char);
         }
@@ -557,6 +579,10 @@ impl Lexer<'_> {
     }
 
     fn peek_ahead(&mut self, dest: usize) -> u8 {
+        self.bytes.get(self.pos + dest).copied().unwrap_or(b'\0')
+    }
+
+    fn peek_ahead_char(&mut self, dest: usize) -> u8 {
         self.bytes.get(self.pos + dest).copied().unwrap_or(b'\0')
     }
 

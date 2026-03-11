@@ -503,10 +503,12 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
 
             Ok(Expr::Var(name_id, span))
         }
-        Token::Literal(id) | Token::Integer(id) => {
+        Token::Literal(id) | Token::Integer(id) | Token::Illegal(id) => {
+            let err_tok = ctx.advance_tok();
+
             let name = interner.search(id as usize);
 
-            let fmt_tok = format!("{} \"{name}\"", TokenKind::Literal);
+            let fmt_tok = format!("{} \"{name}\"", err_tok.kind());
             ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
 
             //WARN:
@@ -583,9 +585,19 @@ fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize
                 let num: f64 = interner
                     .search(id as usize)
                     .parse()
-                    .expect("Lexer broke or number too big I GUESS. I guess.");
+                    .expect("Lexer broke (Float).");
 
                 args.push(Expr::Float(num, span));
+            }
+            Token::Illegal(id) => {
+                ctx.advance_tok();
+
+                let name = interner.search(id as usize);
+                // HELP
+                let msg = format!("Cannot have \"{name}\" within function parameters");
+
+                ctx.report_verbose(&msg, Branch::VarCond);
+                return Err(Token::Poison);
             }
             Token::CParen => break,
             Token::EOF => return Err(Token::Poison),

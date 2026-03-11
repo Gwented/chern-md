@@ -1,7 +1,8 @@
 @def
-    // Fix this
+    // fix not being able to do struct ~str { str: str }
     var->
-        name: str [Range(0.0, 5.2)]
+        // Fix this
+        name: str [_]
         p: Person
         str: stop
     nest->
