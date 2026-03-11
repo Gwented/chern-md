@@ -9,7 +9,8 @@ use common::{
 pub enum Token {
     Id(u32),
     Literal(u32),
-    Number(u32),
+    Integer(u32),
+    Float(u32),
     Illegal(u32),
     OParen,
     CParen,
@@ -47,7 +48,8 @@ impl Token {
         match self {
             Token::Id(_) => TokenKind::Id,
             Token::Literal(_) => TokenKind::Literal,
-            Token::Number(_) => TokenKind::Number,
+            Token::Integer(_) => TokenKind::Integer,
+            Token::Float(_) => TokenKind::Float,
             Token::OBracket => TokenKind::OBracket,
             Token::CBracket => TokenKind::CBracket,
             Token::OCurlyBracket => TokenKind::OCurlyBracket,
@@ -84,7 +86,8 @@ impl Token {
 pub enum TokenKind {
     Id,
     Literal,
-    Number,
+    Integer,
+    Float,
     OBracket,
     CBracket,
     OCurlyBracket,
@@ -122,7 +125,8 @@ impl Display for TokenKind {
         match self {
             TokenKind::Id => write!(f, "identifier"),
             TokenKind::Literal => write!(f, "literal"),
-            TokenKind::Number => write!(f, "number"),
+            TokenKind::Integer => write!(f, "number"),
+            TokenKind::Float => write!(f, "float"),
             TokenKind::OBracket => write!(f, "["),
             TokenKind::CBracket => write!(f, "]"),
             TokenKind::OCurlyBracket => write!(f, "{{"),
@@ -159,43 +163,46 @@ impl Display for TokenKind {
 // I DID NOT KNOW ABOUT PUB CONST AT ALL
 pub const ID: u64 = 1 << 0;
 pub const LITERAL: u64 = 1 << 1;
-pub const NUMBER: u64 = 1 << 2;
-pub const O_BRACKET: u64 = 1 << 3;
-pub const C_BRACKET: u64 = 1 << 4;
-pub const O_CURLY_BRACKET: u64 = 1 << 5;
-pub const C_CURLY_BRACKET: u64 = 1 << 6;
-pub const QUESTION_MARK: u64 = 1 << 7;
-pub const EQUALS: u64 = 1 << 8;
-pub const WALRUS: u64 = 1 << 9;
-pub const O_ANGLE_BRACKET: u64 = 1 << 10;
-pub const C_ANGLE_BRACKET: u64 = 1 << 11;
-pub const COMMA: u64 = 1 << 12;
-pub const SLIM_ARROW: u64 = 1 << 13;
-pub const SLASH: u64 = 1 << 14;
-pub const HASH_SYMBOL: u64 = 1 << 15;
-pub const DOT_RANGE: u64 = 1 << 16;
-pub const PERCENT: u64 = 1 << 17;
-pub const COLON: u64 = 1 << 18;
-pub const O_PAREN: u64 = 1 << 19;
-pub const C_PAREN: u64 = 1 << 20;
-pub const HYPHEN: u64 = 1 << 21;
-pub const EXCLAMATION_POINT: u64 = 1 << 22;
-pub const ASTERISK: u64 = 1 << 23;
-pub const DOUBLE_QUOTES: u64 = 1 << 24;
-pub const TILDE: u64 = 1 << 25;
-pub const DOT: u64 = 1 << 26;
-pub const VERTICAL_BAR: u64 = 1 << 27;
-pub const ILLEGAL: u64 = 1 << 28;
-pub const POISON: u64 = 1 << 29;
-pub const EOF: u64 = 1 << 30;
+pub const INTEGER: u64 = 1 << 2;
+pub const FLOAT: u64 = 1 << 3;
+pub const O_BRACKET: u64 = 1 << 4;
+pub const C_BRACKET: u64 = 1 << 5;
+pub const O_CURLY_BRACKET: u64 = 1 << 6;
+pub const C_CURLY_BRACKET: u64 = 1 << 7;
+pub const QUESTION_MARK: u64 = 1 << 8;
+pub const EQUALS: u64 = 1 << 9;
+pub const WALRUS: u64 = 1 << 10;
+pub const O_ANGLE_BRACKET: u64 = 1 << 11;
+pub const C_ANGLE_BRACKET: u64 = 1 << 12;
+pub const COMMA: u64 = 1 << 13;
+pub const SLIM_ARROW: u64 = 1 << 14;
+pub const SLASH: u64 = 1 << 15;
+pub const HASH_SYMBOL: u64 = 1 << 16;
+pub const DOT_RANGE: u64 = 1 << 17;
+pub const PERCENT: u64 = 1 << 18;
+pub const COLON: u64 = 1 << 19;
+pub const O_PAREN: u64 = 1 << 20;
+pub const C_PAREN: u64 = 1 << 21;
+pub const HYPHEN: u64 = 1 << 22;
+pub const EXCLAMATION_POINT: u64 = 1 << 23;
+pub const ASTERISK: u64 = 1 << 24;
+pub const DOUBLE_QUOTES: u64 = 1 << 25;
+pub const TILDE: u64 = 1 << 26;
+pub const DOT: u64 = 1 << 27;
+pub const VERTICAL_BAR: u64 = 1 << 28;
+pub const ILLEGAL: u64 = 1 << 29;
+pub const POISON: u64 = 1 << 30;
+pub const EOF: u64 = 1 << 31;
 
+//FIX: PLEASE ASSERT THIS THING
 impl TokenKind {
     pub fn to_u64(&self) -> u64 {
         // Ignore this...
         match self {
             TokenKind::Id => ID,
             TokenKind::Literal => LITERAL,
-            TokenKind::Number => NUMBER,
+            TokenKind::Integer => INTEGER,
+            TokenKind::Float => FLOAT,
             TokenKind::OBracket => O_BRACKET,
             TokenKind::CBracket => C_BRACKET,
             TokenKind::OCurlyBracket => O_CURLY_BRACKET,

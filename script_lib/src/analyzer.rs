@@ -1,4 +1,4 @@
-//TODO: GET NAME ID SPANS FOR REGISTER PHASE
+//FIXME: CHECK IF CONDITIONS AND ARGUMENTS ARE VALID
 mod error;
 pub mod representation;
 mod semantic;
@@ -6,7 +6,7 @@ mod semantic;
 use common::{
     builtins::Keyword,
     intern::Intern,
-    symbols::{AstId, BuiltinTypeId, Cond, EnumId, Span, StructId, TypeDefId, TypedId},
+    symbols::{AstId, BuiltinTypeId, Cond, EnumId, InnerArgs, StructId, TypeDefId, TypedId},
 };
 
 use crate::{
@@ -39,7 +39,7 @@ impl Analyzer<'_> {
     }
 
     //FIXME: USE A SINGULAR VECTOR INDEXED BY NAMEID LATER OVER A HASHMAP NOT NOW PLEASE NOT NOW
-    // Ok
+    // Ok. But when
     pub fn analyze(&mut self) -> Result<(), ()> {
         // Registering namespaces
         for (id, item) in self.program.items.iter().enumerate() {
@@ -83,13 +83,6 @@ impl Analyzer<'_> {
             std::process::exit(1);
         }
 
-        // Can maybe match in-line if similar to linter recursion issue is not had
-
-        // dbg!(&self.table.sym_table);
-        // dbg!(&self.table.typedefs);
-        // dbg!(&self.table.structs);
-        // dbg!(&self.table.enums);
-        // dbg!(&self.table.types);
         Ok(())
     }
 
@@ -102,7 +95,14 @@ impl Analyzer<'_> {
         // DIRTY
         if let Item::Var(abstract_typedef) = ast_def {
             let ty = self.resolve_type_expr(&abstract_typedef.ty)?;
-            let args = abstract_typedef.args.clone();
+            let mut args = Vec::new();
+
+            //TODO: Make less terminal
+            for arg in abstract_typedef.args.clone() {
+                let resolved_arg = self.resolve_arg(arg)?;
+
+                args.push(resolved_arg);
+            }
 
             let mut conds = Vec::new();
 
@@ -242,7 +242,6 @@ impl Analyzer<'_> {
     //FIX: Duplication issue
     fn resolve_cond(&mut self, expr: &Expr) -> Result<Cond, ()> {
         match expr {
-            //TODO: Possible alias ability
             Expr::Var(name_id, span) => {
                 if let Some(kw) = Keyword::try_as_kw(name_id.id) {
                     if let Some(cond) = Cond::try_from_kw(kw) {
@@ -259,7 +258,6 @@ impl Analyzer<'_> {
             }
             Expr::Call(call, span) => todo!(),
             Expr::Unary(unary, span) => todo!(),
-            // Invalid I think
             Expr::Literal(name_id, span) => {
                 let err_name = self.interner.search(name_id.id as usize);
 
@@ -268,9 +266,8 @@ impl Analyzer<'_> {
 
                 Err(())
             }
-            // TODO: Maybe this should be the point where it resolves to a number instead of at the
-            // parser?
-            Expr::Number(num, span) => todo!(),
+            Expr::Integer(num, span) => todo!(),
+            Expr::Float(_, span) => todo!(),
             Expr::FieldAccess(field_access, span) => {
                 //TODO: Is this worth evaluating as an expression just to get the name?
 
@@ -283,6 +280,7 @@ impl Analyzer<'_> {
         }
     }
 
+    //FIX: GO FROM TOP DOWN
     fn resolve_struct(&mut self, struct_id: StructId) -> Result<(), ()> {
         let ast_struct = {
             let structure = &mut self.table.structs[struct_id.id as usize];
@@ -302,7 +300,12 @@ impl Analyzer<'_> {
             }
         }
 
+        todo!("Need to resolve struct level arguments");
         Ok(())
+    }
+
+    fn resolve_arg(&mut self, arg: InnerArgs) -> Result<InnerArgs, ()> {
+        todo!();
     }
 
     fn resolve_expr(&mut self, expr: &Expr) -> TypedId {

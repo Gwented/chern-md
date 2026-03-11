@@ -1,3 +1,4 @@
+//FIXME: MAKE EXPRESSION THAT HELPS RESOLVE SEMANTIC TYPES MORE CLEANLY
 use common::symbols::{InnerArgs, NameId, Span};
 
 // Going for convention...
@@ -41,10 +42,11 @@ pub enum Item {
 }
 
 #[derive(Debug)]
-pub enum Expr {
+pub(crate) enum Expr {
     Var(NameId, Span),
     // isize?
-    Number(i64, Span),
+    Integer(i64, Span),
+    Float(f64, Span),
     Literal(NameId, Span),
     Call(Call, Span),
     FieldAccess(AbstractFieldAccess, Span),
@@ -59,33 +61,21 @@ pub struct Call {
 }
 
 impl Call {
-    pub fn new(callee: Box<Expr>, exprs: Vec<Expr>) -> Call {
+    pub(crate) fn new(callee: Box<Expr>, exprs: Vec<Expr>) -> Call {
         Call { callee, exprs }
     }
 }
 
 // WHAT IS A TUPLE I HAVE NOT HEARD OF THAT BEFORE I AM NEW TO THINKING HAS ANYONE THOUGHT BEFORE?
 #[derive(Debug)]
-pub enum TypeExpr {
+pub(crate) enum TypeExpr {
     Var(NameId, Span),
     //_Generic
-    Generic(Generic, Span),
+    Generic(AbstractGeneric, Span),
     Any(Span),
 }
 
 // Maybe put in enum exclusively if not needed outside
-
-#[derive(Debug)]
-pub struct AbstractGeneric {
-    pub(crate) name_id: NameId,
-    pub(crate) args: Box<TypeExpr>,
-}
-
-impl AbstractGeneric {
-    pub fn new(name_id: NameId, args: Box<TypeExpr>) -> AbstractGeneric {
-        AbstractGeneric { name_id, args }
-    }
-}
 
 // #[derive(Debug)]
 // pub struct AbstractBind {
@@ -112,7 +102,7 @@ pub struct AbstractTypeDef {
 }
 
 impl AbstractTypeDef {
-    pub fn new(
+    pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
         ty: TypeExpr,
@@ -139,7 +129,7 @@ pub struct AbstractStruct {
 }
 
 impl AbstractStruct {
-    pub fn new(
+    pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
         args: Vec<InnerArgs>,
@@ -168,7 +158,7 @@ pub struct AbstractEnum {
 }
 
 impl AbstractEnum {
-    pub fn new(
+    pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
         args: Vec<InnerArgs>,
@@ -188,9 +178,9 @@ impl AbstractEnum {
 
 // Hold that thought
 #[derive(Debug)]
-pub struct AbstractVariant {
+pub(crate) struct AbstractVariant {
     pub(crate) name_id: NameId,
-    pub(super) name_span: Span,
+    pub(crate) name_span: Span,
     // I think this is right?
     pub(crate) ty: Option<TypeExpr>,
     pub(crate) args: Vec<InnerArgs>,
@@ -198,7 +188,7 @@ pub struct AbstractVariant {
 }
 
 impl AbstractVariant {
-    pub fn new(
+    pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
         // I think this is right?
@@ -224,7 +214,7 @@ pub struct AbstractFunc {
 }
 
 impl AbstractFunc {
-    pub fn new(name_id: NameId, name_span: Span, params: Vec<Expr>) -> AbstractFunc {
+    pub(crate) fn new(name_id: NameId, name_span: Span, params: Vec<Expr>) -> AbstractFunc {
         AbstractFunc {
             name_id,
             name_span,
@@ -235,44 +225,44 @@ impl AbstractFunc {
 
 // Please no SpannedNameId
 #[derive(Debug)]
-pub struct AbstractFieldAccess {
+pub(crate) struct AbstractFieldAccess {
     pub(crate) base: Box<Expr>,
     pub(crate) field: NameId,
 }
 
 impl AbstractFieldAccess {
-    pub fn new(base: Box<Expr>, field: NameId) -> AbstractFieldAccess {
+    pub(crate) fn new(base: Box<Expr>, field: NameId) -> AbstractFieldAccess {
         AbstractFieldAccess { base, field }
     }
 }
 
 #[derive(Debug)]
-pub struct Unary {
+pub(crate) struct Unary {
     pub(crate) op: UnaryOp,
     pub(crate) expr: Box<Expr>,
 }
 
 impl Unary {
-    pub fn new(op: UnaryOp, expr: Box<Expr>) -> Unary {
+    pub(crate) fn new(op: UnaryOp, expr: Box<Expr>) -> Unary {
         Unary { op, expr }
     }
 }
 
 #[derive(Debug)]
-pub enum UnaryOp {
+pub(crate) enum UnaryOp {
     Not,
     // Negate
 }
 
 #[derive(Debug)]
-pub struct Generic {
+pub(crate) struct AbstractGeneric {
     pub(crate) base: NameId,
     // Change to tuple or something alike since max 2?
     pub(crate) args: Vec<TypeExpr>,
 }
 
-impl Generic {
-    pub fn new(base: NameId, args: Vec<TypeExpr>) -> Generic {
-        Generic { base, args }
+impl AbstractGeneric {
+    pub(crate) fn new(base: NameId, args: Vec<TypeExpr>) -> AbstractGeneric {
+        AbstractGeneric { base, args }
     }
 }

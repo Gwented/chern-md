@@ -13,6 +13,9 @@ pub(super) struct Diagnostic {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(super) enum Branch {
     Broken,
+    Neutral,
+    // TODO: Need state of neutral AND generally searching to remove any state ambiguity upon
+    // failure.
     Searching,
     Bind,
     Var,
@@ -23,7 +26,7 @@ pub(super) enum Branch {
     Nest,
     NestType,
     NestEnum,
-    ComplexRules,
+    Complex,
     Override,
 }
 
@@ -31,7 +34,9 @@ impl Display for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Branch::Broken => write!(f, "abort"),
-            Branch::Searching => write!(f, "searching..."),
+            Branch::Neutral => write!(f, "neutral"),
+            Branch::Searching => write!(f, "searching"),
+            // Maybe better name
             Branch::Bind => write!(f, "bind"),
             Branch::Var => write!(f, "var"),
             Branch::VarType => write!(f, "[type]"),
@@ -41,7 +46,7 @@ impl Display for Branch {
             Branch::Nest => write!(f, "nest"),
             Branch::NestType => write!(f, "[type]"),
             Branch::NestEnum => write!(f, "[enum]"),
-            Branch::ComplexRules => write!(f, "complex_rules"),
+            Branch::Complex => write!(f, "complex_rules"),
             Branch::Override => write!(f, "override"),
         }
     }

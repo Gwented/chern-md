@@ -76,7 +76,7 @@ impl<'a> Context<'a> {
         // WARN: IF ANYTHING GOES WRONG ADD THE IF STATEMENTS BACK FOR EOF
 
         let id_opt = match found.token {
-            Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
+            Token::Id(id) | Token::Literal(id) | Token::Integer(id) => {
                 if found.token.kind() == expected {
                     return Ok(id);
                 }
@@ -148,7 +148,7 @@ impl<'a> Context<'a> {
 
         if found.token.kind() != expected {
             let id_opt = match found.token {
-                Token::Id(id) | Token::Literal(id) | Token::Number(id) => Some(id),
+                Token::Id(id) | Token::Literal(id) | Token::Integer(id) => Some(id),
                 _ => None,
             };
 
@@ -201,7 +201,7 @@ impl<'a> Context<'a> {
         let separators = "-".repeat(TOTAL_SEPARATORS);
 
         let msg = format!(
-            "(in {branch})\nExpected {emsg}, found {fmsg}\n\n|[{ln}:{col}]|\n{segment}\n{help}{separators}",
+            "(in {branch})\nExpected {emsg}, found {fmsg}\n\n[{ln}:{col}]\n{segment}\n{help}{separators}",
         );
 
         self.recover(branch);
@@ -228,6 +228,7 @@ impl<'a> Context<'a> {
     fn match_anchor(&self, branch: Branch) -> (u64, u64) {
         match branch {
             Branch::Broken => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::Neutral => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
             Branch::Searching => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
             Branch::Bind => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
             Branch::Var => (C_BRANCH_VAR_SET, A_BRANCH_VAR_SET),
@@ -239,7 +240,7 @@ impl<'a> Context<'a> {
             Branch::Nest => (C_BRANCH_NEST_SET, A_BASE_EXIT_SET),
             Branch::NestType => (C_BRANCH_NEST_TYPE, A_BASE_EXIT_SET),
             Branch::NestEnum => (C_BRANCH_NEST_TYPE, A_BASE_EXIT_SET),
-            Branch::ComplexRules => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
+            Branch::Complex => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
             Branch::Override => (C_BASE_EXIT_SET, A_BASE_EXIT_SET),
         }
     }

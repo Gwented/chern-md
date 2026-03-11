@@ -1,8 +1,13 @@
 @def
     // Fix this
-bind "hello"
+    var->
+        name: str [Range(0.0, 5.2)]
+        p: Person
+        str: stop
+    nest->
+        struct Person {
 
-nest->
+        }
 
 @end
 /*

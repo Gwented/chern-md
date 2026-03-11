@@ -19,7 +19,7 @@ impl StateFlag {
     }
 
     pub(super) fn has_bind(&self) -> bool {
-        // If the corresponding bits are != 0 then the bit is not in set so has_bind == false
+        // If the corresponding bits are != 0 then the bit is not in the set so has_bind == false
         (self.flag & BIND_FLAG) != 0
     }
 

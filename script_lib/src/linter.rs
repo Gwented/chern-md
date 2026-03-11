@@ -123,7 +123,7 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
                 let name = interner.search(name_id.id as usize);
                 println!("{spaces}condition: {name}")
             }
-            Expr::Number(num, _) => {
+            Expr::Integer(num, _) => {
                 println!("{spaces}number: {num}")
             }
             Expr::Literal(name_id, _) => {
@@ -158,6 +158,9 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
                 print_exprs(conds, indent, interner);
 
                 println!("{spaces}]");
+            }
+            Expr::Float(num, span) => {
+                println!("{spaces}float: {num:.2}");
             }
         }
     }

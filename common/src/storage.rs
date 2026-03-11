@@ -19,9 +19,9 @@ impl<R: Read> FileLoader<R> {
         }
     }
 
-    /// Returns an `Ok` of text scanned for `@def` and `@end`, the lexing starting point if a
-    /// definition was found, and where the serializing should start if a def was found. On `Err` returns
-    /// a string with error info.
+    /// Returns a Success value of the bytes to Lex, the offset of where to start lexing if an
+    /// `@def` is present, and the offset of where to start reading the serialized data if an
+    /// `@def` is present. Returns a String upon failure that has the error reason inside.
     pub fn load_config(&mut self) -> Result<(Vec<u8>, usize, usize), String> {
         // Doesn't NEED definition but will error if declared and not closed
         // TODO: Add read limit.
@@ -115,8 +115,8 @@ impl<R: Read> FileLoader<R> {
     //FIX: I DON'T CARE ADD THE FLOATS
     //Ok sorry
     /// Returns a result instead of an option because if there are unclosed quotes and this method
-    /// fails, it would need to return a Some value that can't be used rather than a more accurate,
-    /// failed value.
+    /// fails, it would need return a Some value which DOESN'T represent a failure, making it
+    /// misleading.
     fn read_quotes(&mut self) -> Result<(), ()> {
         while let Some(b) = self.peek() {
             //FIX: WHAT
@@ -169,7 +169,7 @@ impl<R: Read> FileLoader<R> {
 
         if depth > 0 {
             return Err(format!(
-                "Error: Found unclosed multi-line comment in configuration file which started at line {}",
+                "Found unclosed multi-line comment in configuration file which started at line {}",
                 comment_start
             ));
         }

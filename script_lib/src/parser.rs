@@ -1,5 +1,5 @@
-//FIXME: Assign spans to parts of ast
-//FIXME: Have conditions go through general function that returns expr
+//FIXME: All top level structures need to be able to take arguments
+//FIXME: MORE GENERAL ARGUMENT FUNCTION TO REDUCE CODE DUPLICATION AND ALLOW FOR TOP LEVEL ARGS
 pub mod ast;
 mod context;
 // Unpub this
@@ -7,8 +7,8 @@ pub mod error;
 pub mod parse_state;
 
 use crate::parser::ast::{
-    AbstractEnum, AbstractStruct, AbstractTypeDef, AbstractVariant, Call, Expr, Generic, Item,
-    Program, TypeExpr, Unary, UnaryOp,
+    AbstractEnum, AbstractGeneric, AbstractStruct, AbstractTypeDef, AbstractVariant, Call, Expr,
+    Item, Program, TypeExpr, Unary, UnaryOp,
 };
 use crate::parser::context::Context;
 use crate::parser::error::Branch;
@@ -41,7 +41,6 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                 id if id == Keyword::Bind as u32 => {
                     ctx.advance_tok();
 
-                    //WARN: Not sure if this is really a stmt if it's ast decl is non-existent
                     if state.has_bind() {
                         ctx.report_verbose(
                             "Found a bind statement more than once",
@@ -52,20 +51,13 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         state.flip_bind();
                     }
 
-                    parse_bind_stmt(&mut ctx, &mut program, interner).ok();
+                    _ = parse_bind_stmt(&mut ctx, &mut program, interner);
                 }
                 id if id == Keyword::Var as u32 => {
                     ctx.advance_tok();
 
-                    _ = ctx.expect_verbose(
-                        TokenKind::SlimArrow,
-                        "Expected a '->' after section `var`, found ",
-                        "",
-                        Branch::Searching,
-                        interner,
-                    );
-
-                    //TODO: CHICKEN. OR THE. EGG. (var or state check first)
+                    //WARN: This was moved which is FINE but A_BASE_EXIT_SET must NOT change or this breaks
+                    //Could lead to less detailed error messages so may put back in its place.
                     if state.has_var() {
                         ctx.report_verbose(
                             "Found \"var\" section more than once",
@@ -75,6 +67,14 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                     } else {
                         state.flip_var();
                     }
+
+                    _ = ctx.expect_verbose(
+                        TokenKind::SlimArrow,
+                        "Expected a '->' after section `var`, found ",
+                        "",
+                        Branch::Searching,
+                        interner,
+                    );
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(plain_id) = ctx.peek_tok()
@@ -93,15 +93,6 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                 id if id == Keyword::Nest as u32 => {
                     ctx.advance_tok();
 
-                    _ = ctx.expect_verbose(
-                        TokenKind::SlimArrow,
-                        "Expected a '->' after section `nest`, found ",
-                        "",
-                        //TODO: Better help
-                        Branch::Searching,
-                        interner,
-                    );
-
                     if state.has_nest() {
                         ctx.report_verbose(
                             "Found \"nest\" section more than once",
@@ -111,6 +102,15 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                     } else {
                         state.flip_nest();
                     }
+
+                    _ = ctx.expect_verbose(
+                        TokenKind::SlimArrow,
+                        "Expected a '->' after section `nest`, found ",
+                        "",
+                        //TODO: Better help
+                        Branch::Searching,
+                        interner,
+                    );
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
@@ -129,23 +129,32 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                     todo!("Complex not done");
                     ctx.advance_tok();
 
-                    _ = ctx.expect_verbose(
-                        TokenKind::SlimArrow,
-                        "Expected a '->' after section `complex_rules`, found ",
-                        "",
-                        Branch::Searching,
-                        interner,
-                    );
-
                     if state.has_complex() {
                         ctx.report_verbose(
                             "Found \"complex\" section more than once",
                             Branch::Searching,
                         );
                         continue;
+                        if state.has_complex() {
+                            ctx.report_verbose(
+                                "Found \"complex\" section more than once",
+                                Branch::Complex,
+                            );
+                            continue;
+                        } else {
+                            state.flip_complex();
+                        }
                     } else {
                         state.flip_complex();
                     }
+
+                    _ = ctx.expect_verbose(
+                        TokenKind::SlimArrow,
+                        "Expected a '->' after section `complex`, found ",
+                        "",
+                        Branch::Searching,
+                        interner,
+                    );
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
@@ -155,20 +164,12 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                             break;
                         }
 
-                        // _ = parse_complex_sect(&mut ctx, interner);
+                        _ = parse_complex_sect(&mut ctx, interner);
                     }
                 }
                 id if id == Keyword::Override as u32 => {
                     todo!("Override not done");
                     ctx.advance_tok();
-
-                    _ = ctx.expect_verbose(
-                        TokenKind::SlimArrow,
-                        "Expected a '->' after section `complex_rules`, found ",
-                        "",
-                        Branch::Searching,
-                        interner,
-                    );
 
                     if state.has_override() {
                         ctx.report_verbose(
@@ -180,6 +181,14 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                         state.flip_override();
                     }
 
+                    _ = ctx.expect_verbose(
+                        TokenKind::SlimArrow,
+                        "Expected a '->' after section `override`, found ",
+                        "",
+                        Branch::Searching,
+                        interner,
+                    );
+
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
                             && builtins::is_section(name_id)
@@ -188,7 +197,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                             break;
                         }
 
-                        // _ = parse_override_sect(&mut ctx, interner);
+                        _ = parse_override_sect(&mut ctx, interner);
                     }
                 }
                 id => {
@@ -212,27 +221,25 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
             }
             Token::EOF => break,
             t => match t {
-                Token::Id(id) | Token::Literal(id) | Token::Number(id) => {
+                Token::Id(id) | Token::Literal(id) | Token::Integer(id) => {
                     ctx.advance_tok();
 
                     let name = interner.search(id as usize);
                     let fmsg = format!("{} \"{}\"", t.kind(), name);
 
-                    ctx.report_template("a section or type definition", &fmsg, Branch::Searching);
+                    ctx.report_template("a section", &fmsg, Branch::Searching);
                 }
                 _ => {
                     ctx.advance_tok();
                     let fmsg = format!("'{}'", t.kind());
-                    ctx.report_template("a section or type definition", &fmsg, Branch::Searching);
+                    ctx.report_template("a section", &fmsg, Branch::Searching);
                 }
             },
         }
     }
 
     if !ctx.err_vec.is_empty() {
-        // This COULD just be one `emit_errors()?` but not sure
         ctx.emit_errors();
-
         std::process::exit(1);
     }
 
@@ -373,7 +380,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
 
             // Needs to return the end for US
             let (args, end) = parse_generic(ctx, interner)?;
-            let generic = Generic::new(name_id, args);
+            let generic = AbstractGeneric::new(name_id, args);
 
             let span = Span::new(start, end);
 
@@ -391,7 +398,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
 
             Ok(TypeExpr::Any(span))
         }
-        Token::Literal(id) | Token::Number(id) => {
+        Token::Literal(id) | Token::Integer(id) => {
             let name = interner.search(id as usize);
 
             let kind = ctx.peek_kind();
@@ -496,7 +503,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
 
             Ok(Expr::Var(name_id, span))
         }
-        Token::Literal(id) | Token::Number(id) => {
+        Token::Literal(id) | Token::Integer(id) => {
             let name = interner.search(id as usize);
 
             let fmt_tok = format!("{} \"{name}\"", TokenKind::Literal);
@@ -538,10 +545,8 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
     }
 }
 
-//FIXME: MAKE THIS GENERAL FOR KWS AND FUNCS
+//TODO: Should this be terminal?
 fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize), Token> {
-    // Should this be terminal?
-
     let mut args: Vec<Expr> = Vec::new();
 
     while ctx.peek_kind() != TokenKind::CParen {
@@ -560,7 +565,7 @@ fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize
 
                 args.push(Expr::Literal(name_id, span));
             }
-            Token::Number(id) => {
+            Token::Integer(id) => {
                 let span = ctx.advance_span();
 
                 //WARN: Maybe change this later to remain a string but ok for now
@@ -569,7 +574,18 @@ fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize
                     .parse()
                     .expect("Lexer broke or number too big I GUESS. I guess.");
 
-                args.push(Expr::Number(num, span));
+                args.push(Expr::Integer(num, span));
+            }
+            Token::Float(id) => {
+                let span = ctx.advance_span();
+
+                //WARN: Maybe change this later to remain a string but ok for now
+                let num: f64 = interner
+                    .search(id as usize)
+                    .parse()
+                    .expect("Lexer broke or number too big I GUESS. I guess.");
+
+                args.push(Expr::Float(num, span));
             }
             Token::CParen => break,
             Token::EOF => return Err(Token::Poison),
@@ -662,10 +678,12 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
         }
         _ => {
             let name = interner.search(id as usize);
+
             ctx.report_verbose(
                 &format!("Expected the keyword \"enum\" or \"struct\", found identifier {name}"),
                 Branch::NestType,
             );
+
             return Err(Token::Poison);
         }
     };
@@ -688,7 +706,7 @@ fn handle_struct_fields(
 
     let mut fields: Vec<AbstractTypeDef> = Vec::new();
 
-    // Suspicious loop
+    //FIXME: Suspicious loop
     while ctx.peek_kind() == TokenKind::Id {
         let ty = parse_var_sect(ctx, interner)?;
         fields.push(ty);
@@ -725,6 +743,7 @@ fn handle_enum_variants(
 
     let mut variants: Vec<AbstractVariant> = Vec::new();
 
+    //FIX: ALSO SUSPICIOUS
     while ctx.peek_kind() == TokenKind::Id {
         let variant = parse_variant(ctx, interner)?;
         variants.push(variant);
@@ -858,7 +877,7 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
     Ok(variant)
 }
 
-fn parse_complex_section(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
+fn parse_complex_sect(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
     todo!()
 }
 

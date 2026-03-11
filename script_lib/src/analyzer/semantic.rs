@@ -8,7 +8,6 @@ use crate::analyzer::error::Diagnostic;
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
 
-//TODO: Find out if this is needed
 #[derive(Debug)]
 pub(super) struct SemanticReporter<'a> {
     pub(super) src_text: &'a [u8],
@@ -30,7 +29,7 @@ impl<'a> SemanticReporter<'a> {
     //     self.err_vec.push(diag);
     // }
 
-    /// Draws red arrows under the span given. err_name represents whether or not a keyword that
+    /// Draws red arrows under the span given. Option `err_name` represents whether or not a keyword that
     /// could be similar in name should be looked for.
     pub(super) fn report_spanned(&mut self, msg: &str, err_name: Option<&str>, span: &Span) {
         let (ln, col, segment) = reporter::form_err_diag(self.src_text, span, self.can_color);
@@ -50,9 +49,9 @@ impl<'a> SemanticReporter<'a> {
         self.err_vec.push(diag);
     }
 
-    // Kiwi
     fn try_help(&self, err_name: &str) -> Option<String> {
         let kw_index = builtins::fuzzy_find_kw(err_name.as_bytes())?;
+
         let found_kw = builtins::KEYWORDS_ARRAY[kw_index];
 
         let msg = format!("Found similar keyword \"{}\"", found_kw);
@@ -70,6 +69,7 @@ impl<'a> SemanticReporter<'a> {
             format!("Error")
         };
 
+        //NOTE: Maybe this should be printed everytime since there could be many prior errors.
         println!("From path => {{}}");
 
         for err in &self.err_vec {

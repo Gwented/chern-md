@@ -343,6 +343,8 @@ impl Lexer<'_> {
         let mut id = String::new();
         let start = self.pos;
 
+        let mut is_float = false;
+
         // TODO: Match specific handling for underscores for cleanliness.
         // Clean code, clean architecture, SOLID principles
         while self.pos < self.bytes.len() && self.peek().is_ascii_digit()
@@ -356,6 +358,12 @@ impl Lexer<'_> {
                 continue;
             }
 
+            if !is_float && byte == b'.' {
+                is_float = true;
+            } else if is_float && byte == b'.' {
+                self.recover_illegal(interner);
+            }
+
             id.push(byte as char);
         }
 
@@ -364,9 +372,16 @@ impl Lexer<'_> {
 
         let id = interner.intern(&id);
 
-        SpannedToken {
-            token: Token::Number(id),
-            span: Span::new(start, end),
+        if !is_float {
+            SpannedToken {
+                token: Token::Integer(id),
+                span: Span::new(start, end),
+            }
+        } else {
+            SpannedToken {
+                token: Token::Float(id),
+                span: Span::new(start, end),
+            }
         }
     }
 
