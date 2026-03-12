@@ -1,4 +1,4 @@
-//FIXME: MAKE EXPRESSION THAT HELPS RESOLVE SEMANTIC TYPES MORE CLEANLY
+//NOTE: MAY MAKE EXPRESSION THAT HELPS RESOLVE SEMANTIC TYPES MORE CLEANLY
 use common::symbols::{InnerArgs, NameId, Span};
 
 // Going for convention...
@@ -121,8 +121,8 @@ impl AbstractTypeDef {
 pub struct AbstractStruct {
     pub(crate) name_id: NameId,
     pub(crate) name_span: Span,
-    pub(crate) args: Vec<InnerArgs>,
     pub(crate) conds: Vec<Expr>,
+    pub(crate) args: Vec<InnerArgs>,
     pub(crate) fields: Vec<AbstractTypeDef>,
 }
 
@@ -130,8 +130,8 @@ impl AbstractStruct {
     pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
-        args: Vec<InnerArgs>,
         conds: Vec<Expr>,
+        args: Vec<InnerArgs>,
         fields: Vec<AbstractTypeDef>,
     ) -> AbstractStruct {
         AbstractStruct {
@@ -149,26 +149,25 @@ pub struct AbstractEnum {
     // Would be SymbolId in symbol table anyways
     pub(crate) name_id: NameId,
     pub(crate) name_span: Span,
-    pub(crate) args: Vec<InnerArgs>,
-    pub(crate) conds: Vec<Expr>,
     pub(crate) variants: Vec<AbstractVariant>,
+    pub(crate) conds: Vec<Expr>,
+    pub(crate) args: Vec<InnerArgs>,
 }
 
 impl AbstractEnum {
     pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
-        args: Vec<InnerArgs>,
-        // I'm scared
-        conds: Vec<Expr>,
         variants: Vec<AbstractVariant>,
+        conds: Vec<Expr>,
+        args: Vec<InnerArgs>,
     ) -> AbstractEnum {
         AbstractEnum {
             name_id,
             name_span,
-            args,
-            conds,
             variants,
+            conds,
+            args,
         }
     }
 }
@@ -190,8 +189,8 @@ impl AbstractVariant {
         name_span: Span,
         // I think this is right?
         ty: Option<TypeExpr>,
-        args: Vec<InnerArgs>,
         conds: Vec<Expr>,
+        args: Vec<InnerArgs>,
     ) -> AbstractVariant {
         AbstractVariant {
             name_id,

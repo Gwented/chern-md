@@ -33,6 +33,7 @@ fn main() {
     let program = parser::parse(&data, &toks, &mut interner);
 
     linter::print_all(&program, &interner);
+    panic!("End");
 
     let stuff = Analyzer::new(&program, &interner, &data).analyze();
 

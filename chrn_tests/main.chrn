@@ -1,14 +1,10 @@
 @def
-    bind '\x1T'
     var->
-        // Fix this
-        name: str [_]
         p: Person
-        str: stop
     nest->
         struct Person {
-
-        }
+            hi: i32 #warn
+        } #warn
 
 @end
 /*

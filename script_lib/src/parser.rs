@@ -1,4 +1,5 @@
 //FIXME: All top level structures need to be able to take arguments
+// Cond should be a proper function for all
 pub mod ast;
 mod context;
 // Unpub this
@@ -296,76 +297,133 @@ fn parse_var_sect(ctx: &mut Context, interner: &Intern) -> Result<AbstractTypeDe
 
     let type_res = parse_type(ctx, interner);
 
-    let mut conds: Vec<Expr> = Vec::new();
-    // This count cannot end the definition since it would prevent arguments from being viewed
-    let mut err_count = 0;
+    // WARN: DO NOT PROPOGATE
+    let conds_res = if ctx.peek_kind() == TokenKind::OBracket {
+        handle_conds(ctx, interner)
+    } else {
+        Ok(Vec::new())
+    };
 
-    //FIX: Make this stop on first error. Maybe.
-    if ctx.peek_kind() == TokenKind::OBracket {
-        ctx.advance_tok();
-
-        loop {
-            let new_cond = parse_cond(ctx, interner);
-
-            if let Ok(cond) = new_cond {
-                conds.push(cond);
-            } else {
-                if err_count > MAX_ERRORS {
-                    break;
-                }
-
-                err_count += 1;
-            }
-
-            // Should be able to send help since ctx would know a comma was used after a cond
-            if ctx.peek_kind() != TokenKind::Comma {
-                break;
-            }
-
-            ctx.advance_tok();
-        }
-
-        if err_count == 0 {
-            _ = ctx.expect_verbose(
-                TokenKind::CBracket,
-                "Expected ']' at end of condition, found ",
-                "",
-                // Does this set align properly?
-                Branch::VarCond,
-                interner,
-            );
-        }
-    }
-
-    let mut args: Vec<InnerArgs> = Vec::new();
-
-    let mut err_count = 0;
-
-    while ctx.peek_kind() == TokenKind::HashSymbol {
-        ctx.advance_tok();
-
-        let arg = parse_arg(ctx, interner);
-
-        if let Ok(arg) = arg {
-            args.push(arg);
-        } else {
-            if err_count > MAX_ERRORS {
-                break;
-            }
-
-            err_count += 1;
-        }
-    }
+    let args_res = if ctx.peek_kind() == TokenKind::HashSymbol {
+        handle_args(ctx, interner)
+    } else {
+        Ok(Vec::new())
+    };
 
     if ctx.peek_kind() == TokenKind::Comma {
         ctx.advance_tok();
     }
 
+    //WARN: May this is a little too forgiving
     let ty = type_res?;
+    let conds = conds_res?;
+    let args = args_res?;
 
-    let ty = AbstractTypeDef::new(name_id, name_span, ty, args, conds);
+    let abstract_typedef = AbstractTypeDef::new(name_id, name_span, ty, args, conds);
 
-    Ok(ty)
+    Ok(abstract_typedef)
+}
+
+fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> {
+    // Wait what is this error?
+    let id = ctx.expect_id_verbose(
+        TokenKind::Id,
+        "Expected the keyword \"enum\" or \"struct\", found ",
+        "",
+        Branch::Nest,
+        interner,
+    )?;
+
+    //TODO: Can likely be done simpler but keep for simplicity
+    let item = match id {
+        id if id == Keyword::Struct as u32 => {
+            let name_span = ctx.peek_span();
+
+            let name = ctx.expect_id_verbose(
+                TokenKind::Id,
+                "Expected an identifier for the given structure. found ",
+                "",
+                Branch::Nest,
+                interner,
+            )?;
+
+            let struct_name = interner.search(name as usize);
+
+            let name_id = NameId::new(name);
+
+            let fields = handle_struct_fields(ctx, struct_name, interner)?;
+
+            let conds = if ctx.peek_kind() == TokenKind::OBracket {
+                handle_conds(ctx, interner)?
+            } else {
+                Vec::new()
+            };
+
+            let args = if ctx.peek_kind() == TokenKind::HashSymbol {
+                handle_args(ctx, interner)?
+            } else {
+                Vec::new()
+            };
+
+            // Unsure if structures or enums will have fields so just stays for now
+            let structure = AbstractStruct::new(name_id, name_span, conds, args, fields);
+
+            Item::Struct(structure)
+        }
+        id if id == Keyword::Enum as u32 => {
+            let name_span = ctx.peek_span();
+
+            let name = ctx.expect_id_verbose(
+                TokenKind::Id,
+                "Expected an identifier for the given enum. found ",
+                "",
+                Branch::Nest,
+                interner,
+            )?;
+
+            let enum_name = interner.search(name as usize);
+
+            let name_id = NameId::new(name);
+
+            let variants = handle_enum_variants(ctx, enum_name, interner)?;
+
+            let conds = if ctx.peek_kind() == TokenKind::OBracket {
+                handle_conds(ctx, interner)?
+            } else {
+                Vec::new()
+            };
+
+            let args = if ctx.peek_kind() == TokenKind::HashSymbol {
+                handle_args(ctx, interner)?
+            } else {
+                Vec::new()
+            };
+
+            let enumeration = AbstractEnum::new(name_id, name_span, variants, conds, args);
+
+            Item::Enum(enumeration)
+        }
+        _ => {
+            let name = interner.search(id as usize);
+
+            ctx.report_verbose(
+                &format!("Expected the keyword \"enum\" or \"struct\", found identifier {name}"),
+                Branch::NestType,
+            );
+
+            return Err(Token::Poison);
+        }
+    };
+
+    Ok(item)
+}
+
+fn parse_complex_sect(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
+    todo!()
+}
+
+fn parse_override_sect(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
+    todo!()
 }
 
 // ENFORCE TYPE NAMING FOR GENERICS AT LEAST
@@ -460,248 +518,6 @@ fn parse_generic(ctx: &mut Context, interner: &Intern) -> Result<(Vec<TypeExpr>,
     Ok((args, end))
 }
 
-fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
-    let id = ctx.expect_id_verbose(
-        TokenKind::Id,
-        "",
-        " is not a valid argument identifier. |e.g. #warn|",
-        Branch::VarTypeArgs,
-        interner,
-    )?;
-
-    // FIX: Change from try_from to Some
-    InnerArgs::try_from(interner.search(id as usize)).or_else(|invalid_id| {
-        let msg = format!("The argument \"#{invalid_id}\" does not exist");
-        ctx.report_verbose(&msg, Branch::VarTypeArgs);
-
-        return Err(Token::Poison);
-    })
-}
-
-fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
-    match ctx.peek_tok() {
-        Token::Id(id) if ctx.peek_ahead(1).token.kind() == TokenKind::OParen => {
-            let name_id = NameId::new(id);
-            let name_span = ctx.peek_span();
-
-            //FIX: CHECK IF THIS WORKS PLEASE
-            ctx.skip(2);
-
-            let (args, end) = handle_func(ctx, interner)?;
-
-            let func_span = Span::new(name_span.start, end);
-
-            let callee = Box::new(Expr::Var(name_id, name_span));
-
-            Ok(Expr::Call(Call::new(callee, args), func_span))
-        }
-        Token::Id(id) => {
-            let span = ctx.advance_span();
-
-            let name_id = NameId::new(id);
-
-            Ok(Expr::Var(name_id, span))
-        }
-        Token::Literal(id) | Token::Integer(id) | Token::Float(id) | Token::Illegal(id) => {
-            let err_tok = ctx.advance_tok();
-
-            let name = interner.search(id as usize);
-
-            let fmt_tok = format!("{} \"{name}\"", err_tok.kind());
-            ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
-
-            //WARN:
-            Err(Token::Poison)
-        }
-        Token::ExclamationPoint => {
-            //FIXME: SPAN IS INCOMPLETE
-            let span = ctx.advance_span();
-
-            if ctx.peek_kind() == TokenKind::ExclamationPoint {
-                ctx.report_template(
-                    "a valid condition",
-                    "another '!'. `Not` can only be used once in a single statement.",
-                    Branch::VarCond,
-                );
-                //WARN:
-                return Err(Token::Poison);
-            }
-
-            let wrapped = parse_cond(ctx, interner)?;
-            dbg!(&wrapped);
-
-            let unary = Unary::new(UnaryOp::Not, Box::new(wrapped));
-
-            //WARN:
-            Ok(Expr::Unary(unary, span))
-        }
-        t => {
-            ctx.advance_tok();
-
-            let fmt_tok = format!("'{}'", t.kind());
-            ctx.report_template("a valid condition", &fmt_tok, Branch::VarCond);
-
-            Err(t)
-        }
-    }
-}
-
-//TODO: Should this be terminal?
-fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize), Token> {
-    let mut args: Vec<Expr> = Vec::new();
-
-    while ctx.peek_kind() != TokenKind::CParen {
-        match ctx.peek_tok() {
-            Token::Id(id) => {
-                let span = ctx.advance_span();
-
-                let name_id = NameId::new(id);
-
-                args.push(Expr::Var(name_id, span));
-            }
-            Token::Literal(id) => {
-                let span = ctx.advance_span();
-
-                let name_id = NameId::new(id);
-
-                args.push(Expr::Literal(name_id, span));
-            }
-            Token::Integer(id) => {
-                let span = ctx.advance_span();
-
-                //WARN: Maybe change this later to remain a string but ok for now
-                let num: i64 = interner
-                    .search(id as usize)
-                    .parse()
-                    .expect("Lexer broke or number too big I GUESS. I guess.");
-
-                args.push(Expr::Integer(num, span));
-            }
-            Token::Float(id) => {
-                let span = ctx.advance_span();
-
-                //WARN: Maybe change this later to remain a string but ok for now
-                let num: f64 = interner
-                    .search(id as usize)
-                    .parse()
-                    .expect("Lexer broke (Float).");
-
-                args.push(Expr::Float(num, span));
-            }
-            Token::Illegal(id) => {
-                ctx.advance_tok();
-
-                let name = interner.search(id as usize);
-                // HELP
-                let msg = format!("Cannot have \"{name}\" within function parameters");
-
-                ctx.report_verbose(&msg, Branch::VarCond);
-                return Err(Token::Poison);
-            }
-            Token::CParen => break,
-            Token::EOF => return Err(Token::Poison),
-            err_tok => {
-                ctx.advance_tok();
-
-                let msg = format!(
-                    "Cannot have '{}' within function parameters",
-                    err_tok.kind()
-                );
-
-                ctx.report_verbose(&msg, Branch::VarCond);
-                return Err(Token::Poison);
-            }
-        }
-
-        if ctx.peek_kind() == TokenKind::CParen {
-            break;
-        }
-
-        _ = ctx.expect_verbose(
-            TokenKind::Comma,
-            "Expected a ',' to separate arguments or ')' to close, found ",
-            "",
-            Branch::VarCond,
-            interner,
-        )?;
-    }
-
-    let end = ctx.advance_span().end;
-
-    Ok((args, end))
-}
-
-fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> {
-    // Wait what is this error?
-    let id = ctx.expect_id_verbose(
-        TokenKind::Id,
-        "Expected the keyword \"enum\" or \"struct\", found ",
-        "",
-        Branch::Nest,
-        interner,
-    )?;
-
-    //TODO: Can likely be done simpler but keep for simplicity
-    let item = match id {
-        id if id == Keyword::Struct as u32 => {
-            let name_span = ctx.peek_span();
-
-            let name = ctx.expect_id_verbose(
-                TokenKind::Id,
-                "Expected an identifier for the given structure. found ",
-                "",
-                Branch::Nest,
-                interner,
-            )?;
-
-            let struct_name = interner.search(name as usize);
-
-            let name_id = NameId::new(name);
-
-            let fields = handle_struct_fields(ctx, struct_name, interner)?;
-
-            // Unsure if structures or enums will have fields so just stays for now
-            let structure = AbstractStruct::new(name_id, name_span, Vec::new(), Vec::new(), fields);
-
-            Item::Struct(structure)
-        }
-        id if id == Keyword::Enum as u32 => {
-            let name_span = ctx.peek_span();
-
-            let name = ctx.expect_id_verbose(
-                TokenKind::Id,
-                "Expected an identifier for the given enum. found ",
-                "",
-                Branch::Nest,
-                interner,
-            )?;
-
-            let enum_name = interner.search(name as usize);
-
-            let name_id = NameId::new(name);
-
-            let variants = handle_enum_variants(ctx, enum_name, interner)?;
-
-            let enumeration =
-                AbstractEnum::new(name_id, name_span, Vec::new(), Vec::new(), variants);
-
-            Item::Enum(enumeration)
-        }
-        _ => {
-            let name = interner.search(id as usize);
-
-            ctx.report_verbose(
-                &format!("Expected the keyword \"enum\" or \"struct\", found identifier {name}"),
-                Branch::NestType,
-            );
-
-            return Err(Token::Poison);
-        }
-    };
-
-    Ok(item)
-}
-
 fn handle_struct_fields(
     ctx: &mut Context,
     struct_name: &str,
@@ -775,7 +591,6 @@ fn handle_enum_variants(
     Ok(variants)
 }
 
-//TODO: Has to be some way to handle this better without copy and pasting from parse_var
 fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant, Token> {
     let name_span = ctx.peek_span();
 
@@ -792,7 +607,7 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
     let err_name = interner.search(name as usize);
 
     //WARN: Names are very messy here
-    let ty_opt = if ctx.peek_kind() == TokenKind::OParen {
+    let type_opt = if ctx.peek_kind() == TokenKind::OParen {
         ctx.advance_tok();
 
         let type_span = ctx.peek_span();
@@ -815,50 +630,38 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
             interner,
         )?;
 
-        //WARN:
         Some(TypeExpr::Var(type_name, type_span))
     } else {
         None
     };
 
-    if ctx.peek_kind() == TokenKind::OBracket {
+    let conds_res = if ctx.peek_kind() == TokenKind::OBracket {
         ctx.advance_tok();
+        handle_conds(ctx, interner)
+    } else {
+        Ok(Vec::new())
+    };
 
-        let mut conds: Vec<Expr> = Vec::new();
+    let args_res = if ctx.peek_kind() == TokenKind::HashSymbol {
+        handle_args(ctx, interner)
+    } else {
+        Ok(Vec::new())
+    };
 
-        let mut err_count = 0;
-
-        loop {
-            let new_cond = parse_cond(ctx, interner);
-
-            if let Ok(cond) = new_cond {
-                conds.push(cond);
-            } else {
-                if err_count > MAX_ERRORS {
-                    break;
-                }
-
-                err_count += 1;
-            }
-
-            if ctx.peek_kind() != TokenKind::Comma {
-                break;
-            }
-
-            ctx.advance_tok();
-        }
-
-        if err_count == 0 {
-            _ = ctx.expect_verbose(
-                TokenKind::CBracket,
-                "Expected ']' at end of condition, found ",
-                "",
-                Branch::VarCond,
-                interner,
-            );
-        }
+    if ctx.peek_kind() == TokenKind::Comma {
+        ctx.advance_tok();
     }
 
+    let conds = conds_res?;
+    let args = args_res?;
+
+    let variant = AbstractVariant::new(name_id, name_span, type_opt, conds, args);
+
+    Ok(variant)
+}
+
+// Egregious naming scheme
+fn handle_args(ctx: &mut Context, interner: &Intern) -> Result<Vec<InnerArgs>, Token> {
     let mut args: Vec<InnerArgs> = Vec::new();
 
     let mut err_count = 0;
@@ -879,19 +682,230 @@ fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant
         }
     }
 
-    if ctx.peek_kind() == TokenKind::Comma {
-        ctx.advance_tok();
+    Ok(args)
+}
+
+fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
+    let id = ctx.expect_id_verbose(
+        TokenKind::Id,
+        "",
+        " is not a valid argument identifier. |e.g. #warn|",
+        Branch::VarTypeArgs,
+        interner,
+    )?;
+
+    // FIX: Change from try_from to Some
+    InnerArgs::try_from(interner.search(id as usize)).or_else(|invalid_id| {
+        let msg = format!("The argument \"#{invalid_id}\" does not exist");
+        ctx.report_verbose(&msg, Branch::VarTypeArgs);
+
+        return Err(Token::Poison);
+    })
+}
+
+fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
+    match ctx.peek_tok() {
+        Token::Id(id) if ctx.peek_ahead(1).token.kind() == TokenKind::OParen => {
+            let name_id = NameId::new(id);
+            let name_span = ctx.peek_span();
+
+            //FIX: CHECK IF THIS WORKS PLEASE
+            ctx.skip(2);
+
+            let (args, end) = handle_func(ctx, interner)?;
+
+            let func_span = Span::new(name_span.start, end);
+
+            let callee = Box::new(Expr::Var(name_id, name_span));
+
+            Ok(Expr::Call(Call::new(callee, args), func_span))
+        }
+        Token::Id(id) => {
+            let span = ctx.advance_span();
+
+            let name_id = NameId::new(id);
+
+            Ok(Expr::Var(name_id, span))
+        }
+        Token::Literal(id) | Token::Integer(id) | Token::Float(id) | Token::Illegal(id) => {
+            let err_tok = ctx.advance_tok();
+
+            let name = interner.search(id as usize);
+
+            let fmt_tok = format!("{} \"{name}\"", err_tok.kind());
+            ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
+
+            //WARN:
+            Err(Token::Poison)
+        }
+        Token::Char(ch) => {
+            let err_tok = ctx.advance_tok();
+
+            let fmt_tok = format!("{} \"{ch}\"", err_tok.kind());
+            ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
+
+            //WARN:
+            Err(Token::Poison)
+        }
+        Token::ExclamationPoint => {
+            //FIXME: SPAN IS INCOMPLETE
+            let span = ctx.advance_span();
+
+            if ctx.peek_kind() == TokenKind::ExclamationPoint {
+                ctx.report_template(
+                    "a valid condition",
+                    "another '!'. `Not` can only be used once in a single statement.",
+                    Branch::VarCond,
+                );
+                //WARN:
+                return Err(Token::Poison);
+            }
+
+            let wrapped = parse_cond(ctx, interner)?;
+            dbg!(&wrapped);
+
+            let unary = Unary::new(UnaryOp::Not, Box::new(wrapped));
+
+            //WARN:
+            Ok(Expr::Unary(unary, span))
+        }
+        t => {
+            ctx.advance_tok();
+
+            let fmt_tok = format!("'{}'", t.kind());
+            ctx.report_template("a valid condition", &fmt_tok, Branch::VarCond);
+
+            Err(t)
+        }
+    }
+}
+
+//TODO: Should this be terminal?
+fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize), Token> {
+    let mut args: Vec<Expr> = Vec::new();
+
+    while ctx.peek_kind() != TokenKind::CParen {
+        match ctx.peek_tok() {
+            Token::Id(id) => {
+                let span = ctx.advance_span();
+
+                let name_id = NameId::new(id);
+
+                args.push(Expr::Var(name_id, span));
+            }
+            Token::Literal(id) => {
+                let span = ctx.advance_span();
+
+                let name_id = NameId::new(id);
+
+                args.push(Expr::Literal(name_id, span));
+            }
+            Token::Integer(id) => {
+                let span = ctx.advance_span();
+
+                //WARN: Maybe change this later to remain a string but ok for now
+                let num: i64 = interner
+                    .search(id as usize)
+                    .parse()
+                    .expect("Lexer broke or number too big I GUESS. I guess.");
+
+                args.push(Expr::Integer(num, span));
+            }
+            Token::Float(id) => {
+                let span = ctx.advance_span();
+
+                //WARN: Maybe should resolve numerics as themselves while lexing?
+                let num: f64 = interner
+                    .search(id as usize)
+                    .parse()
+                    .expect("Lexer broke (Float).");
+
+                args.push(Expr::Float(num, span));
+            }
+            Token::Illegal(id) => {
+                ctx.advance_tok();
+
+                let name = interner.search(id as usize);
+                // HELP
+                let msg = format!("Cannot have \"{name}\" within function parameters");
+
+                ctx.report_verbose(&msg, Branch::VarCond);
+                return Err(Token::Poison);
+            }
+            Token::CParen => break,
+            Token::EOF => return Err(Token::Poison),
+            err_tok => {
+                ctx.advance_tok();
+
+                let msg = format!(
+                    "Cannot have '{}' within function parameters",
+                    err_tok.kind()
+                );
+
+                ctx.report_verbose(&msg, Branch::VarCond);
+                return Err(Token::Poison);
+            }
+        }
+
+        if ctx.peek_kind() == TokenKind::CParen {
+            break;
+        }
+
+        _ = ctx.expect_verbose(
+            TokenKind::Comma,
+            "Expected a ',' to separate arguments or ')' to close, found ",
+            "",
+            Branch::VarCond,
+            interner,
+        )?;
     }
 
-    let variant = AbstractVariant::new(name_id, name_span, ty_opt, args, Vec::new());
+    let end = ctx.advance_span().end;
 
-    Ok(variant)
+    Ok((args, end))
 }
 
-fn parse_complex_sect(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
-    todo!()
-}
+fn handle_conds(ctx: &mut Context, interner: &Intern) -> Result<Vec<Expr>, Token> {
+    let mut conds: Vec<Expr> = Vec::new();
+    // This count cannot end the definition since it would prevent arguments from being viewed
+    let mut err_count = 0;
 
-fn parse_override_sect(ctx: &mut Context, interner: &Intern) -> Result<(), Token> {
-    todo!()
+    //FIX: Make this stop on first error. Maybe.
+    if ctx.peek_kind() == TokenKind::OBracket {
+        ctx.advance_tok();
+
+        loop {
+            let new_cond = parse_cond(ctx, interner);
+
+            if let Ok(cond) = new_cond {
+                conds.push(cond);
+            } else {
+                if err_count > MAX_ERRORS {
+                    break;
+                }
+
+                err_count += 1;
+            }
+
+            // Should be able to send help since ctx would know a comma was used after a cond
+            if ctx.peek_kind() != TokenKind::Comma {
+                break;
+            }
+
+            ctx.advance_tok();
+        }
+
+        if err_count == 0 {
+            _ = ctx.expect_verbose(
+                TokenKind::CBracket,
+                "Expected ']' at end of condition, found ",
+                "",
+                // Does this set align properly?
+                Branch::VarCond,
+                interner,
+            );
+        };
+    }
+
+    Ok(conds)
 }

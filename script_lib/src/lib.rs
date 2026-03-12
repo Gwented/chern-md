@@ -169,8 +169,9 @@ mod tests {
         assert_eq!(true, wrong.is_err());
     }
 
+    // beautiful name
     #[test]
-    fn start_offset_test() {
+    fn start_and_serial_offset_test() {
         let text = format!("adwh@def var-> int: i32 @endhi");
 
         let (_, lex_start, serial_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();

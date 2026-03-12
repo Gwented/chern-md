@@ -1,4 +1,3 @@
-//TODO: GET NAME ID SPANS FOR REGISTER PHASE
 use std::io::IsTerminal;
 
 use common::{keywords, reporter, symbols::Span};

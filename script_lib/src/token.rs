@@ -132,7 +132,7 @@ impl Display for TokenKind {
             TokenKind::Literal => write!(f, "string literal"),
             TokenKind::Integer => write!(f, "integer"),
             TokenKind::Float => write!(f, "float"),
-            TokenKind::Char => write!(f, "char"),
+            TokenKind::Char => write!(f, "character"),
             TokenKind::OBracket => write!(f, "["),
             TokenKind::CBracket => write!(f, "]"),
             TokenKind::OCurlyBracket => write!(f, "{{"),
@@ -447,38 +447,3 @@ impl Display for BuiltinTypeKind {
 // PLEASE change this from a try_from
 // Maybe
 // Definitely
-impl TryFrom<u32> for BuiltinType {
-    type Error = ();
-
-    fn try_from(v: u32) -> Result<Self, Self::Error> {
-        match v {
-            0 => Ok(BuiltinType::I8),
-            1 => Ok(BuiltinType::U8),
-            2 => Ok(BuiltinType::I16),
-            3 => Ok(BuiltinType::U16),
-            4 => Ok(BuiltinType::F16),
-            5 => Ok(BuiltinType::I32),
-            6 => Ok(BuiltinType::U32),
-            7 => Ok(BuiltinType::F32),
-            8 => Ok(BuiltinType::I64),
-            9 => Ok(BuiltinType::U64),
-            10 => Ok(BuiltinType::F64),
-            11 => Ok(BuiltinType::I128),
-            12 => Ok(BuiltinType::U128),
-            13 => Ok(BuiltinType::F128),
-            14 => Ok(BuiltinType::Sized),
-            15 => Ok(BuiltinType::Unsized),
-            16 => Ok(BuiltinType::Char),
-            17 => Ok(BuiltinType::Str),
-            18 => Ok(BuiltinType::Bool),
-            19 => Ok(BuiltinType::Nil),
-            20 => Ok(BuiltinType::BigInt),
-            21 => Ok(BuiltinType::BigFloat),
-            // 25 => Ok(ReservedKeyword::Bind),
-            // 26 => Ok(ReservedKeyword::Var),
-            // 27 => Ok(ReservedKeyword::Nest),
-            // 28 => Ok(ReservedKeyword::ComplexRules),
-            _ => Err(()),
-        }
-    }
-}
