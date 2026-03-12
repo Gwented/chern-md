@@ -7,9 +7,6 @@ use crate::token::BuiltinType;
 // What is a drop? I am new to thinking i have never thought before what is RAII
 // is that a gui framework
 pub struct Table {
-    //FIXME:
-    //FIXME:
-    //FIXME:
     //FIXME: MUCH RATHER USE IF LET
     //Maybe
     pub(super) sym_table: HashMap<NameId, TypedId>,

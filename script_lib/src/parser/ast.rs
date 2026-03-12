@@ -90,8 +90,7 @@ pub(crate) enum TypeExpr {
 #[derive(Debug)]
 // ONE HUNDRED TWENTY BYTES WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAT
 // WHAT
-// FIX:FIX:FIX:FIX:FIX:
-//  This is fine, none of this is bad. None of it.
+//  This is fine, none of this is bad. None of it. NONE.
 pub struct AbstractTypeDef {
     pub(crate) name_id: NameId,
     pub(crate) name_span: Span,

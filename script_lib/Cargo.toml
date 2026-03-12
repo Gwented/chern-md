@@ -6,6 +6,3 @@ edition.workspace = true
 [dependencies]
 common = { path = "../common/" }
 unicode-width = "0.2.2"
-
-# [lib]
-

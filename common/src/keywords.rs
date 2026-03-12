@@ -37,14 +37,13 @@ pub static KEYWORDS_ARRAY: [&str; 38] = [
     "nest",
     "complex", // 30
     "override",
-    //TODO: Add override
     // Directives
     "IsEmpty",
-    "IsWhitespace", // 32
+    "IsWhitespace", // 33
     "Range",
-    "StartsW", // 34
+    "StartsW", // 35
     "EndsW",
-    "Contains", // 36
+    "Contains", // 37
 ];
 
 // Keep a compact enum for code that prefers typed keyword identifiers.
@@ -138,7 +137,7 @@ impl Keyword {
         }
     }
 
-    pub fn try_as_prim(id: u32) -> Option<Keyword> {
+    pub fn try_as_builtin(id: u32) -> Option<Keyword> {
         if let Some(kw) = Self::try_as_kw(id) {
             match kw {
                 Keyword::I8
@@ -182,23 +181,24 @@ impl Keyword {
         None
     }
 
-    pub fn try_as_cond(id: u32) -> Option<Keyword> {
-        if let Some(kw) = Self::try_as_kw(id) {
-            match kw {
-                Keyword::IsEmpty
-                | Keyword::IsWhitespace
-                | Keyword::Range
-                | Keyword::StartsW
-                | Keyword::EndsW
-                | Keyword::Contains => return Some(kw),
-                _ => return None,
-            }
-        }
-
-        None
-    }
+    // pub fn try_as_cond(id: u32) -> Option<Keyword> {
+    //     if let Some(kw) = Self::try_as_kw(id) {
+    //         match kw {
+    //             Keyword::IsEmpty
+    //             | Keyword::IsWhitespace
+    //             | Keyword::Range
+    //             | Keyword::StartsW
+    //             | Keyword::EndsW
+    //             | Keyword::Contains => return Some(kw),
+    //             _ => return None,
+    //         }
+    //     }
+    //
+    //     None
+    // }
 }
 
+//TODO: Assert these
 pub fn is_type(id: u32) -> bool {
     id <= 24
 }
@@ -242,7 +242,7 @@ pub fn fuzzy_find_kw(other_bytes: &[u8]) -> Option<usize> {
         }
 
         if matched >= 2 {
-            dbg!(cap, matched, cap - matched);
+            // dbg!(cap, matched, cap - matched);
             return Some(i);
         }
     }

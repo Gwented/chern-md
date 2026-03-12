@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use crate::builtins;
+use crate::keywords;
 
 // MAKE THE MACRO PLEASE
 // What macro. What is a macro? What is hygiene?
@@ -16,12 +16,12 @@ pub struct Intern {
 impl Intern {
     pub fn init() -> Intern {
         let mut interner = Intern {
-            map: HashMap::with_capacity(builtins::KEYWORDS_ARRAY.len()),
-            stored: Vec::with_capacity(builtins::KEYWORDS_ARRAY.len()),
-            pos: builtins::KEYWORDS_ARRAY.len(),
+            map: HashMap::with_capacity(keywords::KEYWORDS_ARRAY.len()),
+            stored: Vec::with_capacity(keywords::KEYWORDS_ARRAY.len()),
+            pos: keywords::KEYWORDS_ARRAY.len(),
         };
 
-        for (id, keyword) in builtins::KEYWORDS_ARRAY.iter().enumerate() {
+        for (id, keyword) in keywords::KEYWORDS_ARRAY.iter().enumerate() {
             interner.map.insert(keyword.to_string(), id as u32);
             interner.stored.push(keyword.to_string());
         }
@@ -48,8 +48,6 @@ impl Intern {
     // Primitive being used loosely here...
     // SO IF I PUT ZERO, IT SCREAMS. BUT IF I USE ZERO UNDER A WRAPPER, ITS OK. RIGHT.
 
-    // TODO: Make unit test for this
-    // No
     pub fn search(&self, index: usize) -> &str {
         &self.stored[index]
     }

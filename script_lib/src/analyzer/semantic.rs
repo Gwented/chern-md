@@ -1,7 +1,7 @@
 //TODO: GET NAME ID SPANS FOR REGISTER PHASE
 use std::io::IsTerminal;
 
-use common::{builtins, reporter, symbols::Span};
+use common::{keywords, reporter, symbols::Span};
 
 use crate::analyzer::error::Diagnostic;
 
@@ -50,9 +50,9 @@ impl<'a> SemanticReporter<'a> {
     }
 
     fn try_help(&self, err_name: &str) -> Option<String> {
-        let kw_index = builtins::fuzzy_find_kw(err_name.as_bytes())?;
+        let kw_index = keywords::fuzzy_find_kw(err_name.as_bytes())?;
 
-        let found_kw = builtins::KEYWORDS_ARRAY[kw_index];
+        let found_kw = keywords::KEYWORDS_ARRAY[kw_index];
 
         let msg = format!("Found similar keyword \"{}\"", found_kw);
 

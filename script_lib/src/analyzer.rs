@@ -4,8 +4,8 @@ pub mod representation;
 mod semantic;
 
 use common::{
-    builtins::Keyword,
     intern::Intern,
+    keywords::Keyword,
     symbols::{AstId, BuiltinTypeId, Cond, EnumId, InnerArgs, StructId, TypeDefId, TypedId},
 };
 
@@ -61,7 +61,7 @@ impl Analyzer<'_> {
         //Probably better off being functional
         let ids: Vec<TypedId> = self.table.sym_table.values().copied().collect();
 
-        //TODO: TypedIds are being reused here instead of the symbol wrapper which does the same thing
+        //NOTE: TypedIds are being reused here instead of the symbol wrapper which does the same thing
         // But maybe it should be used instead to be less confusing seeming
         for typed_id in ids {
             match typed_id {
@@ -110,6 +110,8 @@ impl Analyzer<'_> {
                 conds.push(self.resolve_cond(expr)?);
             }
 
+            todo!("Resolve conditions");
+
             // DIRTY
             let type_def = &mut self.table.typedefs[type_def_id.id as usize];
             type_def.type_id = Some(ty);
@@ -120,20 +122,22 @@ impl Analyzer<'_> {
         Ok(())
     }
 
-    //FIX: The code duplication is a top level issue of Keyword being the only one resolving
+    //WARN: The code duplication is a top level issue of Keyword being the only one resolving
     //everything despite being the most generic interface. Possibly needs a 'built-in' TypeExpr
     //variant, or something to flatten the search by just a little.
     fn resolve_type_expr(&mut self, ty: &TypeExpr) -> Result<TypedId, ()> {
         match ty {
             TypeExpr::Var(name_id, span) => {
-                if let Some(kw) = Keyword::try_as_prim(name_id.id) {
-                    if let Some(actual) = BuiltinType::try_from_kw(kw) {
-                        let prim_id = BuiltinTypeId::new(self.table.builtin_types.len() as u32);
+                //TODO: Either add a more descriptive builtin but still NameId TypeExpr, or give
+                // builtin convenience functions that are based off of keyword
 
-                        self.table.builtin_types.push(actual);
+                // Would matches!, make this, cleaner?
+                if let Some(builtin_type) = BuiltinType::try_from_id(name_id.id) {
+                    let builtin_id = BuiltinTypeId::new(self.table.builtin_types.len() as u32);
 
-                        return Ok(TypedId::Builtin(prim_id));
-                    }
+                    self.table.builtin_types.push(builtin_type);
+
+                    return Ok(TypedId::Builtin(builtin_id));
                 }
 
                 if let Some(typed_id) = self.table.sym_table.get(name_id) {
@@ -149,8 +153,9 @@ impl Analyzer<'_> {
                 return Err(());
             }
             TypeExpr::Generic(generic, span) => {
-                if let Some(kw) = Keyword::try_as_kw(generic.base.id) {
-                    match kw {
+                match Keyword::try_as_kw(generic.base.id) {
+                    Some(kw) => match kw {
+                        //TODO: Should maybe put List | Set
                         Keyword::List => {
                             if generic.args.len() != 1 {
                                 let msg = format!(
@@ -182,11 +187,12 @@ impl Analyzer<'_> {
 
                             let map = BuiltinType::Map(key, val);
 
-                            let prim_id = BuiltinTypeId::new(self.table.builtin_types.len() as u32);
+                            let builtin_id =
+                                BuiltinTypeId::new(self.table.builtin_types.len() as u32);
 
                             self.table.builtin_types.push(map);
 
-                            Ok(TypedId::Builtin(prim_id))
+                            Ok(TypedId::Builtin(builtin_id))
                         }
                         Keyword::Set => {
                             if generic.args.len() != 1 {
@@ -202,6 +208,7 @@ impl Analyzer<'_> {
 
                             self.resolve_type_expr(&generic.args[0])
                         }
+                        // I'm sure this can be done better...
                         _ => {
                             let err_name = self.interner.search(generic.base.id as usize);
                             //WARN: Questionablly phrased error message
@@ -212,20 +219,21 @@ impl Analyzer<'_> {
 
                             self.reporter.report_spanned(&err_msg, Some(err_name), span);
 
-                            return Err(());
+                            Err(())
                         }
+                    },
+                    None => {
+                        // 2004 dog 2004 television
+                        let err_name = self.interner.search(generic.base.id as usize);
+
+                        let err_msg = format!(
+                            "Found identifier \"{err_name}\" before generic parameters, but only `List`, `Set`, and `Map` are valid data structures"
+                        );
+
+                        self.reporter.report_spanned(&err_msg, Some(err_name), span);
+
+                        Err(())
                     }
-                } else {
-                    // 2004 dog 2004 television
-                    let err_name = self.interner.search(generic.base.id as usize);
-
-                    let err_msg = format!(
-                        "Found identifier \"{err_name}\" before generic parameters, but only `List`, `Set`, and `Map` are valid data structures"
-                    );
-
-                    self.reporter.report_spanned(&err_msg, Some(err_name), span);
-
-                    Err(())
                 }
             }
             // Maybe this shouldn't have a span
@@ -239,19 +247,18 @@ impl Analyzer<'_> {
         }
     }
 
-    //FIX: Duplication issue
+    //WARN: Same duplication issue with Cond. Can either just add a try_from or Expr Cond
+    //identification.
     fn resolve_cond(&mut self, expr: &Expr) -> Result<Cond, ()> {
         match expr {
             Expr::Var(name_id, span) => {
-                if let Some(kw) = Keyword::try_as_kw(name_id.id) {
-                    if let Some(cond) = Cond::try_from_kw(kw) {
-                        return Ok(cond);
-                    }
+                if let Some(cond) = Cond::try_from_id(name_id.id) {
+                    return Ok(cond);
                 }
 
                 let err_name = self.interner.search(name_id.id as usize);
-
                 let err_msg = format!("\"{err_name}\" is not a valid condition");
+
                 self.reporter.report_spanned(&err_msg, Some(err_name), span);
 
                 Err(())
@@ -260,8 +267,8 @@ impl Analyzer<'_> {
             Expr::Unary(unary, span) => todo!(),
             Expr::Literal(name_id, span) => {
                 let err_name = self.interner.search(name_id.id as usize);
-
                 let err_msg = format!("\"{err_name}\" is not a valid condition");
+
                 self.reporter.report_spanned(&err_msg, Some(err_name), span);
 
                 Err(())
@@ -320,7 +327,6 @@ impl Analyzer<'_> {
             .sym_table
             .insert(type_def.name_id, TypedId::TypeDef(def_id));
 
-        //TODO: Maybe a span can be had if abstract structures held name spans only?
         if check.is_some() {
             let duplicate = self.interner.search(type_def.name_id.id as usize);
 

@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use common::{
-    builtins::Keyword,
-    symbols::{BuiltinTypeId, TypedId},
+    keywords::{self, Keyword},
+    symbols::TypedId,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -248,6 +248,7 @@ impl TokenKind {
     }
 }
 
+//TODO: Move
 #[derive(Debug)]
 pub enum BuiltinType {
     I8,
@@ -342,6 +343,9 @@ pub enum BuiltinTypeKind {
 
 // SHOULD THIS ERR?
 impl BuiltinType {
+    //TODO: Find out if one of these should be removed
+
+    /// Uses `Keyword` to map directly to a `BuiltinType` excluding data structures.
     pub fn try_from_kw(kw: Keyword) -> Option<BuiltinType> {
         match kw {
             Keyword::I8 => Some(BuiltinType::I8),
@@ -367,6 +371,39 @@ impl BuiltinType {
             Keyword::BigInt => Some(BuiltinType::BigInt),
             Keyword::BigFloat => Some(BuiltinType::BigFloat),
             _ => None,
+        }
+    }
+
+    //NOTE: This may still be replaced by a `BuiltinType` TypeExpr but seems fine
+    /// Uses `Keyword` to map directly to a `BuiltinType` excluding data structures.
+    pub fn try_from_id(id: u32) -> Option<BuiltinType> {
+        match Keyword::try_as_kw(id) {
+            Some(kw) => match kw {
+                Keyword::I8 => Some(BuiltinType::I8),
+                Keyword::U8 => Some(BuiltinType::U8),
+                Keyword::I16 => Some(BuiltinType::I16),
+                Keyword::U16 => Some(BuiltinType::U16),
+                Keyword::F16 => Some(BuiltinType::F16),
+                Keyword::I32 => Some(BuiltinType::I32),
+                Keyword::U32 => Some(BuiltinType::U32),
+                Keyword::F32 => Some(BuiltinType::F32),
+                Keyword::I64 => Some(BuiltinType::I64),
+                Keyword::U64 => Some(BuiltinType::U64),
+                Keyword::F64 => Some(BuiltinType::F64),
+                Keyword::I128 => Some(BuiltinType::I128),
+                Keyword::U128 => Some(BuiltinType::U128),
+                Keyword::F128 => Some(BuiltinType::F128),
+                Keyword::Sized => Some(BuiltinType::Sized),
+                Keyword::Unsized => Some(BuiltinType::Unsized),
+                Keyword::Char => Some(BuiltinType::Char),
+                Keyword::Str => Some(BuiltinType::Str),
+                Keyword::Bool => Some(BuiltinType::Bool),
+                Keyword::Nil => Some(BuiltinType::Nil),
+                Keyword::BigInt => Some(BuiltinType::BigInt),
+                Keyword::BigFloat => Some(BuiltinType::BigFloat),
+                _ => None,
+            },
+            None => None,
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::builtins::Keyword;
+use crate::keywords::Keyword;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TypedId {
@@ -122,10 +122,22 @@ pub enum Cond {
     Not(Box<Cond>),
 }
 
-// This is getting really bad :C
+// I'm actually fine with this.
 impl Cond {
     /// Only returns a condition if it is solely a keyword, and excludes conditions such as
     /// `Contains()`
+    // This is really really really really smelly
+    pub fn try_from_id(id: u32) -> Option<Cond> {
+        match Keyword::try_as_kw(id) {
+            Some(kw) => match kw {
+                Keyword::IsEmpty => Some(Cond::IsEmpty),
+                Keyword::IsWhitespace => Some(Cond::IsWhitespace),
+                _ => None,
+            },
+            None => None,
+        }
+    }
+
     pub fn try_from_kw(kw: Keyword) -> Option<Cond> {
         match kw {
             Keyword::IsEmpty => Some(Cond::IsEmpty),

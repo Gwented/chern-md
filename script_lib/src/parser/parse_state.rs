@@ -4,6 +4,8 @@ const NEST_FLAG: u16 = 1 << 3;
 const COMPLEX_FLAG: u16 = 1 << 4;
 const OVERRIDE_FLAG: u16 = 1 << 5;
 
+const NEUTRAL_SET: u16 = BIND_FLAG;
+
 pub(super) struct StateFlag {
     pub(super) flag: u16,
 }
@@ -12,6 +14,13 @@ pub(super) struct StateFlag {
 impl StateFlag {
     pub(super) fn new() -> StateFlag {
         StateFlag { flag: 1 }
+    }
+
+    //WARN: Not sure if this is needed since sections already enforce only sections are next
+    // It actually doesn't matter if it's neutral or not besides visually from what I can tell
+    pub(super) fn is_neutral(&self) -> bool {
+        // If the bits of self.flag and NEUTRAL_SET are not all the same then will return false
+        (self.flag & NEUTRAL_SET) == NEUTRAL_SET
     }
 
     pub(super) fn flip_bind(&mut self) {

@@ -1,4 +1,3 @@
-//FIXME: _ should be reserved for other purposes
 use common::{intern::Intern, symbols::Span};
 
 use crate::{symbols::SpannedToken, token::Token};
@@ -147,7 +146,8 @@ impl Lexer<'_> {
                 }
                 '@' => {
                     // Allows for same behavior even in file with serialized data
-                    // TODO: Should this be partially removed? Should @ be preserved?
+                    // NOTE: Could be removed if the initial loader starts the offset, AFTER the
+                    // definition, but can stay like this for now.
                     if self.is_def_start() {
                         in_def = true;
                         self.pos += DEFINITION_SIZE;
@@ -363,7 +363,7 @@ impl Lexer<'_> {
 
         let mut is_float = false;
 
-        //FIXME: Maybe take other notations. I don't know I'm scared
+        //TODO: Other notations
         while self.pos < self.src_bytes.len() {
             match self.peek() {
                 b'0'..=b'9' => {
@@ -548,7 +548,6 @@ impl Lexer<'_> {
                 let mut val: u8 = 0;
                 let mut count = 0;
 
-                // This could be a black box risk more so than bit-wise sets but stays for now
                 while count < 2 {
                     let c = self.peek();
 
@@ -657,7 +656,7 @@ impl Lexer<'_> {
         }
     }
 
-    //TODO: Should this keep the depth even though the loader ensures this cant happen?
+    //NOTE: Keeps depth tracked even though the loader would take care of this. Could change.
     fn handle_multi_comment(&mut self) {
         let mut depth = 1;
         // Avoiding recursion...

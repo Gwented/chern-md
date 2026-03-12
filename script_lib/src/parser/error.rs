@@ -13,9 +13,8 @@ pub(super) struct Diagnostic {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(super) enum Branch {
     Broken,
+    //TODO: Actually use neutral for something
     Neutral,
-    // TODO: Need state of neutral AND generally searching to remove any state ambiguity upon
-    // failure.
     Searching,
     Bind,
     Var,

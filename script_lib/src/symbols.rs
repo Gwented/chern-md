@@ -49,7 +49,7 @@ pub struct SpannedToken {
 }
 
 // Ok
-// FIXME: MOVE THIS TO SEMANTIC MAYBE, I THINK
+// TODO: MOVE THIS TO SEMANTIC MAYBE, I THINK
 impl SymbolTable {
     pub fn new() -> SymbolTable {
         //TODO: Is the same needed or symbols?

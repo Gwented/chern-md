@@ -83,8 +83,6 @@ impl<'a> Context<'a> {
             | Token::Integer(id)
             | Token::Float(id)
             //NOTE: This is a little weird
-            | Token::Illegal(id)
-            //FIX:
               => {
                 if found.token.kind() == expected {
                     return Ok(id);
@@ -92,7 +90,6 @@ impl<'a> Context<'a> {
 
                 Some(id)
             }
-            //TODO:
             // Token::Char(ch) => {
             //     todo!("Not allowed to make character errors as of right now");
             // }
@@ -159,9 +156,12 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
+        //NOTE: Characters are also not directly printed here...
         if found.token.kind() != expected {
             let id_opt = match found.token {
-                Token::Id(id) | Token::Literal(id) | Token::Integer(id) => Some(id),
+                Token::Id(id) | Token::Literal(id) | Token::Integer(id) | Token::Illegal(id) => {
+                    Some(id)
+                }
                 _ => None,
             };
 

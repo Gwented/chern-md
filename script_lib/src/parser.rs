@@ -14,8 +14,8 @@ use crate::parser::error::Branch;
 use crate::parser::parse_state::StateFlag;
 use crate::symbols::SpannedToken;
 use crate::token::{Token, TokenKind};
-use common::builtins::{self, Keyword};
 use common::intern::Intern;
+use common::keywords::{self, Keyword};
 use common::symbols::{InnerArgs, NameId, Span};
 
 // May be lower
@@ -43,8 +43,9 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                     if state.has_bind() {
                         ctx.report_verbose(
                             "Found a bind statement more than once",
-                            Branch::Searching,
+                            Branch::Neutral,
                         );
+
                         continue;
                     } else {
                         state.flip_bind();
@@ -62,6 +63,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
                             "Found \"var\" section more than once",
                             Branch::Searching,
                         );
+
                         continue;
                     } else {
                         state.flip_var();
@@ -77,7 +79,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(plain_id) = ctx.peek_tok()
-                            && builtins::is_section(plain_id)
+                            && keywords::is_section(plain_id)
                                 // Oh my
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
@@ -113,7 +115,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && builtins::is_section(name_id)
+                            && keywords::is_section(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -157,7 +159,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && builtins::is_section(name_id)
+                            && keywords::is_section(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -190,7 +192,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && builtins::is_section(name_id)
+                            && keywords::is_section(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -773,7 +775,7 @@ fn handle_enum_variants(
     Ok(variants)
 }
 
-//FIXME: Has to be some way to handle this better without copy and pasting from parse_var
+//TODO: Has to be some way to handle this better without copy and pasting from parse_var
 fn parse_variant(ctx: &mut Context, interner: &Intern) -> Result<AbstractVariant, Token> {
     let name_span = ctx.peek_span();
 

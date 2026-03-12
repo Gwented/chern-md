@@ -9,3 +9,7 @@ edition = "2024"
 
 [workspace.dependencies]
 unicode-width = "0.2"
+
+[alias]
+# Um
+tt = "test --workspace"

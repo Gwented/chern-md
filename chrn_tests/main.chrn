@@ -1,10 +1,8 @@
 @def
-    // fix not being able to do struct ~str { str: str }
-    bind "
-
+    bind '\x1T'
     var->
         // Fix this
-        name: str [_] 
+        name: str [_]
         p: Person
         str: stop
     nest->
