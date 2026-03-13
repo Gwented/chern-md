@@ -1,12 +1,10 @@
 @def
-    // NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
-    //  THERES TOO MANY ARROWS THIS CANT BE f: A -> A IT LOOKS WEIRD NOW
 
-    // Oh wow. Bloat.
     // alias default(x, y) = IsEmpty Contains(x?: 5, y?: 5)
-
+bind "Hi"
     var->
-        name: str [Contains(2..)]
+        int: i3
+        ib: iv
 @end
 // NEED TO FIX ERRORS STICKING TO THIS THING '}' I NEED THIS GONE
 /*

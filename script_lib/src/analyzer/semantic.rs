@@ -1,6 +1,6 @@
 use std::io::IsTerminal;
 
-use common::{keywords, reporter, symbols::Span};
+use common::{keywords, metadata::FileMetadata, reporter, symbols::Span};
 
 use crate::analyzer::error::Diagnostic;
 
@@ -9,17 +9,15 @@ const TOTAL_SEPARATORS: usize = 60;
 
 #[derive(Debug)]
 pub(super) struct SemanticReporter<'a> {
-    pub(super) src_text: &'a [u8],
+    pub(super) metadata: &'a FileMetadata,
     pub(super) err_vec: Vec<Diagnostic>,
-    pub(super) can_color: bool,
 }
 
-impl<'a> SemanticReporter<'a> {
-    pub(super) fn new(src_text: &'a [u8]) -> SemanticReporter<'a> {
+impl SemanticReporter<'_> {
+    pub(super) fn new(metadata: &FileMetadata) -> SemanticReporter<'_> {
         SemanticReporter {
-            src_text,
+            metadata,
             err_vec: Vec::new(),
-            can_color: std::io::stdout().is_terminal(),
         }
     }
 
@@ -31,9 +29,8 @@ impl<'a> SemanticReporter<'a> {
     /// Draws red arrows under the span given. Option `err_name` represents whether or not a keyword that
     /// could be similar in name should be looked for.
     pub(super) fn report_spanned(&mut self, msg: &str, err_name: Option<&str>, span: &Span) {
-        let (ln, col, segment) = reporter::form_err_diag(self.src_text, span, self.can_color);
-
-        let separators = "-".repeat(TOTAL_SEPARATORS);
+        let line_data =
+            reporter::form_err_diag(&self.metadata.src_bytes, span, self.metadata.can_color);
 
         let help = if let Some(name) = err_name {
             self.try_help(name).unwrap_or_default()
@@ -41,7 +38,8 @@ impl<'a> SemanticReporter<'a> {
             "".to_string()
         };
 
-        let msg = format!("{msg}\n\n[{ln}:{col}]\n{segment}\n{help}{separators}");
+        // diag_msg?
+        let msg = reporter::standardize_err(msg, &line_data, &help);
 
         let diag = Diagnostic::new(msg.to_owned());
 
@@ -55,23 +53,24 @@ impl<'a> SemanticReporter<'a> {
 
         let msg = format!("Found similar keyword \"{}\"", found_kw);
 
-        let help = reporter::form_help(&msg, self.can_color);
+        let help = reporter::form_help(&msg, self.metadata.can_color);
 
         Some(help)
     }
 
     pub(super) fn emit_errors(&self) {
         //FIX: Get file path
-        let header_err = if self.can_color {
+        let header_err = if self.metadata.can_color {
             format!("{}Error{}", reporter::RED, reporter::NC)
         } else {
             format!("Error")
         };
 
         //NOTE: Maybe this should be printed everytime since there could be many prior errors.
-        println!("From path => {{}}");
 
         for err in &self.err_vec {
+            // Are two syscalls like this constantly like this worst than making it a single string?
+            println!("From path => {{}}");
             println!("{header_err}: {}", err.msg);
         }
 

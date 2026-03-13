@@ -5,12 +5,12 @@ use common::{
     symbols::TypedId,
 };
 
-// Not sure what to do with this..
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
+// This exists so that the interned value can be kept and displayed. It's also so a notation can be
+// read within the lexer and stored without losing accuracy by setting it to something like i64
 pub(crate) enum Notation {
     Bin = 2,
-    // Now this looks weird
     Decimal = 10,
     Octal = 8,
     Hex = 16,

@@ -1,18 +1,28 @@
 //FIX: Should print path on all errors
-use std::io::{BufRead, BufReader, Read};
+use std::{
+    io::{BufRead, BufReader, Read},
+    path::{Path, PathBuf},
+};
+
+use crate::metadata::FileMetadata;
 
 const DEFINITION_SIZE: usize = 4;
 
 // More inclusive name
-pub struct FileLoader<R: Read> {
+//TEST: Suspicious lifetime
+pub struct FileLoader<'a, R: Read> {
+    path: &'a Path,
     handle: BufReader<R>,
     pos: usize,
     lines_read: usize,
 }
 
-impl<R: Read> FileLoader<R> {
-    pub fn new(handle: R) -> FileLoader<R> {
+//NOTE: This state forces paths to be used, but if the chern file itself doesn't have a path given
+//then the language doesn't work anyways. May leave as is.
+impl<R: Read> FileLoader<'_, R> {
+    pub fn new(path: &Path, handle: R) -> FileLoader<'_, R> {
         FileLoader {
+            path,
             handle: BufReader::new(handle),
             pos: 0,
             lines_read: 1,
@@ -22,7 +32,7 @@ impl<R: Read> FileLoader<R> {
     /// Returns a Success value of the bytes to Lex, the offset of where to start lexing if an
     /// `@def` is present, and the offset of where to start reading the serialized data if an
     /// `@def` is present. Returns a String upon failure that has the error reason inside.
-    pub fn load_config(&mut self) -> Result<(Vec<u8>, usize, usize), String> {
+    pub fn load_config(&mut self) -> Result<FileMetadata, String> {
         // Doesn't NEED definition but will error if declared and not closed
         // TODO: Add read limit.
         let mut requires_end = false;
@@ -87,7 +97,9 @@ impl<R: Read> FileLoader<R> {
                         && &self.handle.buffer()[self.pos..self.pos + DEFINITION_SIZE] == b"@end"
                     {
                         let serial_start = self.pos + DEFINITION_SIZE;
-                        return Ok((
+
+                        return Ok(FileMetadata::new(
+                            PathBuf::from(self.path),
                             self.handle.buffer()[..self.pos + DEFINITION_SIZE].to_vec(),
                             lex_start,
                             serial_start,
@@ -119,9 +131,21 @@ impl<R: Read> FileLoader<R> {
         // TODO: Assert this...
 
         if !requires_end {
-            Ok((self.handle.buffer()[..self.pos].to_vec(), lex_start, 0))
+            // let file_metadata = FileMetadata::new(path, lex_offset, serial_offset);
+            // NOTE: May use lifetimes...
+            Ok(FileMetadata::new(
+                PathBuf::from(self.path),
+                self.handle.buffer()[..self.pos].to_vec(),
+                lex_start,
+                0,
+            ))
+            // Ok((self.handle.buffer()[..self.pos].to_vec(), lex_start, 0))
         } else {
-            let msg = format!("Could not find `@end` after `@def` from file {}", file!());
+            let msg = format!(
+                "Could not find `@end` after `@def` from file {}",
+                self.path.display()
+            );
+
             Err(msg)
         }
     }

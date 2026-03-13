@@ -12,13 +12,19 @@ pub const GREEN: &str = "\x1b[32m";
 pub const ORANGE: &str = "\x1b[33m";
 pub const NC: &str = "\x1b[0m";
 
-const SEPARATORS: usize = 60;
+const TOTAL_SEPARATORS: usize = 60;
 
 //TODO: Handle multi-line errors
 // Store \n array for binary search NOT now. DO NOT. do it now.
 
+pub struct LineData {
+    fmt_segment: String,
+    ln: usize,
+    col: usize,
+}
+
 /// Returns line, column and red arrows under given span, with the rest of the line also shown.
-pub fn form_err_diag(src_text: &[u8], span: &Span, can_color: bool) -> (usize, usize, String) {
+pub fn form_err_diag(src_text: &[u8], span: &Span, can_color: bool) -> LineData {
     let src_str = str::from_utf8(src_text).expect("Lexer broke");
 
     let (seg_start, ln) = get_line_start(src_text, span);
@@ -51,14 +57,29 @@ pub fn form_err_diag(src_text: &[u8], span: &Span, can_color: bool) -> (usize, u
     let arrows = "^".repeat(arrow_offset);
 
     let fmt_segment = if can_color {
-        format!("\t{str_segment}\n\t{spaces}{RED}{arrows}{NC}")
+        format!(" |\n{ln}|\t{str_segment}\n |\t{spaces}{RED}{arrows}{NC}")
     } else {
-        format!("\t{str_segment}\n\t{spaces}{arrows}")
+        format!(" |\n{ln}|\t{str_segment}\n |\t{spaces}{arrows}")
     };
 
     println!("{}", &fmt_segment);
 
-    (ln, col, fmt_segment)
+    LineData {
+        ln,
+        col,
+        fmt_segment,
+    }
+}
+
+//TEST:
+// Also better name please
+pub fn standardize_err(base_msg: &str, line_data: &LineData, help: &str) -> String {
+    let separators = "-".repeat(TOTAL_SEPARATORS);
+
+    format!(
+        "{base_msg}\n[{}:{}]\n{}\n{help}{separators}",
+        line_data.ln, line_data.col, line_data.fmt_segment
+    )
 }
 
 //TEST:
@@ -107,9 +128,9 @@ pub fn form_help_diag(
 
 pub fn form_help(msg: &str, can_color: bool) -> String {
     if can_color {
-        format!("{ORANGE}Help{NC}: {msg}\n")
+        format!("\n{ORANGE}Help{NC}: {msg}\n")
     } else {
-        format!("Help: {msg}\n")
+        format!("\nHelp: {msg}\n")
     }
 }
 

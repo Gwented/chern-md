@@ -64,7 +64,6 @@ pub mod tests {
         assert_eq!("StartsW", interner.search(Keyword::StartsW as usize));
         assert_eq!("EndsW", interner.search(Keyword::EndsW as usize));
         assert_eq!("Contains", interner.search(Keyword::Contains as usize));
-        assert_eq!("Contains", interner.search(Keyword::Contains as usize));
 
         for (i, kw_str) in keywords::KEYWORDS_ARRAY.iter().enumerate() {
             let kw = Keyword::try_as_kw(i as u32).expect("Issue with Keyword enum numbering");

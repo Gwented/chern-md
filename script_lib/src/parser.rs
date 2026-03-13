@@ -17,17 +17,18 @@ use crate::symbols::SpannedToken;
 use crate::token::{Token, TokenKind};
 use common::intern::Intern;
 use common::keywords::{self, Keyword};
+use common::metadata::FileMetadata;
 use common::symbols::{InnerArgs, NameId, Span};
 
 // May be lower
 const MAX_ERRORS: u8 = 3;
 
-pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern) -> Program {
+pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Intern) -> Program {
     let mut program = Program::new();
 
     let mut state = StateFlag::new();
 
-    let mut ctx = Context::new(original_text, tokens);
+    let mut ctx = Context::new(&metadata, tokens);
 
     while ctx.pos < ctx.tokens.len() {
         if ctx.err_vec.len() > 10 {

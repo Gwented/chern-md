@@ -28,7 +28,6 @@ impl UnresolvedId {
     }
 }
 
-// TODO: Reserve index 0 for all to represent invalid types from the parser
 #[derive(Debug)]
 pub struct SymbolTable {
     //Can just be a vec?

@@ -16,6 +16,7 @@ const NOTATION_HEX: u8 = 1 << 1;
 const NOTATION_BIN: u8 = 1 << 2;
 const NOTATION_OCT: u8 = 1 << 3;
 
+// Should it just take in FileMetadata alone?
 pub struct Lexer<'a> {
     src_bytes: &'a [u8],
     pos: usize,
@@ -367,7 +368,8 @@ impl Lexer<'_> {
         }
     }
 
-    //FIXME: Tokens need to store bases directly in order to use notations. I think.
+    //TODO: This defaults to i64 as of right now, but should stay interned in the future.
+    // This could also be more readable by building up the string, but it's fine as is.
     fn read_num(&mut self, interner: &mut Intern) -> SpannedToken {
         let start = self.pos;
 
@@ -437,11 +439,6 @@ impl Lexer<'_> {
             }
         };
 
-        //TODO: Should return illegal
-        // .expect("Cannot fail due to match only allowing ascii characters.");
-        dbg!(raw_str);
-
-        // Startup idea: To bits method.
         let (id_str, num_notation) =
             if (notation & (NOTATION_HEX | NOTATION_BIN | NOTATION_OCT)) != 0 {
                 let digits_start = if raw_str.len() > 2 { 2 } else { 0 };
@@ -467,7 +464,7 @@ impl Lexer<'_> {
         if (notation & NOTATION_FLOAT) == 0 {
             SpannedToken {
                 token: Token::Integer(id, num_notation),
-                // TODO: Same read_id reasoning
+                // NOTE: Same read_id reasoning
                 span: Span::new(start, end - 1),
             }
         } else {
@@ -479,6 +476,8 @@ impl Lexer<'_> {
     }
 
     //TODO: Check if this still works if quotes are unclosed WITHOUT the loader
+    // No
+    // Please
     fn read_quotes(&mut self, interner: &mut Intern) -> SpannedToken {
         let start = self.pos;
 

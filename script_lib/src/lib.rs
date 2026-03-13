@@ -8,6 +8,8 @@ pub mod token;
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use common::{intern::Intern, storage::FileLoader};
 
     use crate::lexer::Lexer;
@@ -18,14 +20,18 @@ mod tests {
         let text = r#"bind "./some/path""#;
         dbg!(&text);
 
-        let (cfg, lex_start, start_offset) =
-            FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
 
         let mut interner = Intern::init();
 
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
-        assert_eq!(0, start_offset, "start_offset without `@def` failed");
+        assert_eq!(
+            0, metadata.serial_offset,
+            "start_offset without `@def` failed"
+        );
         assert_eq!(3, toks.len(), "Token length exceeded 4 in lex_tok_test");
     }
 
@@ -34,14 +40,14 @@ mod tests {
         // Properly closed @def and @end
         let correct = r#"@defbind "./some/path"@end"#;
 
-        let opt = FileLoader::new(correct.as_bytes()).load_config();
+        let opt = FileLoader::new(Path::new(""), correct.as_bytes()).load_config();
 
         assert_eq!(true, opt.is_ok());
 
         // Improper @def without an @end
         let wrong = r#"@defbind "./some/path""#;
 
-        let opt = FileLoader::new(wrong.as_bytes()).load_config();
+        let opt = FileLoader::new(Path::new(""), wrong.as_bytes()).load_config();
 
         assert_eq!(true, opt.is_err());
     }
@@ -52,9 +58,11 @@ mod tests {
     fn char_literal_test() {
         // Valid single character
         let text = "'a'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -64,9 +72,11 @@ mod tests {
 
         // Valid escaped character
         let text = "'\\n'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -76,58 +86,68 @@ mod tests {
 
         // Valid hex escape
         let text = "'\\x2F'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
             Token::Char(c) => assert_eq!('\x2F', c),
-            _ => panic!("Expected character '\x2F', found {:?}", toks[0].token),
+            _ => panic!("Expected character '\\x2F', found {:?}", toks[0].token),
         }
 
         // Invalid character
         let text = "'aa'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
             Token::Illegal(_) => {}
-            _ => panic!("Expected Token::Illegal, got {:?}", toks[0].token),
+            _ => panic!("Expected Illegal token, got {:?}", toks[0].token),
         }
 
         // Invalid hex escape
         let text = "'\\x2'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
             Token::Illegal(_) => {}
-            _ => panic!("Expected Token::Illegal, got {:?}", toks[0].token),
+            _ => panic!("Expected Illegal token, got {:?}", toks[0].token),
         }
 
         // I can't actually read hex
         // Invalid hex digits
         let text = "'\\x255'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
             Token::Illegal(_) => {}
-            _ => panic!("Expected Token::Illegal, got {:?}", toks[0].token),
+            _ => panic!("Expected Illegal token, got {:?}", toks[0].token),
         }
 
         // Unknown escape
         let text = "'\\q'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -137,9 +157,11 @@ mod tests {
 
         // Out of range escape
         let text = "'\\x1Y'";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -162,8 +184,8 @@ mod tests {
         "
         .as_bytes();
 
-        let correct = FileLoader::new(correct).load_config();
-        let wrong = FileLoader::new(wrong).load_config();
+        let correct = FileLoader::new(Path::new(""), correct).load_config();
+        let wrong = FileLoader::new(Path::new(""), wrong).load_config();
 
         assert_eq!(true, correct.is_ok());
         assert_eq!(true, wrong.is_err());
@@ -174,20 +196,24 @@ mod tests {
     fn start_and_serial_offset_test() {
         let text = format!("adwh@def var-> int: i32 @endhi");
 
-        let (_, lex_start, serial_offset) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
 
-        assert_eq!(&text[4..], &text[lex_start..]);
-        assert_eq!("hi", &text[serial_offset..]);
-        assert_eq!(28, serial_offset);
+        assert_eq!(&text[4..], &text[metadata.lex_start..]);
+        assert_eq!("hi", &text[metadata.serial_offset..]);
+        assert_eq!(28, metadata.serial_offset);
     }
 
     #[test]
     fn lex_notation_test() {
         // Hex Test (Hex Text (Hex Test))
         let text = "0xff";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -199,9 +225,11 @@ mod tests {
 
         // Binary
         let text = "0b1010";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -213,9 +241,11 @@ mod tests {
 
         // Octal
         let text = "0o77";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -227,9 +257,11 @@ mod tests {
 
         // Decimal
         let text = "42";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -241,9 +273,11 @@ mod tests {
 
         // Float with decimal
         let text = "3.14";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -255,9 +289,11 @@ mod tests {
 
         // Positive Scientific Notation
         let text = "1e+23";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -269,9 +305,11 @@ mod tests {
 
         // Negative Scientific Notation
         let text = "1e-23";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -283,9 +321,11 @@ mod tests {
 
         // Underscored Numbers
         let text = "1_000_000";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {
@@ -297,9 +337,11 @@ mod tests {
 
         // Underscored Hex
         let text = "0x_ff_ff";
-        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let metadata = FileLoader::new(Path::new(""), text.as_bytes())
+            .load_config()
+            .unwrap();
         let mut interner = Intern::init();
-        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+        let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(2, toks.len());
         match toks[0].token {

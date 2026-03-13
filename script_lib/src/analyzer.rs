@@ -6,6 +6,7 @@ mod semantic;
 use common::{
     intern::Intern,
     keywords::{self, Keyword},
+    metadata::FileMetadata,
     symbols::{
         AstId, BuiltinTypeId, Cond, EnumId, FuncId, InnerArgs, NameId, StructId, TypeDefId, TypedId,
     },
@@ -35,12 +36,16 @@ pub struct Analyzer<'a> {
 }
 
 impl Analyzer<'_> {
-    pub fn new<'a>(program: &'a Program, interner: &'a Intern, src_text: &'a [u8]) -> Analyzer<'a> {
+    pub fn new<'a>(
+        program: &'a Program,
+        metadata: &'a FileMetadata,
+        interner: &'a Intern,
+    ) -> Analyzer<'a> {
         Analyzer {
             program,
             interner,
             table: Table::new(),
-            reporter: SemanticReporter::new(src_text),
+            reporter: SemanticReporter::new(metadata),
         }
     }
 
@@ -134,10 +139,6 @@ impl Analyzer<'_> {
     fn resolve_type_expr(&mut self, ty: &TypeExpr) -> Result<TypedId, ()> {
         match ty {
             TypeExpr::Var(name_id, span) => {
-                //TODO: Either add a more descriptive builtin but still NameId TypeExpr, or give
-                // builtin convenience functions that are based off of keyword
-
-                // Would matches!, make this, cleaner?
                 if let Some(builtin_type) = BuiltinType::try_from_id(name_id.id) {
                     let builtin_id = BuiltinTypeId::new(self.table.builtin_types.len() as u32);
 
@@ -311,6 +312,7 @@ impl Analyzer<'_> {
             }
             Expr::FieldAccess(field_access, span) => {
                 //TODO: Is this worth evaluating as an expression just to get the name?
+                // Probably not
 
                 let err_msg = format!("Conditions cannot be accessed as fields");
 

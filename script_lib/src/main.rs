@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
 use common::{intern::Intern, metadata::FileMetadata, storage::FileLoader};
 use script_lib::{
@@ -14,12 +14,12 @@ use script_lib::{
 fn main() {
     let start = Instant::now();
 
-    let path = "./chrn_tests/main.chrn";
+    let path = PathBuf::from("./chrn_tests/main.chrn");
 
-    let file = std::fs::File::open(path).unwrap();
+    let file = std::fs::File::open(&path).unwrap();
 
-    let (data, lex_start, _) = match FileLoader::new(file).load_config() {
-        Ok((data, lex_start, serial_start)) => (data, lex_start, serial_start),
+    let metadata = match FileLoader::new(&path, file).load_config() {
+        Ok(meta) => meta,
         Err(e) => {
             eprintln!("Error: {e}\nAborting...");
             std::process::exit(1);
@@ -28,13 +28,13 @@ fn main() {
 
     let mut interner = Intern::init();
 
-    let toks = Lexer::new(&data, lex_start).tokenize(&mut interner);
+    let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
-    let program = parser::parse(&data, &toks, &mut interner);
+    let program = parser::parse(&metadata, &toks, &mut interner);
 
     linter::print_all(&program, &interner);
 
-    let stuff = Analyzer::new(&program, &interner, &data).analyze();
+    let stuff = Analyzer::new(&program, &metadata, &interner).analyze();
 
     println!("{} ms", start.elapsed().as_millis());
 }

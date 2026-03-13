@@ -1,6 +1,7 @@
+//TODO: Centralize how errors are formatted for errors and help to bring sources of truth
 use std::io::IsTerminal;
 
-use common::{intern::Intern, reporter, symbols::Span};
+use common::{intern::Intern, metadata::FileMetadata, reporter, symbols::Span};
 
 use crate::{
     parser::error::{Branch, Diagnostic},
@@ -44,21 +45,19 @@ const A_BRANCH_VAR_FUNC_SET: u64 = A_BASE_EXIT_SET | token::C_BRACKET;
 
 #[derive(Debug)]
 pub(super) struct Context<'a> {
-    src_text: &'a [u8],
+    metadata: &'a FileMetadata,
     pub(super) tokens: &'a [SpannedToken],
     pub(super) pos: usize,
     pub(super) err_vec: Vec<Diagnostic>,
-    can_color: bool,
 }
 
 impl<'a> Context<'a> {
-    pub(super) fn new(original_text: &'a [u8], tokens: &'a [SpannedToken]) -> Context<'a> {
+    pub(super) fn new(metadata: &'a FileMetadata, tokens: &'a [SpannedToken]) -> Context<'a> {
         Context {
-            src_text: original_text,
+            metadata,
             tokens,
             pos: 0,
             err_vec: Vec::new(),
-            can_color: std::io::stdout().is_terminal(),
         }
     }
 
@@ -100,17 +99,21 @@ impl<'a> Context<'a> {
             .try_help(expected, found.token.kind(), branch)
             .unwrap_or_default();
 
-        let (ln, col, segment) =
-            reporter::form_err_diag(self.src_text, &found.span, self.can_color);
+        let line_data = reporter::form_err_diag(
+            &self.metadata.src_bytes,
+            &found.span,
+            self.metadata.can_color,
+        );
 
         let msg = if let Some(id) = id_opt {
             let name_id = interner.search(id as usize);
-            format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n\n[{ln}:{col}]\n{segment}{help}",)
+            //                                            From | <- And later these should be proce
+            // let msg = format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n[{ln}:{col}]\n{segment}{help}");
+            let msg = format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}");
+            reporter::standardize_err(&msg, &line_data, &help)
         } else {
-            format!(
-                "(in {branch})\n{bmsg}'{}'{amsg}\n\n[{ln}:{col}]\n{segment}{help}",
-                found.token.kind()
-            )
+            let msg = format!("(in {branch})\n{bmsg}'{}'{amsg}", found.token.kind());
+            reporter::standardize_err(&msg, &line_data, &help)
         };
 
         self.err_vec.push(Diagnostic::new(msg, branch));
@@ -129,12 +132,15 @@ impl<'a> Context<'a> {
             .try_help(TokenKind::Poison, found.token.kind(), branch)
             .unwrap_or_default();
 
-        let (ln, col, segment) =
-            reporter::form_err_diag(self.src_text, &found.span, self.can_color);
+        let line_data = reporter::form_err_diag(
+            &self.metadata.src_bytes,
+            &found.span,
+            self.metadata.can_color,
+        );
 
-        let separators = "-".repeat(TOTAL_SEPARATORS);
+        let base_msg = format!("(in {branch})\n{msg}\n");
 
-        let msg = format!("(in {branch})\n{msg}\n\n[{ln}:{col}]\n{segment}\n{help}{separators}");
+        let msg = reporter::standardize_err(&base_msg, &line_data, &help);
 
         self.recover(branch);
 
@@ -167,8 +173,11 @@ impl<'a> Context<'a> {
                 _ => None,
             };
 
-            let (ln, col, segment) =
-                reporter::form_err_diag(self.src_text, &found.span, self.can_color);
+            let line_data = reporter::form_err_diag(
+                &self.metadata.src_bytes,
+                &found.span,
+                self.metadata.can_color,
+            );
 
             let separators = "-".repeat(TOTAL_SEPARATORS);
 
@@ -179,15 +188,14 @@ impl<'a> Context<'a> {
             let msg = if let Some(id) = id_opt {
                 let name = interner.search(id as usize);
 
-                format!(
-                    "(in {branch})\n{bmsg}{} \"{name}\"{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separators}",
+                let base_msg = format!(
+                    "(in {branch})\n{bmsg}{} \"{name}\"{amsg}",
                     found.token.kind()
-                )
+                );
+                reporter::standardize_err(&base_msg, &line_data, &help)
             } else {
-                format!(
-                    "(in {branch})\n{bmsg}'{}'{amsg}\n|\n|\n[{ln}:{col}]\n{segment}\n{help}{separators}",
-                    found.token.kind()
-                )
+                let base_msg = format!("(in {branch})\n{bmsg}'{}'{amsg}", found.token.kind());
+                reporter::standardize_err(&base_msg, &line_data, &help)
             };
 
             self.err_vec.push(Diagnostic::new(msg, branch));
@@ -210,14 +218,17 @@ impl<'a> Context<'a> {
             .try_help(TokenKind::Poison, found.token.kind(), branch)
             .unwrap_or_default();
 
-        let (ln, col, segment) =
-            reporter::form_err_diag(self.src_text, &found.span, self.can_color);
+        let line_data = reporter::form_err_diag(
+            &self.metadata.src_bytes,
+            &found.span,
+            self.metadata.can_color,
+        );
 
         let separators = "-".repeat(TOTAL_SEPARATORS);
 
-        let msg = format!(
-            "(in {branch})\nExpected {emsg}, found {fmsg}\n\n[{ln}:{col}]\n{segment}\n{help}{separators}",
-        );
+        let base_msg = format!("(in {branch})\nExpected {emsg}, found {fmsg}");
+
+        let msg = reporter::standardize_err(&base_msg, &line_data, &help);
 
         self.recover(branch);
 
@@ -276,12 +287,12 @@ impl<'a> Context<'a> {
                     let span = Span::new(start, prev_tok.span.end);
 
                     let help = reporter::form_help_diag(
-                        self.src_text,
+                        &self.metadata.src_bytes,
                         &span,
                         msg,
                         true,
                         "[",
-                        self.can_color,
+                        self.metadata.can_color,
                     );
 
                     Some(help)
@@ -289,7 +300,7 @@ impl<'a> Context<'a> {
                 TokenKind::CAngleBracket if prev_kind == TokenKind::Comma => {
                     // Egregious message
                     let msg = "Remove trailing ',' or add a second type";
-                    let help = reporter::form_help(msg, self.can_color);
+                    let help = reporter::form_help(msg, self.metadata.can_color);
 
                     Some(help)
                 }
@@ -298,7 +309,7 @@ impl<'a> Context<'a> {
             Branch::VarCond => match found {
                 TokenKind::CBracket if prev_kind == TokenKind::Comma => {
                     let msg = "Remove trailing ',' or add condition";
-                    let help = reporter::form_help(msg, self.can_color);
+                    let help = reporter::form_help(msg, self.metadata.can_color);
 
                     Some(help)
                 }
@@ -310,7 +321,7 @@ impl<'a> Context<'a> {
                     // let suggestion = prev_tok.span.clone();
                     // dbg!(&prev_tok);
                     // panic!();
-                    let help = reporter::form_help(msg, self.can_color);
+                    let help = reporter::form_help(msg, self.metadata.can_color);
 
                     Some(help)
                 }
@@ -321,7 +332,7 @@ impl<'a> Context<'a> {
     }
 
     pub(super) fn emit_errors(&self) {
-        let header_err = if self.can_color {
+        let header_err = if self.metadata.can_color {
             format!("{}Error{}", reporter::RED, reporter::NC)
         } else {
             format!("Error")
