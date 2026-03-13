@@ -26,12 +26,17 @@ pub struct LineData {
 /// Returns line, column and red arrows under given span, with the rest of the line also shown.
 pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData {
     let src_str = str::from_utf8(src_bytes).unwrap_or("<invalid source file>");
+    // dbg!(span);
+    // panic!("form err diag");
 
     // first line number and last line number counting \n
     let (first_ln_num, last_ln_num) = get_src_line_info(src_bytes, span);
+    // dbg!(first_ln_num, last_ln_num);
 
     let first_ln_start_byte = get_start_of_line(src_bytes, span.start);
-
+    dbg!(src_bytes[first_ln_start_byte] as char);
+    dbg!(first_ln_start_byte);
+    // panic!();
     let line_amt = last_ln_num - first_ln_num + 1;
 
     let mut fmt_segments = Vec::new();
@@ -48,9 +53,11 @@ pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData
     let span_end_rel = if span.end < first_ln_last_byte {
         span.end - first_ln_start_byte
     } else {
-        first_ln_last_byte - first_ln_start_byte - 1
+        first_ln_last_byte - first_ln_start_byte
     };
+    dbg!(first_ln_last_byte, first_ln_start_byte);
 
+    //BUG: Starts here
     fmt_segments.push(format_line_segment(
         first_ln_num,
         first_ln_str,
@@ -194,6 +201,8 @@ fn get_src_line_info(src: &[u8], span: &Span) -> (usize, usize) {
             ln_start -= 1;
         }
     }
+    dbg!(ln_start, ln_end);
+    // panic!();
 
     // This should be the line it starts on and the line it ends on.
     (ln_start, ln_end)
@@ -201,8 +210,17 @@ fn get_src_line_info(src: &[u8], span: &Span) -> (usize, usize) {
 
 /// Returns the index of the start of the line of `span_start`
 fn get_start_of_line(src: &[u8], span_start: usize) -> usize {
-    for i in (0..span_start).rev() {
+    // 30+ minutes debugging, and it was a single off by one error. Maybe it's time to stop.
+
+    //NOTE: I don't know why this needs to be inclusive, because I didn't write down the first time
+    //why I made 'get_full_src_info' inclusive, I just saw that it worked. Probably just related to
+    //span inclusive, exclusive behavior causing other places to shift in math, which could be
+    //inherently faulty, but this isn't priority.
+
+    for i in (0..=span_start).rev() {
         if src[i - 1] == b'\n' {
+            // dbg!(src[i - 1] as char);
+            // panic!("Hi");
             return i;
         }
     }
@@ -218,6 +236,8 @@ fn get_line_end(src_bytes: &[u8], span_start: usize) -> usize {
         if b == b'\r' && src_bytes.get(i + 1).copied() == Some(b'\n') {
             return i;
         } else if b == b'\n' {
+            // dbg!(src_bytes[i - 1] as char);
+            // panic!();
             return i;
         }
     }
@@ -243,6 +263,8 @@ fn get_err_start(src: &[u8], span_end: usize) -> usize {
 }
 
 fn char_width_offset(src_str: &str, start: usize, end: usize) -> usize {
+    // dbg!(&src_str[start..end]);
+    // panic!();
     src_str[start..end]
         .chars()
         .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
@@ -260,9 +282,13 @@ fn format_line_segment(
     can_color: bool,
 ) -> String {
     // Is zero and reusing offset since it's only the space
+    //BUG: Index out of bounds
+    dbg!(ln_str, ln_span_start, ln_span_end, ln_num);
+
     let space_offset = char_width_offset(ln_str, 0, ln_span_start);
     // ln_span_end is + 1 due to the spans from the lexer producing inclusive, exclusive ranges.
     let arrow_offset = char_width_offset(ln_str, ln_span_start, ln_span_end + 1);
+    // panic!();
 
     let spaces = " ".repeat(space_offset);
     let arrows = "^".repeat(arrow_offset);
