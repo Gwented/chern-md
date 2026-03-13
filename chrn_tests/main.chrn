@@ -1,78 +1,36 @@
 @def
-
-    // alias default(x, y) = IsEmpty Contains(x?: 5, y?: 5)
-bind "Hi"
     var->
-        int: i3
-        ib: iv
-@end
-// NEED TO FIX ERRORS STICKING TO THIS THING '}' I NEED THIS GONE
-/*
-    // Make this possible.
-    str: String
-    sigma: Map<str, str>
-    p: Person
-nest->
-    struct Person {
-        name: str
-    } // Allow global args here
-    struct Str {
+    
+    " Hello
 
-    } [!IsEmpty] #warn
+
+    hi"
+
+
+@end
+// alias default(x, y) = IsEmpty Contains(x?: 5, y?: 5)
+/*
+
+// This should be possible
+    str: ~str
+    sigma: Map<str, str>
+    thing: Thing
+
+    struct ~str {
+        i32: ~i32
+    }
+
+    enum @i32 {
+
+    }
 
     // str: String | This should fail to match as a kiwi instead of suggesting struct
 */
 @end
-// lint check this
+// lint check this or error
 // [IsEmpty, !IsEmpty]
 
 /*nest->
     struct Person {
         p: Person #warn
     }
-*/
-/*
-nest->
-
-    struct Person {
-        name: str
-        age: u8
-    }
-
-        nest->
-        strs Account {
-            balance: BigFloat [Range(0,8))] #wall #wextra
-
-        }
-//     ^^^
-// Err hallucinates here
-     */
-@end
-
-@def
-    // What the language is SUPPOSED to look like:
-    var->
-        name: str
-        age: u8
-        account: Account
-        state: State
-
-    nest->
-        struct Account {
-            balance: BigFloat [!Range(0.0, 10.0)] #hex
-            creation_date: str
-        }
-
-        enum State { Ready InProgress Failed Void }
-
-    complex->
-        State.variants = 4
-
-    override->
-        // Would be a constant for SOME languages
-        with JAVA
-            // This would be default
-            sized, unsized, i64, u64, u32, i16, u16 = i32
-        with UNKNOWN
-            i32 = nine-hundred
-@end

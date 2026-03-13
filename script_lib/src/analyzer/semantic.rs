@@ -59,18 +59,17 @@ impl SemanticReporter<'_> {
     }
 
     pub(super) fn emit_errors(&self) {
-        //FIX: Get file path
         let header_err = if self.metadata.can_color {
-            format!("{}Error{}", reporter::RED, reporter::NC)
+            format!("{}error{}", reporter::RED, reporter::NC)
         } else {
-            format!("Error")
+            format!("error")
         };
 
         //NOTE: Maybe this should be printed everytime since there could be many prior errors.
 
         for err in &self.err_vec {
             // Are two syscalls like this constantly like this worst than making it a single string?
-            println!("From path => {{}}");
+            println!("From path => {}", self.metadata.path.display());
             println!("{header_err}: {}", err.msg);
         }
 

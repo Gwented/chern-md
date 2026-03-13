@@ -21,19 +21,37 @@ char, bool, (maybe capital) str, struct, enum, nil (maybe not), BigInt, BigFloat
 ### MIGHT EXIST
 `||`: Or operator.
 
-`?`: Infers type and expects type consistency throughout entire `.chrn` file.  Name affects nothing.
-// I AM TRYING TO UNDERSTAND WHAT MY POINT WAS HERE I DONT REMEMBER.
+```chrn
 
-Can be used as "I don't know" for the naming so it doesn't matter. Exmpl: name?: ? (likely illegal)
-Maybe inference only works if there is one of one type? (WHAT DOES THAT MEAN?)
+alias LongDefault(x, y) = !IsEmpty, Range(x, y), StartsW("ch") EndsW("ern") Contains("chern")
+
+alias ShortDefault() = IsWhitespace
+
+var->
+    special_string: str [LongDefault(0, 5)]
+
+    some_str: str [ShortDefault()]
+```
+
 
 # DOES NOT EXIST YET
-`alias`:
+`_`: Match all for ignoring parameters
+
+```chrn
+alias gopher(x, y) = !IsEmpty, Range(x?: 0.0, y?: 5.2), StartsW("ch") EndsW("ern") Contains("chern")
+
+var->
+    special_stir: str [gopher(0.5, _)] // defaults to (0.5, 5.0) 
+
+    stirring: str [gopher(2.0, 5.0)] // Works as normal
+```
+
+`?`: Infers type and expects type consistency throughout entire `.chrn` file. Can also be used for optional parameters within an alias function, which allows for a default to be specified.
 
 # DOES NOT EXIST YET
 `~`: Name bypass operator. ~str
 
-# Just reserved for now, no actual usage yet.
+# DOES NOT EXIST YET
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
 
 ## [Predicates]
@@ -43,17 +61,37 @@ Maybe inference only works if there is one of one type? (WHAT DOES THAT MEAN?)
 
 ## Functions (Predicate)
 (WHAT TO DO WITH THIS?)
-`Range((range) OR ~x)`: Checks if length of string is in condition. name: str (Range(0..=5), !IsEmpty())
 
-`Contains(Literal)`:
+`Range(inclusive, inclusive)`: Checks if the data being viewed matches the range given. For arrays and strings, this checks the length. For numbers, this checks the numeric value.
 
-`StartsW(Literal)`:
+// WHAT IF ALL OF THESE WORKED ON NUMBERS?
+Why? WHAT IF WE HAVE BINARY ONLY?
+
+`Contains(Literal)`: Checks if the data being viewed contains the given literal.
+
+`StartsW(Literal)`: Checks if the data being viewed starts with the given literal.
 
 `EndsW(Literal)`:
 
+// Does not exist yet
+`Regex("0-9a-zA-Z*")`
+
 ## Statements
 
-`bind`: A statement that is where the serialized file is located that should be checked, serialized, or deserialized.
+`alias`: Allows for predicates to be stored within a single keyword in the case of long conditions.
+
+```chrn
+alias LongDefault(x, y) = !IsEmpty, Range(x, y), StartsW("ch") EndsW("ern") Contains("chern")
+
+alias ShortDefault() = IsWhitespace
+
+var->
+    special_string: str [LongDefault(0, 5)]
+
+    some_str: str [ShortDefault()]
+```
+
+`bind`: Defines where a serialized file is located that should be checked, or deserialized.
 
 ## [Sections]
 
@@ -90,7 +128,7 @@ nest->
     }
 
     enum State {
-        Ready(str) // Enums can only store ONE type (as of right now)
+        Ready(str) // Enums can only store ONE type (as of right now) Would likely need tuple expr
         InProgress
         Failed
     }
@@ -104,21 +142,21 @@ nest->
 There is also a "like" category. A "JAVA_LIKE" category would have all of the int, short, logic for a batch of languages.
 
 `complex`: Define complex rules such as enum bounds.
-Example:
+
     complex:
         State.variants = 5
 
 ## Arguments
-`#warn`:
+`#warn`: Would warn instead of terminating.
 
-`#ign_if`: (would remove anything that didn't align under condition rather than crash or warn.)
+`#ign_if`: (Would remove anything that didn't align under condition rather than crash or warn.)
 
 `#scientific`, `#hex`, `#bin`, `#octo`: Numeric notations to output in serialized file.
 
 #### Full example of language
 
 // YOU HAVE DONE THE SAME EXAMPLE OVER 50 TIMES CHOOSE SOMETHING ELSE
-// I only use my touchpad to exit the terminal within LazyVim
+// fastfetch
 ```chrn
 @def
     var->
@@ -144,6 +182,7 @@ Maybe arithmetic
 # Ok maybe
 
 Matrix declarations.
+HOW?
 
-Unified serialization rules for any md file. I forgot xml existed
-Yaml, XML(Forgot this existed), Json, BINARY(I don't know)
+Unified serialization rules for any md file. 
+Yaml, XML(Forgot this existed), Json, BINARY(I don't know) BINARY

@@ -21,7 +21,10 @@ fn main() {
     let metadata = match FileLoader::new(&path, file).load_config() {
         Ok(meta) => meta,
         Err(e) => {
-            eprintln!("Error: {e}\nAborting...");
+            // Why are all the errors for languages lowercase? Is there something I'm missing?
+            // GREP? Wait it might actually be grep.
+            eprintln!("From path => {}\n", path.display());
+            eprintln!("error: {e}\nexiting...");
             std::process::exit(1);
         }
     };

@@ -14,8 +14,8 @@ pub const NC: &str = "\x1b[0m";
 
 const TOTAL_SEPARATORS: usize = 60;
 
-//TODO: Handle multi-line errors
-// Store \n array for binary search NOT now. DO NOT. do it now.
+//TODO: Store \n array for binary search NOT now. DO NOT. do it now.
+// This is only within the metadata but nothing is done with it
 
 pub struct LineData {
     fmt_segment: String,
@@ -24,55 +24,88 @@ pub struct LineData {
 }
 
 /// Returns line, column and red arrows under given span, with the rest of the line also shown.
-pub fn form_err_diag(src_text: &[u8], span: &Span, can_color: bool) -> LineData {
-    let src_str = str::from_utf8(src_text).expect("Lexer broke");
+pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData {
+    let src_str = str::from_utf8(src_bytes).unwrap_or("<invalid source file>");
 
-    let (seg_start, ln) = get_line_start(src_text, span);
+    // first line number and last line number counting \n
+    let (first_ln_num, last_ln_num) = get_src_line_info(src_bytes, span);
 
-    let seg_end = get_line_end(src_text, seg_start);
+    let first_ln_start_byte = get_start_of_line(src_bytes, span.start);
 
-    //TODO: Move to a function
-    let segment = &src_text[seg_start..seg_end];
+    let line_amt = last_ln_num - first_ln_num + 1;
 
-    // WARN: Suspicious off by one...
-    let col = src_str[seg_start..span.start].chars().count() + 1;
+    let mut fmt_segments = Vec::new();
 
-    let str_segment = str::from_utf8(segment).expect("Lexer broke");
+    let first_ln_last_byte = get_line_end(src_bytes, first_ln_start_byte);
+    let first_ln_bytes = &src_bytes[first_ln_start_byte..first_ln_last_byte];
 
-    // Could both of these look less odd?
-    let space_offset = src_str[seg_start..span.start]
-        .chars()
-        .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
-        .sum();
+    //TODO: Should maybe just return the line here on error since unwrap_or seems wrong.
+    let first_ln_str = str::from_utf8(first_ln_bytes).expect("Lexer broke");
 
-    let spaces = " ".repeat(space_offset);
+    //NOTE: First line span start relative to the line its on
+    let span_start_rel = span.start - first_ln_start_byte;
 
-    // span range is inclusive exclusive so final character is missed without + 1
-    // Has no other mathematical reasoning outside of this
-    let arrow_offset = src_str[span.start..span.end + 1]
-        .chars()
-        .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
-        .sum();
-
-    let arrows = "^".repeat(arrow_offset);
-
-    let fmt_segment = if can_color {
-        format!(" |\n{ln}|\t{str_segment}\n |\t{spaces}{RED}{arrows}{NC}")
+    let span_end_rel = if span.end < first_ln_last_byte {
+        span.end - first_ln_start_byte
     } else {
-        format!(" |\n{ln}|\t{str_segment}\n |\t{spaces}{arrows}")
+        first_ln_last_byte - first_ln_start_byte - 1
     };
 
-    println!("{}", &fmt_segment);
+    fmt_segments.push(format_line_segment(
+        first_ln_num,
+        first_ln_str,
+        span_start_rel,
+        span_end_rel,
+        can_color,
+    ));
+
+    if line_amt > 2 {
+        // Rice your error emitters.
+        fmt_segments.push("---".to_string());
+    }
+
+    // NOTE: This only cares about two lines at most so that error messages don't span to infinity.
+    // What if we had an `inf` keyword? What would it even do?
+    if line_amt > 1 {
+        let final_ln_start_byte = get_start_of_line(src_bytes, span.end);
+        let final_ln_end_byte = get_line_end(src_bytes, final_ln_start_byte);
+
+        let final_ln_bytes = if final_ln_start_byte < src_bytes.len() {
+            &src_bytes[final_ln_start_byte..final_ln_end_byte]
+        } else {
+            &src_bytes[final_ln_start_byte..]
+        };
+
+        //TODO: Make this anything but an expect even though it is impossible to fail.
+        let final_ln_str = str::from_utf8(final_ln_bytes).expect("Lexer broke");
+
+        let err_start_byte = get_err_start(src_bytes, span.end);
+
+        let final_span_start_rel = err_start_byte - final_ln_start_byte;
+        let final_span_end_rel = span.end - final_ln_start_byte;
+
+        fmt_segments.push(format_line_segment(
+            last_ln_num,
+            final_ln_str,
+            final_span_start_rel,
+            final_span_end_rel,
+            can_color,
+        ));
+    }
+
+    let fmt_segment = fmt_segments.join("\n");
+
+    let col = char_width_offset(src_str, first_ln_start_byte, span.start) + 1;
 
     LineData {
-        ln,
+        ln: first_ln_num,
         col,
         fmt_segment,
     }
 }
 
-//TEST:
-// Also better name please
+// WHATS THE POINT IN CALLING IT TEST IF YOU LET IT STAY LIKE 5 SECONDS AFTER
+// Better name please
 pub fn standardize_err(base_msg: &str, line_data: &LineData, help: &str) -> String {
     let separators = "-".repeat(TOTAL_SEPARATORS);
 
@@ -84,17 +117,13 @@ pub fn standardize_err(base_msg: &str, line_data: &LineData, help: &str) -> Stri
 
 //TEST:
 pub fn form_help_diag(
-    src_text: &[u8],
+    src_bytes: &[u8],
     span: &Span,
     msg: &str,
     add: bool,
     suggestion: &str,
     can_color: bool,
 ) -> String {
-    let src_str = str::from_utf8(src_text).expect("Lexer broke");
-
-    let (seg_start, _) = get_line_start(src_text, span);
-
     let op_count = suggestion.len();
 
     let ops = if add {
@@ -110,71 +139,137 @@ pub fn form_help_diag(
     };
 
     // Could both of these look less odd?
-    let space_offset = src_str[seg_start..span.start]
-        .chars()
-        .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
-        .sum();
-
-    let spaces = " ".repeat(space_offset);
-
-    let help = form_help(msg, can_color);
-
-    let fmt_segment = format!("\t{spaces}{suggestion}\n\t{spaces}{ops}\n\t{help}");
-
-    println!("{}", &fmt_segment);
-
-    fmt_segment
+    // let space_offset = src_str[seg_start..span.start]
+    //     .chars()
+    //     .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
+    //     .sum();
+    //
+    // let spaces = " ".repeat(space_offset);
+    //
+    // let help = form_help(msg, can_color);
+    //
+    // let fmt_segment = format!("\t{spaces}{suggestion}\n\t{spaces}{ops}\n\t{help}");
+    //
+    // println!("{}", &fmt_segment);
+    //
+    // fmt_segment
+    todo!();
 }
 
 pub fn form_help(msg: &str, can_color: bool) -> String {
     if can_color {
-        format!("\n{ORANGE}Help{NC}: {msg}\n")
+        format!("\n{ORANGE}help{NC}: {msg}\n")
     } else {
-        format!("\nHelp: {msg}\n")
+        format!("\nhelp: {msg}\n")
     }
 }
 
-//TODO: Need to get multi-line
-/// Returns start of `span` in bytes from `src` and the line number it was on
-fn get_line_start(src: &[u8], span: &Span) -> (usize, usize) {
-    let mut ln = 1;
-
-    let mut b: u8;
-
-    let mut seg_start = 0;
+// get_full_src_span_info, get_full_src_info, get_src_info <-- THIS ONE. Actually nevermind
+/// Returns the amount of lines between the start and end of the span.
+fn get_src_line_info(src: &[u8], span: &Span) -> (usize, usize) {
+    let mut ln_end = 1;
 
     let mut i = 0;
 
-    while i < span.end {
-        b = src[i];
+    //WARN: Suspicious LE usage
+    while i <= span.end {
+        let b = src[i];
 
         if b == b'\n' {
-            ln += 1;
             i += 1;
-            seg_start = i;
+            ln_end += 1;
         } else if b == b'\r' && src.get(i + 1).copied() == Some(b'\n') {
-            ln += 1;
             i += 2;
-            seg_start = i;
+            ln_end += 1;
         } else {
             i += 1;
         }
     }
 
-    (seg_start, ln)
+    // line_start is set to line_end so if line_end is the start, nothing happens to line_start
+    let mut ln_start = ln_end;
+
+    for i in (span.start..span.end).rev() {
+        if src[i] == b'\n' {
+            ln_start -= 1;
+        }
+    }
+
+    // This should be the line it starts on and the line it ends on.
+    (ln_start, ln_end)
 }
 
-fn get_line_end(src_text: &[u8], start: usize) -> usize {
-    for i in start..src_text.len() {
-        let b = src_text[i];
+/// Returns the index of the start of the line of `span_start`
+fn get_start_of_line(src: &[u8], span_start: usize) -> usize {
+    for i in (0..span_start).rev() {
+        if src[i - 1] == b'\n' {
+            return i;
+        }
+    }
+    // Defaults since this means there is only one byte present
+    0
+}
 
-        if b == b'\r' && src_text.get(i + 1).copied() == Some(b'\n') {
+/// Collects bytes until a new line is reached and then returns the index of that byte.
+fn get_line_end(src_bytes: &[u8], span_start: usize) -> usize {
+    for i in span_start..src_bytes.len() {
+        let b = src_bytes[i];
+
+        if b == b'\r' && src_bytes.get(i + 1).copied() == Some(b'\n') {
             return i;
         } else if b == b'\n' {
             return i;
         }
     }
 
-    //WARN: I don't remember why I returned this
-    src_text.len()
+    // Still don't remember why I'm returning this
+    src_bytes.len()
+}
+
+/// Intended to go from the last character of a span to the nearest whitespace so that it
+/// doesn't point to the entire line. If a string happens to have whitespace it will just ignore
+/// it which could change.
+fn get_err_start(src: &[u8], span_end: usize) -> usize {
+    let line_start = get_start_of_line(src, span_end);
+
+    for i in (line_start..span_end).rev() {
+        let b = src[i - 1];
+        if b == b' ' || b == b'\t' || b == b'\r' {
+            return i;
+        }
+    }
+
+    line_start
+}
+
+fn char_width_offset(src_str: &str, start: usize, end: usize) -> usize {
+    src_str[start..end]
+        .chars()
+        .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
+        .sum()
+}
+
+//TODO: Not the best that this is still error specific, but maybe the reporter can have entry points
+// more so line a cli that dispatches based off of the enum? Seems convoluted.
+/// Formats a single line segment with arrows under the error span.
+fn format_line_segment(
+    ln_num: usize,
+    ln_str: &str,
+    ln_span_start: usize,
+    ln_span_end: usize,
+    can_color: bool,
+) -> String {
+    // Is zero and reusing offset since it's only the space
+    let space_offset = char_width_offset(ln_str, 0, ln_span_start);
+    // ln_span_end is + 1 due to the spans from the lexer producing inclusive, exclusive ranges.
+    let arrow_offset = char_width_offset(ln_str, ln_span_start, ln_span_end + 1);
+
+    let spaces = " ".repeat(space_offset);
+    let arrows = "^".repeat(arrow_offset);
+
+    if can_color {
+        format!(" |\n{ln_num}|\t{ln_str}\n |\t{spaces}{RED}{arrows}{NC}")
+    } else {
+        format!(" |\n{ln_num}|\t{ln_str}\n |\t{spaces}{arrows}")
+    }
 }

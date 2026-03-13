@@ -1,4 +1,3 @@
-//FIX: Should print path on all errors
 use std::{
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
@@ -7,6 +6,9 @@ use std::{
 use crate::metadata::FileMetadata;
 
 const DEFINITION_SIZE: usize = 4;
+
+// TEST: Ignore this
+const MAX_READ: usize = 1_000_000;
 
 // More inclusive name
 //TEST: Suspicious lifetime
@@ -17,7 +19,7 @@ pub struct FileLoader<'a, R: Read> {
     lines_read: usize,
 }
 
-//NOTE: This state forces paths to be used, but if the chern file itself doesn't have a path given
+//NOTE: This forces paths to be given, but if the chern file itself doesn't have a path given
 //then the language doesn't work anyways. May leave as is.
 impl<R: Read> FileLoader<'_, R> {
     pub fn new(path: &Path, handle: R) -> FileLoader<'_, R> {
@@ -34,14 +36,16 @@ impl<R: Read> FileLoader<'_, R> {
     /// `@def` is present. Returns a String upon failure that has the error reason inside.
     pub fn load_config(&mut self) -> Result<FileMetadata, String> {
         // Doesn't NEED definition but will error if declared and not closed
-        // TODO: Add read limit.
         let mut requires_end = false;
+        let mut saw_quotes = false;
+
+        let mut new_line_pos: Vec<usize> = Vec::new();
 
         let mut lex_start = 0;
 
         self.handle.fill_buf().or_else(|e| {
             Err(format!(
-                "Internal Error: Failed to fill buffer to read configuration file\n{e}"
+                "internal error: Failed to fill buffer to read configuration file\n{e}"
             ))
         })?;
 
@@ -51,36 +55,35 @@ impl<R: Read> FileLoader<'_, R> {
             }
 
             match b {
-                b'"' => {
-                    self.advance();
+                b'"' | b'\'' => {
+                    // Even though this can't fail
+                    let quote = self.advance().unwrap_or(b'\0');
 
                     let start_line = self.lines_read;
 
-                    if self.read_quotes(b'\"').is_err() {
+                    // Is there a reason for lines_read to be printed if there are multiple quotes?
+                    // When are there ever NOT multiple quotes if it's in a serialized file?
+                    if self.read_quotes(quote).is_err() {
+                        let note = if saw_quotes {
+                            "\nnote: There are other quotes within the file so the line given could be incorrect"
+                        } else {
+                            ""
+                        };
+
                         let msg = format!(
-                            //FIX: Should print path
-                            "Found unclosed quotes at line {} which reached <eof>",
-                            start_line
+                            "Found unclosed quotes at line {} which reached <eof>{}",
+                            start_line, note
                         );
 
                         return Err(msg);
                     }
+
+                    saw_quotes = true;
                 }
-                b'\'' => {
-                    self.advance();
-
-                    let start_line = self.lines_read;
-
-                    if self.read_quotes(b'\'').is_err() {
-                        let msg = format!(
-                            //FIX: Should print path
-                            "Found unclosed single quotes at line {} which reached <eof>",
-                            start_line
-                        );
-
-                        return Err(msg);
-                    }
-                }
+                //TODO: If there is a set of unclosed quotes, and anywhere in the file there is
+                //another set of quotes, it will interpret that as the end, which then makes it
+                //print the wrong line. May only be able to add a warn within the message itself
+                //that the line given could be wrong.
                 b'/' => {
                     self.advance();
 
@@ -111,16 +114,8 @@ impl<R: Read> FileLoader<'_, R> {
                     {
                         requires_end = true;
                         lex_start = self.pos;
-                    } else if !requires_end {
-                        //FIXME: Remove this?
-                        //WARN: Weird wording
-                        let msg = format!(
-                            //FIX: Should print path
-                            "Found illegal '@' usage while reading definition file (line {})",
-                            self.lines_read
-                        );
-                        return Err(msg);
                     }
+
                     self.advance();
                 }
                 _ => {
@@ -130,8 +125,8 @@ impl<R: Read> FileLoader<'_, R> {
         }
         // TODO: Assert this...
 
+        // Case of no @def and no @end which is ok
         if !requires_end {
-            // let file_metadata = FileMetadata::new(path, lex_offset, serial_offset);
             // NOTE: May use lifetimes...
             Ok(FileMetadata::new(
                 PathBuf::from(self.path),
@@ -139,7 +134,6 @@ impl<R: Read> FileLoader<'_, R> {
                 lex_start,
                 0,
             ))
-            // Ok((self.handle.buffer()[..self.pos].to_vec(), lex_start, 0))
         } else {
             let msg = format!(
                 "Could not find `@end` after `@def` from file {}",
@@ -154,9 +148,16 @@ impl<R: Read> FileLoader<'_, R> {
     /// fails, it would need return a Some value which DOESN'T represent a failure, making it
     /// misleading.
     // TODO: LEXER SHOULD ALSO HANDLE THIS ALONE
-    // Is this even worth being an enum?
     fn read_quotes(&mut self, quote_type: u8) -> Result<(), ()> {
+        let mut read_bytes = 0;
+
         while let Some(b) = self.peek() {
+            read_bytes += 1;
+
+            if read_bytes == MAX_READ {
+                return Err(());
+            }
+
             match b {
                 b'\\' => {
                     self.skip(2);

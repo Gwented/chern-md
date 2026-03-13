@@ -29,7 +29,7 @@ mod tests {
         let toks = Lexer::new(&metadata.src_bytes, metadata.lex_start).tokenize(&mut interner);
 
         assert_eq!(
-            0, metadata.serial_offset,
+            0, metadata.serial_start,
             "start_offset without `@def` failed"
         );
         assert_eq!(3, toks.len(), "Token length exceeded 4 in lex_tok_test");
@@ -201,8 +201,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(&text[4..], &text[metadata.lex_start..]);
-        assert_eq!("hi", &text[metadata.serial_offset..]);
-        assert_eq!(28, metadata.serial_offset);
+        assert_eq!("hi", &text[metadata.serial_start..]);
+        assert_eq!(28, metadata.serial_start);
     }
 
     #[test]

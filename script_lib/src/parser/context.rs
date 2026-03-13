@@ -9,37 +9,37 @@ use crate::{
     token::{self, Token, TokenKind},
 };
 
-/// Amount of '-' to print for multiple error separation
-const TOTAL_SEPARATORS: usize = 60;
-
-// C_ == current. A_ == ahead
+//NOTE: C_ == current. A_ == ahead
 
 // ALL SET LOGIC AND PARSE LOGIC NEED TO WORK WITH EACH OTHER
 // TODO:  Readjust Sets for new behavior
 
-const C_BASE_EXIT_SET: u64 = token::EOF | token::ILLEGAL | token::C_CURLY_BRACKET;
+//NOTE: The basic exit sets should ONLY be used for tokens that HAVE to be stopped on.
+const C_BASE_EXIT_SET: u64 = token::EOF | token::ILLEGAL;
 const A_BASE_EXIT_SET: u64 = token::SLIM_ARROW;
 
 const C_BRANCH_VAR_SET: u64 = C_BASE_EXIT_SET;
 const A_BRANCH_VAR_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
 // WARN: NestType should probably be responsible for C_CURLY but maybe not
-const C_BRANCH_VAR_TYPE_SET: u64 = C_BASE_EXIT_SET | token::O_BRACKET | token::HASH_SYMBOL;
+const C_BRANCH_VAR_TYPE_SET: u64 =
+    C_BASE_EXIT_SET | token::O_BRACKET | token::HASH_SYMBOL | token::C_CURLY_BRACKET;
+
 const A_BRANCH_VAR_TYPE_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
 // Probably shouldn't account for hash symbol since it is not apart of the loop
-const C_BRANCH_VAR_COND_SET: u64 = C_BASE_EXIT_SET | token::HASH_SYMBOL;
-
+const C_BRANCH_VAR_COND_SET: u64 = C_BASE_EXIT_SET | token::HASH_SYMBOL | token::C_CURLY_BRACKET;
 const A_BRANCH_VAR_COND_SET: u64 = A_BASE_EXIT_SET | token::COLON;
-const C_BRANCH_VAR_ARGS_SET: u64 = C_BASE_EXIT_SET | token::HASH_SYMBOL;
+
+const C_BRANCH_VAR_ARGS_SET: u64 = C_BASE_EXIT_SET | token::HASH_SYMBOL | token::C_CURLY_BRACKET;
 const A_BRANCH_VAR_ARGS_SET: u64 = A_BASE_EXIT_SET | token::COLON;
 
-// TODO: Unsure if there's a possibility to stop this from hallucinating '}'
+// TODO: Needs heavy tuning
 const C_BRANCH_NEST_SET: u64 = C_BASE_EXIT_SET;
 
 const C_BRANCH_NEST_TYPE: u64 = C_BASE_EXIT_SET | token::C_CURLY_BRACKET;
 
-// May remove since these are destructive
+//TODO: Find out what tuning works best for these if they are going to stay.
 const C_BRANCH_VAR_FUNC_SET: u64 = C_BASE_EXIT_SET | token::C_PAREN;
 const A_BRANCH_VAR_FUNC_SET: u64 = A_BASE_EXIT_SET | token::C_BRACKET;
 
@@ -70,28 +70,25 @@ impl<'a> Context<'a> {
         branch: Branch,
         interner: &Intern,
     ) -> Result<u32, Token> {
+        // WARN: IF ANYTHING GOES WRONG ADD THE IF STATEMENTS BACK FOR EOF
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
-        // WARN: IF ANYTHING GOES WRONG ADD THE IF STATEMENTS BACK FOR EOF
-
-        //TODO: ALLOW ILLEGAL AND CHAR TO BE DISPLAYED
+        //TEST: I JUST WANTED TO USE REFERENCES
         let id_opt = match found.token {
-            Token::Id(id)
-            | Token::Str(id)
-            | Token::Integer(id, _)
-            | Token::Float(id, _)
-            //NOTE: This is a little weird
-              => {
+            Token::Id(id) | Token::Str(id) | Token::Integer(id, _) | Token::Float(id, _) => {
                 if found.token.kind() == expected {
                     return Ok(id);
                 }
 
-                Some(id)
+                Some(interner.search(id as usize).to_string())
             }
-            // Token::Char(ch) => {
-            //     todo!("Not allowed to make character errors as of right now");
-            // }
+            Token::Illegal(id) => {
+                let illegal_msg = interner.search(id as usize);
+                let new_msg = format!("illegal {illegal_msg}");
+                Some(new_msg)
+            }
+            Token::Char(ch) => Some(ch.to_string()),
             _ => None,
         };
 
@@ -99,20 +96,21 @@ impl<'a> Context<'a> {
             .try_help(expected, found.token.kind(), branch)
             .unwrap_or_default();
 
+        // 19 - 35 Span
+        //TODO: Multi-line errors
         let line_data = reporter::form_err_diag(
             &self.metadata.src_bytes,
             &found.span,
             self.metadata.can_color,
         );
 
-        let msg = if let Some(id) = id_opt {
-            let name_id = interner.search(id as usize);
-            //                                            From | <- And later these should be proce
-            // let msg = format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}\n[{ln}:{col}]\n{segment}{help}");
-            let msg = format!("(in {branch})\n{bmsg}\"{name_id}\"{amsg}");
+        let msg = if let Some(name) = id_opt {
+            let msg = format!("(in {branch})\n{bmsg}\"{name}\"{amsg}");
+
             reporter::standardize_err(&msg, &line_data, &help)
         } else {
             let msg = format!("(in {branch})\n{bmsg}'{}'{amsg}", found.token.kind());
+
             reporter::standardize_err(&msg, &line_data, &help)
         };
 
@@ -138,7 +136,7 @@ impl<'a> Context<'a> {
             self.metadata.can_color,
         );
 
-        let base_msg = format!("(in {branch})\n{msg}\n");
+        let base_msg = format!("(in {branch})\n{msg}");
 
         let msg = reporter::standardize_err(&base_msg, &line_data, &help);
 
@@ -178,8 +176,6 @@ impl<'a> Context<'a> {
                 &found.span,
                 self.metadata.can_color,
             );
-
-            let separators = "-".repeat(TOTAL_SEPARATORS);
 
             let help = self
                 .try_help(expected, found.token.kind(), branch)
@@ -223,8 +219,6 @@ impl<'a> Context<'a> {
             &found.span,
             self.metadata.can_color,
         );
-
-        let separators = "-".repeat(TOTAL_SEPARATORS);
 
         let base_msg = format!("(in {branch})\nExpected {emsg}, found {fmsg}");
 
@@ -333,12 +327,12 @@ impl<'a> Context<'a> {
 
     pub(super) fn emit_errors(&self) {
         let header_err = if self.metadata.can_color {
-            format!("{}Error{}", reporter::RED, reporter::NC)
+            format!("{}error{}", reporter::RED, reporter::NC)
         } else {
-            format!("Error")
+            format!("error")
         };
 
-        println!("From path => {{}}");
+        println!("From path => {}", self.metadata.path.display());
 
         for err in &self.err_vec {
             println!("{header_err}: {}", err.msg);

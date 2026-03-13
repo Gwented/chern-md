@@ -27,8 +27,9 @@ impl StateFlag {
         (self.flag & NEUTRAL_SET) == NEUTRAL_SET
     }
 
+    // Is this elixer?
     pub(super) fn flip_bind(&mut self) {
-        self.flag = self.flag | BIND_FLAG;
+        self.flag |= BIND_FLAG;
     }
 
     pub(super) fn has_bind(&self) -> bool {
@@ -37,7 +38,7 @@ impl StateFlag {
     }
 
     pub(super) fn flip_alias(&mut self) {
-        self.flag = self.flag | ALIAS_FLAG;
+        self.flag |= ALIAS_FLAG;
     }
 
     pub(super) fn has_alias(&self) -> bool {
@@ -45,7 +46,7 @@ impl StateFlag {
     }
 
     pub(super) fn flip_var(&mut self) {
-        self.flag = self.flag | VAR_FLAG;
+        self.flag |= VAR_FLAG;
     }
 
     pub(super) fn has_var(&self) -> bool {
@@ -53,7 +54,7 @@ impl StateFlag {
     }
 
     pub(super) fn flip_nest(&mut self) {
-        self.flag = self.flag | NEST_FLAG;
+        self.flag |= NEST_FLAG;
     }
 
     pub(super) fn has_nest(&self) -> bool {
@@ -61,7 +62,7 @@ impl StateFlag {
     }
 
     pub(super) fn flip_complex(&mut self) {
-        self.flag = self.flag | COMPLEX_FLAG;
+        self.flag |= COMPLEX_FLAG;
     }
 
     pub(super) fn has_complex(&self) -> bool {
@@ -69,7 +70,7 @@ impl StateFlag {
     }
 
     pub(super) fn flip_override(&mut self) {
-        self.flag = self.flag | OVERRIDE_FLAG;
+        self.flag |= OVERRIDE_FLAG;
     }
 
     pub(super) fn has_override(&self) -> bool {

@@ -1,14 +1,13 @@
 use std::{io::IsTerminal, path::PathBuf};
 
-// TEST:
-// FileLoader would produce this. Maybe.
-// Global metadata? Should this all be in one place?
 #[derive(Debug)]
 pub struct FileMetadata {
     pub path: PathBuf,
     pub src_bytes: Vec<u8>,
+    // JAVA VIOLATION JAVA EE JAVA SPRINT JAVA NEW DOG DOG = NEW 2004 DOG
+    pub new_lines: Vec<usize>,
     pub lex_start: usize,
-    pub serial_offset: usize,
+    pub serial_start: usize,
     pub can_color: bool,
 }
 
@@ -16,14 +15,15 @@ impl FileMetadata {
     pub fn new(
         path: PathBuf,
         src_bytes: Vec<u8>,
-        lex_offset: usize,
-        serial_offset: usize,
+        lex_start: usize,
+        serial_start: usize,
     ) -> FileMetadata {
         FileMetadata {
             path,
+            new_lines: Vec::new(),
             src_bytes,
-            lex_start: lex_offset,
-            serial_offset,
+            lex_start,
+            serial_start,
             //TODO: Could be env var
             can_color: std::io::stdout().is_terminal(),
         }
