@@ -27,17 +27,13 @@ char, bool, (maybe capital) str, struct, enum, nil (maybe not), BigInt, BigFloat
 Can be used as "I don't know" for the naming so it doesn't matter. Exmpl: name?: ? (likely illegal)
 Maybe inference only works if there is one of one type? (WHAT DOES THAT MEAN?)
 
--- After instruction.
-`!?`: Self declaring type inference that then alters props file.
-!!?: Ignores the identifier or something...
-invalid()
-NO ALIASES PLEASE NO
---
+# DOES NOT EXIST YET
+`alias`:
 
 # DOES NOT EXIST YET
 `~`: Name bypass operator. ~str
 
-// May remove this
+# Just reserved for now, no actual usage yet.
 `(range)`: Explicit range syntax. The '=' is required. `0..=5`
 
 ## [Predicates]
@@ -62,10 +58,9 @@ NO ALIASES PLEASE NO
 ## [Sections]
 
 // This sounds convoluted..
-- Sections the type of data to be parsed is described. They exist as opposed a keywords so that data is always defined in a readable, expected manner.
+- Sections are how data can be parsed in different ways. They exist as opposed a keywords so that data is always defined in a readable, expected manner.
 
-- The `->` operator is used after section keywords to switch grammar rules.
-
+- The `->` operator is used after section keywords to swap to the section.
 
 `var`: Front facing definitions of the data to be serialized or deserialized.
 
@@ -105,27 +100,6 @@ nest->
 # DOES NOT EXIST YET
 `override->`: What to default to when a language doesn't contain a particular type. Language defaults exist but this can change any if needed.
 
-# Full example of language
-
-// YOU HAVE DONE THE SAME EXAMPLE OVER 50 TIMES CHOOSE SOMETHING ELSE
-// How make fucnctin pointer arrar for dynamic C array method OOP C like C++ or Java
-```chrn
-@def
-    var->
-        name: str
-        age: u8 #warn #bin
-        pets: List<Pet> [!IsEmpty, Range(0, 15)]
-    nest->
-        struct Pet {
-            name: str [!IsWhitespace]
-            color: Color
-        }
-
-        enum Color {Red(u8) #hex Blue(u8) #hex Green(u8) #hex }
-@end
-```
-
-
 (Probably not a good idea)
 There is also a "like" category. A "JAVA_LIKE" category would have all of the int, short, logic for a batch of languages.
 
@@ -141,16 +115,35 @@ Example:
 
 `#scientific`, `#hex`, `#bin`, `#octo`: Numeric notations to output in serialized file.
 
+#### Full example of language
+
+// YOU HAVE DONE THE SAME EXAMPLE OVER 50 TIMES CHOOSE SOMETHING ELSE
+// I only use my touchpad to exit the terminal within LazyVim
+```chrn
+@def
+    var->
+        name: str
+        age: u8 #warn #bin
+        pets: List<Pet> [!IsEmpty, Range(0, 15)]
+    nest->
+        struct Pet {
+            name: str [!IsWhitespace]
+            color: Color
+        }
+
+        enum Color {Red(u8) Blue(u8) Green(u8) } #hex
+@end
+```
 
 ## POSSIBLE FEATURES
 Utilities to alter actual main file, such as trimming all strings.
 
-
 Numerics: Binary, hex, octo. Allows for notation to serialize to be a specific notation. Unicode.
 
-Maybe more complex operations such as '/' and '*'
-# No
+Maybe arithmetic
+# Ok maybe
 
 Matrix declarations.
 
-Unified serialization rules for any md file.
+Unified serialization rules for any md file. I forgot xml existed
+Yaml, XML(Forgot this existed), Json, BINARY(I don't know)

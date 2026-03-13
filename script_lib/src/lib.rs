@@ -11,11 +11,11 @@ mod tests {
     use common::{intern::Intern, storage::FileLoader};
 
     use crate::lexer::Lexer;
-    use crate::token::Token;
+    use crate::token::{Notation, Token};
 
     #[test]
     fn lex_tok_test() {
-        let text = r#"bind-> "./some/path""#;
+        let text = r#"bind "./some/path""#;
         dbg!(&text);
 
         let (cfg, lex_start, start_offset) =
@@ -26,20 +26,20 @@ mod tests {
         let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
 
         assert_eq!(0, start_offset, "start_offset without `@def` failed");
-        assert_eq!(4, toks.len(), "Token length exceeded 4 in lex_tok_test");
+        assert_eq!(3, toks.len(), "Token length exceeded 4 in lex_tok_test");
     }
 
     #[test]
     fn lex_tok_test_rev() {
         // Properly closed @def and @end
-        let correct = r#"@defbind-> "./some/path"@end"#;
+        let correct = r#"@defbind "./some/path"@end"#;
 
         let opt = FileLoader::new(correct.as_bytes()).load_config();
 
         assert_eq!(true, opt.is_ok());
 
         // Improper @def without an @end
-        let wrong = r#"@defbind-> "./some/path""#;
+        let wrong = r#"@defbind "./some/path""#;
 
         let opt = FileLoader::new(wrong.as_bytes()).load_config();
 
@@ -179,5 +179,134 @@ mod tests {
         assert_eq!(&text[4..], &text[lex_start..]);
         assert_eq!("hi", &text[serial_offset..]);
         assert_eq!(28, serial_offset);
+    }
+
+    #[test]
+    fn lex_notation_test() {
+        // Hex Test (Hex Text (Hex Test))
+        let text = "0xff";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Integer(id, Notation::Hex) => {
+                assert_eq!("255", interner.search(id as usize));
+            }
+            _ => panic!("Expected Integer with Hex, found {:?}", toks[0].token),
+        }
+
+        // Binary
+        let text = "0b1010";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Integer(id, Notation::Bin) => {
+                assert_eq!("10", interner.search(id as usize));
+            }
+            _ => panic!("Expected Integer with Binary, found {:?}", toks[0].token),
+        }
+
+        // Octal
+        let text = "0o77";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Integer(id, Notation::Octal) => {
+                assert_eq!("63", interner.search(id as usize));
+            }
+            _ => panic!("Expected Integer with Octal, found {:?}", toks[0].token),
+        }
+
+        // Decimal
+        let text = "42";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Integer(id, Notation::Decimal) => {
+                assert_eq!("42", interner.search(id as usize));
+            }
+            _ => panic!("Expected Integer with Decimal, found {:?}", toks[0].token),
+        }
+
+        // Float with decimal
+        let text = "3.14";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Float(id, Notation::Decimal) => {
+                assert_eq!("3.14", interner.search(id as usize));
+            }
+            _ => panic!("Expected Float with Decimal, found {:?}", toks[0].token),
+        }
+
+        // Positive Scientific Notation
+        let text = "1e+23";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Float(id, Notation::Decimal) => {
+                assert_eq!("1e+23", interner.search(id as usize));
+            }
+            _ => panic!("Expected Float with Decimal, found {:?}", toks[0].token),
+        }
+
+        // Negative Scientific Notation
+        let text = "1e-23";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Float(id, Notation::Decimal) => {
+                assert_eq!("1e-23", interner.search(id as usize));
+            }
+            _ => panic!("Expected Float with Decimal, found {:?}", toks[0].token),
+        }
+
+        // Underscored Numbers
+        let text = "1_000_000";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Integer(id, Notation::Decimal) => {
+                assert_eq!("1000000", interner.search(id as usize));
+            }
+            _ => panic!("Expected Integer with Decimal, found {:?}", toks[0].token),
+        }
+
+        // Underscored Hex
+        let text = "0x_ff_ff";
+        let (cfg, lex_start, _) = FileLoader::new(text.as_bytes()).load_config().unwrap();
+        let mut interner = Intern::init();
+        let toks = Lexer::new(&cfg, lex_start).tokenize(&mut interner);
+
+        assert_eq!(2, toks.len());
+        match toks[0].token {
+            Token::Integer(id, Notation::Hex) => {
+                assert_eq!("65535", interner.search(id as usize));
+            }
+            _ => panic!("Expected Integer with Hex, found {:?}", toks[0].token),
+        }
     }
 }

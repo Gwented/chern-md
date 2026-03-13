@@ -41,7 +41,7 @@ impl<'a> SemanticReporter<'a> {
             "".to_string()
         };
 
-        let msg = format!("{msg}\n\n[{ln}:{col}]\n{segment}\n\n{help}{separators}\n");
+        let msg = format!("{msg}\n\n[{ln}:{col}]\n{segment}\n{help}{separators}");
 
         let diag = Diagnostic::new(msg.to_owned());
 

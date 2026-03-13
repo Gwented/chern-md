@@ -214,15 +214,13 @@ impl TypeDef {
 
 #[derive(Debug)]
 pub struct Structure {
-    // Should this be a symbol or type id?
     pub(crate) name_id: NameId,
     // pub(crate) type_id: TypeIdent,
     pub(crate) args: Vec<InnerArgs>,
-    // May remove conditions
     pub(crate) conds: Vec<Cond>,
     // Fields can be variants or separate strugg <-- Sgwom
     //WARN:
-    // pub(crate) fields: Vec<TypeIdent>,
+    // pub(crate) fields: Vec<TypedId>,
 }
 
 // impl Structure {

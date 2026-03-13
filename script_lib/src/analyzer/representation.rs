@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::symbols::{AstId, Cond, InnerArgs, NameId, TypedId};
+use common::symbols::{AstId, Cond, FuncId, InnerArgs, NameId, TypedId};
 
 use crate::token::BuiltinType;
 
@@ -97,8 +97,8 @@ pub(super) struct TypeDefRepre {
     pub(super) name_id: NameId,
     pub(super) ast_id: AstId,
     pub(super) type_id: Option<TypedId>,
-    pub(super) args: Vec<InnerArgs>,
     pub(super) conds: Vec<Cond>,
+    pub(super) args: Vec<InnerArgs>,
 }
 
 impl TypeDefRepre {
@@ -107,8 +107,8 @@ impl TypeDefRepre {
             name_id,
             ast_id,
             type_id: None,
-            args: Vec::new(),
             conds: Vec::new(),
+            args: Vec::new(),
         }
     }
 }
@@ -116,7 +116,26 @@ impl TypeDefRepre {
 #[derive(Debug)]
 pub(super) struct FuncRepre {
     pub(super) name_id: NameId,
-    // pub(super) field: Vec<FieldRepre>,
+    pub(super) func_id: FuncId,
+    pub(super) field: Vec<FuncArgsRepre>,
+}
+
+impl FuncRepre {
+    pub(super) fn new(name_id: NameId, func_id: FuncId, field: Vec<FuncArgsRepre>) -> FuncRepre {
+        FuncRepre {
+            name_id,
+            func_id,
+            field,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(super) enum FuncArgsRepre {
+    Integer(i64),
+    Float(f64),
+    Char(char),
+    Str(NameId),
 }
 
 #[derive(Debug)]

@@ -1,10 +1,13 @@
+// Statements
 const BIND_FLAG: u16 = 1 << 1;
-const VAR_FLAG: u16 = 1 << 2;
-const NEST_FLAG: u16 = 1 << 3;
-const COMPLEX_FLAG: u16 = 1 << 4;
-const OVERRIDE_FLAG: u16 = 1 << 5;
+const ALIAS_FLAG: u16 = 1 << 2;
+// Sections
+const VAR_FLAG: u16 = 1 << 3;
+const NEST_FLAG: u16 = 1 << 4;
+const COMPLEX_FLAG: u16 = 1 << 5;
+const OVERRIDE_FLAG: u16 = 1 << 6;
 
-const NEUTRAL_SET: u16 = BIND_FLAG;
+const NEUTRAL_SET: u16 = BIND_FLAG | ALIAS_FLAG;
 
 pub(super) struct StateFlag {
     pub(super) flag: u16,
@@ -18,6 +21,7 @@ impl StateFlag {
 
     //WARN: Not sure if this is needed since sections already enforce only sections are next
     // It actually doesn't matter if it's neutral or not besides visually from what I can tell
+    // May remove.
     pub(super) fn is_neutral(&self) -> bool {
         // If the bits of self.flag and NEUTRAL_SET are not all the same then will return false
         (self.flag & NEUTRAL_SET) == NEUTRAL_SET
@@ -30,6 +34,14 @@ impl StateFlag {
     pub(super) fn has_bind(&self) -> bool {
         // If the corresponding bits are != 0 then the bit is not in the set so has_bind == false
         (self.flag & BIND_FLAG) != 0
+    }
+
+    pub(super) fn flip_alias(&mut self) {
+        self.flag = self.flag | ALIAS_FLAG;
+    }
+
+    pub(super) fn has_alias(&self) -> bool {
+        (self.flag & ALIAS_FLAG) != 0
     }
 
     pub(super) fn flip_var(&mut self) {

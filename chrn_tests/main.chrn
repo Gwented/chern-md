@@ -1,12 +1,14 @@
 @def
-    var->
-        p: Person
-    nest->
-        struct Person {
-            hi: i32 #warn
-        } #warn
+    // NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    //  THERES TOO MANY ARROWS THIS CANT BE f: A -> A IT LOOKS WEIRD NOW
 
+    // Oh wow. Bloat.
+    // alias default(x, y) = IsEmpty Contains(x?: 5, y?: 5)
+
+    var->
+        name: str [Contains(2..)]
 @end
+// NEED TO FIX ERRORS STICKING TO THIS THING '}' I NEED THIS GONE
 /*
     // Make this possible.
     str: String
@@ -18,11 +20,13 @@ nest->
     } // Allow global args here
     struct Str {
 
-    }
+    } [!IsEmpty] #warn
 
     // str: String | This should fail to match as a kiwi instead of suggesting struct
 */
 @end
+// lint check this
+// [IsEmpty, !IsEmpty]
 
 /*nest->
     struct Person {
@@ -45,15 +49,6 @@ nest->
 //     ^^^
 // Err hallucinates here
      */
-@end
-
-        enum State {Ready(Account) InProgress Failed}
-
-    @end
-    var->
-        // Technically should be i64 I believe
-        account: Account
-
 @end
 
 @def
@@ -81,5 +76,5 @@ nest->
             // This would be default
             sized, unsized, i64, u64, u32, i16, u16 = i32
         with UNKNOWN
-            i32 = unsized
+            i32 = nine-hundred
 @end

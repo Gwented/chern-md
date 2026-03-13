@@ -153,7 +153,7 @@ pub enum InnerArgs {
     Scientific,
     Hex,
     Binary,
-    Octo,
+    Octal,
 }
 
 impl<'a> TryFrom<&'a str> for InnerArgs {
@@ -165,7 +165,7 @@ impl<'a> TryFrom<&'a str> for InnerArgs {
             "scient" => Ok(InnerArgs::Scientific),
             "hex" => Ok(InnerArgs::Hex),
             "bin" => Ok(InnerArgs::Binary),
-            "octo" => Ok(InnerArgs::Octo),
+            "octal" => Ok(InnerArgs::Octal),
             v => Err(v),
         }
     }

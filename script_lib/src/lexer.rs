@@ -1,11 +1,20 @@
 use common::{intern::Intern, symbols::Span};
 
-use crate::{symbols::SpannedToken, token::Token};
+use crate::{
+    symbols::SpannedToken,
+    token::{Notation, Token},
+};
 
 /// Known size in bytes for `@def` and `@end`
 const DEFINITION_SIZE: usize = 4;
 
 const MAX_ILLEGAL_TOKS: u8 = 7;
+
+// Not a notation but
+const NOTATION_FLOAT: u8 = 1 << 0;
+const NOTATION_HEX: u8 = 1 << 1;
+const NOTATION_BIN: u8 = 1 << 2;
+const NOTATION_OCT: u8 = 1 << 3;
 
 pub struct Lexer<'a> {
     src_bytes: &'a [u8],
@@ -353,27 +362,60 @@ impl Lexer<'_> {
 
         SpannedToken {
             token: Token::Id(id),
-            // Offset due to advance being done before leaving loop.
+            // Offset due to advance being done before leaving the loop.
             span: Span::new(start, end - 1),
         }
     }
 
+    //FIXME: Tokens need to store bases directly in order to use notations. I think.
     fn read_num(&mut self, interner: &mut Intern) -> SpannedToken {
         let start = self.pos;
 
-        let mut is_float = false;
+        let mut notation: u8 = 0;
 
-        //TODO: Other notations
+        if self.peek() == b'0' && self.peek_ahead(1) == b'x' {
+            notation |= NOTATION_HEX;
+            self.skip(2);
+        } else if self.peek() == b'0' && self.peek_ahead(1) == b'b' {
+            notation |= NOTATION_BIN;
+            self.skip(2);
+        } else if self.peek() == b'0' && self.peek_ahead(1) == b'o' {
+            notation |= NOTATION_OCT;
+            self.skip(2);
+        }
+
         while self.pos < self.src_bytes.len() {
             match self.peek() {
+                b'a'..=b'f' | b'A'..=b'F' if (notation & NOTATION_HEX) != 0 => {
+                    self.advance();
+                }
+                b'0' | b'1' if (notation & NOTATION_BIN) != 0 => {
+                    self.advance();
+                }
+                b'0'..=b'7' if (notation & NOTATION_OCT) != 0 => {
+                    self.advance();
+                }
                 b'0'..=b'9' => {
                     self.advance();
                 }
-                //NOTE: Checking if next could be "..=" to avoid collision
-                b'.' if !is_float && self.peek_ahead(1) != b'.' => {
-                    is_float = true;
+                b'e' if (notation & (NOTATION_HEX | NOTATION_BIN | NOTATION_OCT)) == 0 => {
+                    let next = self.peek_ahead(1);
+                    if next == b'+' || next == b'-' {
+                        notation |= NOTATION_FLOAT;
+                        self.skip(2);
+                    } else {
+                        break;
+                    }
                 }
-                b'.' if !is_float && self.peek_ahead(1) == b'.' => break,
+                b'.' if (notation & NOTATION_FLOAT) == 0
+                    && (notation & (NOTATION_HEX | NOTATION_BIN | NOTATION_OCT)) == 0
+                    && self.peek_ahead(1) != b'.' =>
+                {
+                    notation |= NOTATION_FLOAT;
+                    self.advance();
+                }
+                //NOTE: Checking if next could be "..=" to avoid collision. Could be better. Maybe.
+                b'.' if (notation & NOTATION_FLOAT) == 0 && self.peek_ahead(1) == b'.' => break,
                 b'_' => {
                     self.advance();
                 }
@@ -383,20 +425,55 @@ impl Lexer<'_> {
 
         let end = self.pos;
 
-        let id_str = str::from_utf8(&self.src_bytes[start..end])
-            .expect("Cannot fail due to match only allowing ascii characters.");
+        let raw_str = match str::from_utf8(&self.src_bytes[start..end]) {
+            Ok(val) => val,
+            Err(_) => {
+                // NOTE: I don't actually think this is possible. Like at all.
+                let msg_id = interner.intern("<invalid ASCII in numeric>");
+                return SpannedToken {
+                    token: Token::Illegal(msg_id),
+                    span: Span::new(start, end),
+                };
+            }
+        };
 
-        let id = interner.intern(id_str);
+        //TODO: Should return illegal
+        // .expect("Cannot fail due to match only allowing ascii characters.");
+        dbg!(raw_str);
 
-        if !is_float {
+        // Startup idea: To bits method.
+        let (id_str, num_notation) =
+            if (notation & (NOTATION_HEX | NOTATION_BIN | NOTATION_OCT)) != 0 {
+                let digits_start = if raw_str.len() > 2 { 2 } else { 0 };
+                let digits = &raw_str[digits_start..].replace('_', "");
+
+                let (radix, num_notation) = if (notation & NOTATION_HEX) != 0 {
+                    (16, Notation::Hex)
+                } else if (notation & NOTATION_BIN) != 0 {
+                    (2, Notation::Bin)
+                } else {
+                    (8, Notation::Octal)
+                };
+
+                let num = i64::from_str_radix(digits, radix).unwrap_or(0);
+                //WARN: AM I HALLUCINATING? SHOULDN'T THIS BE DEREF COERCABLE?
+                (num.to_string(), num_notation)
+            } else {
+                (raw_str.replace('_', ""), Notation::Decimal)
+            };
+
+        let id = interner.intern(&id_str);
+
+        if (notation & NOTATION_FLOAT) == 0 {
             SpannedToken {
-                token: Token::Integer(id),
-                span: Span::new(start, end),
+                token: Token::Integer(id, num_notation),
+                // TODO: Same read_id reasoning
+                span: Span::new(start, end - 1),
             }
         } else {
             SpannedToken {
-                token: Token::Float(id),
-                span: Span::new(start, end),
+                token: Token::Float(id, num_notation),
+                span: Span::new(start, end - 1),
             }
         }
     }
@@ -434,17 +511,15 @@ impl Lexer<'_> {
             Ok(p) => {
                 let path_id = interner.intern(p);
                 SpannedToken {
-                    token: Token::Literal(path_id),
+                    token: Token::Str(path_id),
                     span: Span::new(start - 1, end),
                 }
             }
             Err(_) => {
-                let response = "Invalid UTF-8. Could not parse literal.";
-
-                let id = interner.intern(response);
+                let msg_id = interner.intern("<invalid UTF-8 in string literal>");
 
                 SpannedToken {
-                    token: Token::Illegal(id),
+                    token: Token::Illegal(msg_id),
                     span: Span::new(start - 1, end),
                 }
             }
@@ -477,6 +552,7 @@ impl Lexer<'_> {
                     }
                 }
                 b'\'' => {
+                    //TODO: Maybe make this default for all quotes since it prevents - 1
                     self.advance();
                     break;
                 }

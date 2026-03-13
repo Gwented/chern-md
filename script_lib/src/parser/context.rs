@@ -79,9 +79,9 @@ impl<'a> Context<'a> {
         //TODO: ALLOW ILLEGAL AND CHAR TO BE DISPLAYED
         let id_opt = match found.token {
             Token::Id(id)
-            | Token::Literal(id)
-            | Token::Integer(id)
-            | Token::Float(id)
+            | Token::Str(id)
+            | Token::Integer(id, _)
+            | Token::Float(id, _)
             //NOTE: This is a little weird
               => {
                 if found.token.kind() == expected {
@@ -145,6 +145,8 @@ impl<'a> Context<'a> {
 
     /// Returns the found token on success and failure
     // Return token based off of it's most probable path?
+    // TODO:  Maybe lazily evaluate since searching the interner by default is a weird performance
+    // hit. Probably.
     pub(super) fn expect_verbose(
         &mut self,
         expected: TokenKind,
@@ -159,7 +161,7 @@ impl<'a> Context<'a> {
         //NOTE: Characters are also not directly printed here...
         if found.token.kind() != expected {
             let id_opt = match found.token {
-                Token::Id(id) | Token::Literal(id) | Token::Integer(id) | Token::Illegal(id) => {
+                Token::Id(id) | Token::Str(id) | Token::Integer(id, _) | Token::Illegal(id) => {
                     Some(id)
                 }
                 _ => None,

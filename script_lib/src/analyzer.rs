@@ -5,16 +5,22 @@ mod semantic;
 
 use common::{
     intern::Intern,
-    keywords::Keyword,
-    symbols::{AstId, BuiltinTypeId, Cond, EnumId, InnerArgs, StructId, TypeDefId, TypedId},
+    keywords::{self, Keyword},
+    symbols::{
+        AstId, BuiltinTypeId, Cond, EnumId, FuncId, InnerArgs, NameId, StructId, TypeDefId, TypedId,
+    },
 };
 
 use crate::{
     analyzer::{
-        representation::{EnumRepre, FieldRepre, StructRepre, Table, TypeDefRepre},
+        representation::{
+            EnumRepre, FieldRepre, FuncArgsRepre, FuncRepre, StructRepre, Table, TypeDefRepre,
+        },
         semantic::SemanticReporter,
     },
-    parser::ast::{AbstractEnum, AbstractStruct, AbstractTypeDef, Expr, Item, Program, TypeExpr},
+    parser::ast::{
+        AbstractEnum, AbstractStruct, AbstractTypeDef, Expr, Item, Program, TypeExpr, UnaryOp,
+    },
     token::BuiltinType,
 };
 
@@ -110,12 +116,12 @@ impl Analyzer<'_> {
                 conds.push(self.resolve_cond(expr)?);
             }
 
-            todo!("Resolve conditions");
-
             // DIRTY
             let type_def = &mut self.table.typedefs[type_def_id.id as usize];
             type_def.type_id = Some(ty);
             type_def.args = args;
+            dbg!(&conds);
+            panic!("Cond");
             type_def.conds = conds;
         }
 
@@ -251,6 +257,7 @@ impl Analyzer<'_> {
     //identification.
     fn resolve_cond(&mut self, expr: &Expr) -> Result<Cond, ()> {
         match expr {
+            //TODO: Allow for custom conditions with aliases.
             Expr::Var(name_id, span) => {
                 if let Some(cond) = Cond::try_from_id(name_id.id) {
                     return Ok(cond);
@@ -263,8 +270,31 @@ impl Analyzer<'_> {
 
                 Err(())
             }
-            Expr::Call(call, span) => todo!(),
-            Expr::Unary(unary, span) => todo!(),
+            Expr::Unary(unary, _) => match unary.op {
+                UnaryOp::Not => {
+                    let cond = self.resolve_cond(&unary.expr)?;
+                    Ok(Cond::Not(Box::new(cond)))
+                }
+            },
+            //TODO: This may need to be resolved separately so custom functions can be used
+            Expr::Call(call, _) => {
+                // This will return a cond with a function id to a defined function with args
+
+                // Can't really do it like this.
+                // let func_id = self.contains_func(call.name_id)?;
+                //
+                // let mut args: Vec<FuncArgsRepre> = Vec::new();
+                //
+                // for expr in &call.exprs {
+                //     let arg = self.resolve_func_arg(expr)?;
+                //     args.push(arg);
+                // }
+                //
+                // let function = FuncRepre::new(call.name_id, func_id, args);
+
+                // Ok(Cond::Func(func_id))
+                todo!();
+            }
             Expr::Literal(name_id, span) => {
                 let err_name = self.interner.search(name_id.id as usize);
                 let err_msg = format!("\"{err_name}\" is not a valid condition");
@@ -273,8 +303,12 @@ impl Analyzer<'_> {
 
                 Err(())
             }
-            Expr::Integer(num, span) => todo!(),
-            Expr::Float(_, span) => todo!(),
+            Expr::Integer(num, span) => {
+                todo!("Integer");
+            }
+            Expr::Float(num, span) => {
+                todo!("Integer");
+            }
             Expr::FieldAccess(field_access, span) => {
                 //TODO: Is this worth evaluating as an expression just to get the name?
 
@@ -295,12 +329,14 @@ impl Analyzer<'_> {
         };
 
         // DIRTY
+        // Can we resolve glob args here?
         if let Item::Struct(abstract_struct) = ast_struct {
             for type_def in &abstract_struct.fields {
                 let typed_id = self.resolve_type_expr(&type_def.ty)?;
 
                 let field_repre = FieldRepre::new(type_def.name_id, typed_id);
 
+                // Performance?
                 let structure = &mut self.table.structs[struct_id.id as usize];
 
                 structure.fields.push(field_repre);
@@ -311,11 +347,27 @@ impl Analyzer<'_> {
         Ok(())
     }
 
+    // Args may need to be resolved later due to glob args
     fn resolve_arg(&mut self, arg: InnerArgs) -> Result<InnerArgs, ()> {
         todo!();
     }
 
-    fn resolve_expr(&mut self, expr: &Expr) -> TypedId {
+    fn resolve_expr(&mut self, expr: &Expr) -> Result<TypedId, ()> {
+        todo!();
+    }
+
+    // TODO: Register functions user made functions first...
+    fn contains_func(&self, name_id: NameId) -> bool {
+        if let Some(typed_id) = self.table.sym_table.get(&name_id) {
+            if let TypedId::Func(_) = typed_id {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn resolve_func_arg(&mut self, expr: &Expr) -> Result<FuncArgsRepre, ()> {
         todo!();
     }
 

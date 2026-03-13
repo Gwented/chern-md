@@ -1,6 +1,6 @@
 pub const LARGEST_KW: usize = 12;
 
-pub static KEYWORDS_ARRAY: [&str; 38] = [
+pub static KEYWORDS_ARRAY: [&str; 39] = [
     // primitives
     "i8", // 0
     "u8",
@@ -31,19 +31,20 @@ pub static KEYWORDS_ARRAY: [&str; 38] = [
     "struct",
     "enum", // 26
     // Statements
-    "bind",
+    "bind", // 27
+    "alias",
     // Section names
-    "var", // 28
+    "var", // 29
     "nest",
-    "complex", // 30
+    "complex", // 31
     "override",
     // Directives
     "IsEmpty",
-    "IsWhitespace", // 33
+    "IsWhitespace", // 34
     "Range",
-    "StartsW", // 35
+    "StartsW", // 36
     "EndsW",
-    "Contains", // 37
+    "Contains", // 38
 ];
 
 // Keep a compact enum for code that prefers typed keyword identifiers.
@@ -79,16 +80,17 @@ pub enum Keyword {
     Struct = 25,
     Enum = 26,
     Bind = 27,
-    Var = 28,
-    Nest = 29,
-    Complex = 30,
-    Override = 31,
-    IsEmpty = 32,
-    IsWhitespace = 33,
-    Range = 34,
-    StartsW = 35,
-    EndsW = 36,
-    Contains = 37,
+    Alias = 28,
+    Var = 29,
+    Nest = 30,
+    Complex = 31,
+    Override = 32,
+    IsEmpty = 33,
+    IsWhitespace = 34,
+    Range = 35,
+    StartsW = 36,
+    EndsW = 37,
+    Contains = 38,
 }
 
 impl Keyword {
@@ -123,16 +125,17 @@ impl Keyword {
             25 => Some(Keyword::Struct),
             26 => Some(Keyword::Enum),
             27 => Some(Keyword::Bind),
-            28 => Some(Keyword::Var),
-            29 => Some(Keyword::Nest),
-            30 => Some(Keyword::Complex),
-            31 => Some(Keyword::Override),
-            32 => Some(Keyword::IsEmpty),
-            33 => Some(Keyword::IsWhitespace),
-            34 => Some(Keyword::Range),
-            35 => Some(Keyword::StartsW),
-            36 => Some(Keyword::EndsW),
-            37 => Some(Keyword::Contains),
+            28 => Some(Keyword::Alias),
+            29 => Some(Keyword::Var),
+            30 => Some(Keyword::Nest),
+            31 => Some(Keyword::Complex),
+            32 => Some(Keyword::Override),
+            33 => Some(Keyword::IsEmpty),
+            34 => Some(Keyword::IsWhitespace),
+            35 => Some(Keyword::Range),
+            36 => Some(Keyword::StartsW),
+            37 => Some(Keyword::EndsW),
+            38 => Some(Keyword::Contains),
             _ => None,
         }
     }
@@ -204,11 +207,11 @@ pub fn is_type(id: u32) -> bool {
 }
 
 pub fn is_section(id: u32) -> bool {
-    (28..=31).contains(&id)
+    (29..=32).contains(&id)
 }
 
 //WARN: This belongs elsewhere
-//This should maybe acount for known namespaces inside the symbol table
+//This should maybe account for known namespaces inside the symbol table
 pub fn fuzzy_find_kw(other_bytes: &[u8]) -> Option<usize> {
     if other_bytes.len() > LARGEST_KW {
         return None;

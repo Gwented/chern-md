@@ -54,14 +54,14 @@ pub(crate) enum Expr {
 
 #[derive(Debug)]
 pub struct Call {
-    pub(crate) callee: Box<Expr>,
+    pub(crate) name_id: NameId,
     // Vec?
     pub(crate) exprs: Vec<Expr>,
 }
 
 impl Call {
-    pub(crate) fn new(callee: Box<Expr>, exprs: Vec<Expr>) -> Call {
-        Call { callee, exprs }
+    pub(crate) fn new(name_id: NameId, exprs: Vec<Expr>) -> Call {
+        Call { name_id, exprs }
     }
 }
 
@@ -121,8 +121,8 @@ impl AbstractTypeDef {
 pub struct AbstractStruct {
     pub(crate) name_id: NameId,
     pub(crate) name_span: Span,
-    pub(crate) conds: Vec<Expr>,
-    pub(crate) args: Vec<InnerArgs>,
+    pub(crate) glob_conds: Vec<Expr>,
+    pub(crate) glob_args: Vec<InnerArgs>,
     pub(crate) fields: Vec<AbstractTypeDef>,
 }
 
@@ -130,15 +130,15 @@ impl AbstractStruct {
     pub(crate) fn new(
         name_id: NameId,
         name_span: Span,
-        conds: Vec<Expr>,
-        args: Vec<InnerArgs>,
+        glob_conds: Vec<Expr>,
+        glob_args: Vec<InnerArgs>,
         fields: Vec<AbstractTypeDef>,
     ) -> AbstractStruct {
         AbstractStruct {
             name_id,
             name_span,
-            args,
-            conds,
+            glob_args,
+            glob_conds,
             fields,
         }
     }
@@ -150,8 +150,8 @@ pub struct AbstractEnum {
     pub(crate) name_id: NameId,
     pub(crate) name_span: Span,
     pub(crate) variants: Vec<AbstractVariant>,
-    pub(crate) conds: Vec<Expr>,
-    pub(crate) args: Vec<InnerArgs>,
+    pub(crate) glob_conds: Vec<Expr>,
+    pub(crate) glob_args: Vec<InnerArgs>,
 }
 
 impl AbstractEnum {
@@ -160,14 +160,14 @@ impl AbstractEnum {
         name_span: Span,
         variants: Vec<AbstractVariant>,
         conds: Vec<Expr>,
-        args: Vec<InnerArgs>,
+        glob_args: Vec<InnerArgs>,
     ) -> AbstractEnum {
         AbstractEnum {
             name_id,
             name_span,
             variants,
-            conds,
-            args,
+            glob_conds: conds,
+            glob_args,
         }
     }
 }

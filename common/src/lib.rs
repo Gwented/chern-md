@@ -1,5 +1,6 @@
 pub mod intern;
 pub mod keywords;
+pub mod metadata;
 pub mod reporter;
 pub mod storage;
 pub mod symbols;
@@ -48,6 +49,7 @@ pub mod tests {
         assert_eq!("enum", interner.search(Keyword::Enum as usize));
         // Sections
         assert_eq!("bind", interner.search(Keyword::Bind as usize));
+        assert_eq!("alias", interner.search(Keyword::Alias as usize));
         assert_eq!("var", interner.search(Keyword::Var as usize));
         assert_eq!("nest", interner.search(Keyword::Nest as usize));
         assert_eq!("complex", interner.search(Keyword::Complex as usize));
@@ -62,10 +64,10 @@ pub mod tests {
         assert_eq!("StartsW", interner.search(Keyword::StartsW as usize));
         assert_eq!("EndsW", interner.search(Keyword::EndsW as usize));
         assert_eq!("Contains", interner.search(Keyword::Contains as usize));
+        assert_eq!("Contains", interner.search(Keyword::Contains as usize));
 
-        // Hyper-case sensitive: verify each keyword's enum value matches its array index
         for (i, kw_str) in keywords::KEYWORDS_ARRAY.iter().enumerate() {
-            let kw = keywords::Keyword::try_as_kw(i as u32).expect("Keyword should exist");
+            let kw = Keyword::try_as_kw(i as u32).expect("Issue with Keyword enum numbering");
             let actual_str = interner.search(kw as usize);
 
             assert_eq!(
@@ -76,6 +78,6 @@ pub mod tests {
         }
 
         // Uh
-        assert_eq!(keywords::KEYWORDS_ARRAY.len() - 1, 37);
+        assert_eq!(keywords::KEYWORDS_ARRAY.len(), 39);
     }
 }

@@ -54,6 +54,22 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
                     _ = parse_bind_stmt(&mut ctx, &mut program, interner);
                 }
+                id if id == Keyword::Alias as u32 => {
+                    ctx.advance_tok();
+
+                    if state.has_alias() {
+                        ctx.report_verbose(
+                            "Found a bind statement more than once",
+                            Branch::Neutral,
+                        );
+
+                        continue;
+                    } else {
+                        state.flip_alias();
+                    }
+
+                    _ = parse_alias_stmt(&mut ctx, &mut program, interner);
+                }
                 id if id == Keyword::Var as u32 => {
                     ctx.advance_tok();
 
@@ -223,7 +239,7 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
             }
             Token::EOF => break,
             t => match t {
-                Token::Id(id) | Token::Literal(id) | Token::Integer(id) => {
+                Token::Id(id) | Token::Str(id) | Token::Integer(id, _) => {
                     ctx.advance_tok();
 
                     let name = interner.search(id as usize);
@@ -247,6 +263,58 @@ pub fn parse(original_text: &[u8], tokens: &Vec<SpannedToken>, interner: &Intern
 
     dbg!(&program);
     program
+}
+
+//FIXME: These sets may be misaligned
+fn parse_alias_stmt(
+    ctx: &mut Context,
+    program: &mut Program,
+    interner: &Intern,
+) -> Result<(), Token> {
+    let plain_id = ctx.expect_id_verbose(
+        TokenKind::Id,
+        "Expected an identifier after `alias`, found ",
+        "",
+        Branch::Neutral,
+        interner,
+    )?;
+
+    let name_id = NameId::new(plain_id);
+
+    //NOTE: ignore this
+    // let err_name = || -> &str {interner.search(name_id as usize)};
+
+    let err_name = interner.search(plain_id as usize);
+
+    ctx.expect_verbose(
+        TokenKind::OParen,
+        // WHAT IF THIS WAS LAZY?
+        &format!("Expected '(' to define alias \"{err_name}\", found "),
+        "",
+        // May not need corresponding set
+        Branch::Neutral,
+        interner,
+    )?;
+
+    let start = ctx.peek_span().start;
+
+    let (func_args, end) = parse_func(ctx, interner)?;
+
+    let call = Call::new(name_id, func_args);
+
+    let func_expr = Expr::Call(call, Span::new(start, end));
+
+    dbg!(func_expr);
+
+    ctx.expect_verbose(
+        TokenKind::Equals,
+        &format!("Expected '=' to define alias \"{err_name}\", found "),
+        "",
+        Branch::Neutral,
+        interner,
+    )?;
+
+    todo!();
 }
 
 fn parse_bind_stmt(
@@ -387,19 +455,20 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
 
             let variants = handle_enum_variants(ctx, enum_name, interner)?;
 
-            let conds = if ctx.peek_kind() == TokenKind::OBracket {
+            let glob_conds = if ctx.peek_kind() == TokenKind::OBracket {
                 handle_conds(ctx, interner)?
             } else {
                 Vec::new()
             };
 
-            let args = if ctx.peek_kind() == TokenKind::HashSymbol {
+            let glob_args = if ctx.peek_kind() == TokenKind::HashSymbol {
                 handle_args(ctx, interner)?
             } else {
                 Vec::new()
             };
 
-            let enumeration = AbstractEnum::new(name_id, name_span, variants, conds, args);
+            let enumeration =
+                AbstractEnum::new(name_id, name_span, variants, glob_conds, glob_args);
 
             Item::Enum(enumeration)
         }
@@ -456,7 +525,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
 
             Ok(TypeExpr::Any(span))
         }
-        Token::Literal(id) | Token::Integer(id) => {
+        Token::Str(id) | Token::Integer(id, _) => {
             let name = interner.search(id as usize);
 
             let kind = ctx.peek_kind();
@@ -466,7 +535,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
             let fmt_tok = format!("{} \"{name}\"", kind);
             ctx.report_template("a type", &fmt_tok, Branch::VarType);
 
-            Err(Token::Literal(id))
+            Err(Token::Str(id))
         }
         Token::EOF => {
             //FIX: Points to EOF since it is technically the error.
@@ -495,14 +564,13 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
 fn parse_generic(ctx: &mut Context, interner: &Intern) -> Result<(Vec<TypeExpr>, usize), Token> {
     let mut args: Vec<TypeExpr> = Vec::new();
 
-    // I'M NOT NAMING IT ARG1 OR ARG2 WE DON'T USE NUMBERS
-    let farg = parse_type(ctx, interner)?;
-    args.push(farg);
+    let arg_one = parse_type(ctx, interner)?;
+    args.push(arg_one);
 
     if ctx.peek_kind() == TokenKind::Comma {
         ctx.advance_tok();
-        let sarg = parse_type(ctx, interner)?;
-        args.push(sarg);
+        let arg_two = parse_type(ctx, interner)?;
+        args.push(arg_two);
     }
 
     let end = ctx.peek_span().end;
@@ -709,16 +777,15 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             let name_id = NameId::new(id);
             let name_span = ctx.peek_span();
 
-            //FIX: CHECK IF THIS WORKS PLEASE
             ctx.skip(2);
 
-            let (args, end) = handle_func(ctx, interner)?;
+            let (args, end) = parse_func(ctx, interner)?;
 
             let func_span = Span::new(name_span.start, end);
 
-            let callee = Box::new(Expr::Var(name_id, name_span));
-
-            Ok(Expr::Call(Call::new(callee, args), func_span))
+            // let callee = Box::new(Expr::Var(name_id, name_span));
+            //
+            Ok(Expr::Call(Call::new(name_id, args), func_span))
         }
         Token::Id(id) => {
             let span = ctx.advance_span();
@@ -727,7 +794,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
 
             Ok(Expr::Var(name_id, span))
         }
-        Token::Literal(id) | Token::Integer(id) | Token::Float(id) | Token::Illegal(id) => {
+        Token::Str(id) | Token::Integer(id, _) | Token::Float(id, _) | Token::Illegal(id) => {
             let err_tok = ctx.advance_tok();
 
             let name = interner.search(id as usize);
@@ -754,7 +821,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
                     "a valid condition",
-                    "another '!'. `Not` can only be used once in a single statement.",
+                    "another '!'. `Not` can only be used once in a single operation.",
                     Branch::VarCond,
                 );
                 //WARN:
@@ -781,10 +848,15 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
 }
 
 //TODO: Should this be terminal?
-fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize), Token> {
+// Should this innately check for open parenthesis, or should that be handled at the call site?
+fn parse_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize), Token> {
     let mut args: Vec<Expr> = Vec::new();
 
+    //FIXME: This can definitely be done better
     while ctx.peek_kind() != TokenKind::CParen {
+        //TODO: On this case, planning on allowing for function definitions to be explicitly
+        //checked only on a variable given. So, x?: 5 can just be made into an expression and
+        //pushed. Could need a different method, but this seems fine.
         match ctx.peek_tok() {
             Token::Id(id) => {
                 let span = ctx.advance_span();
@@ -793,28 +865,30 @@ fn handle_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize
 
                 args.push(Expr::Var(name_id, span));
             }
-            Token::Literal(id) => {
+            Token::Str(id) => {
                 let span = ctx.advance_span();
 
                 let name_id = NameId::new(id);
 
                 args.push(Expr::Literal(name_id, span));
             }
-            Token::Integer(id) => {
+            Token::Integer(id, _) => {
                 let span = ctx.advance_span();
 
                 //WARN: Maybe change this later to remain a string but ok for now
                 let num: i64 = interner
                     .search(id as usize)
                     .parse()
-                    .expect("Lexer broke or number too big I GUESS. I guess.");
+                    // TODO: Handle more cleanly
+                    .expect("Lexer broke (Integer)");
 
                 args.push(Expr::Integer(num, span));
             }
-            Token::Float(id) => {
+            Token::Float(id, _) => {
                 let span = ctx.advance_span();
 
                 //WARN: Maybe should resolve numerics as themselves while lexing?
+                // Probably not worth a string allocation
                 let num: f64 = interner
                     .search(id as usize)
                     .parse()
@@ -871,6 +945,7 @@ fn handle_conds(ctx: &mut Context, interner: &Intern) -> Result<Vec<Expr>, Token
     let mut err_count = 0;
 
     //FIX: Make this stop on first error. Maybe.
+    // Redundant but I'm scared to remove it
     if ctx.peek_kind() == TokenKind::OBracket {
         ctx.advance_tok();
 

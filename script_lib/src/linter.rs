@@ -44,9 +44,9 @@ pub fn print_all(program: &Program, interner: &Intern) {
                     print_args(&ty.args, temp_indent, interner);
                 }
 
-                print_exprs(&structure.conds, indent, interner);
+                print_exprs(&structure.glob_conds, indent, interner);
 
-                print_args(&structure.args, indent, interner);
+                print_args(&structure.glob_args, indent, interner);
 
                 println!("]");
             }
@@ -55,8 +55,8 @@ pub fn print_all(program: &Program, interner: &Intern) {
                 println!("Enum {name} [");
 
                 print_variants(&enumeration.variants, indent, interner);
-                print_args(&enumeration.args, indent, interner);
-                print_exprs(&enumeration.conds, indent, interner);
+                print_args(&enumeration.glob_args, indent, interner);
+                print_exprs(&enumeration.glob_conds, indent, interner);
 
                 println!("]");
             }
@@ -131,10 +131,8 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
                 println!("{spaces}{name}")
             }
             Expr::Call(call, _) => {
-                if let Expr::Var(name_id, _) = *call.callee {
-                    let name = interner.search(name_id.id as usize);
-                    println!("{spaces}{name} [")
-                }
+                let name = interner.search(call.name_id.id as usize);
+                println!("{spaces}{name} [");
 
                 print_exprs(&call.exprs, indent, interner);
                 println!("{spaces}]")

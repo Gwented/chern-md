@@ -5,12 +5,23 @@ use common::{
     symbols::TypedId,
 };
 
+// Not sure what to do with this..
+#[repr(u8)]
 #[derive(Debug, Clone, Copy)]
-pub enum Token {
+pub(crate) enum Notation {
+    Bin = 2,
+    // Now this looks weird
+    Decimal = 10,
+    Octal = 8,
+    Hex = 16,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Token {
     Id(u32),
-    Literal(u32),
-    Integer(u32),
-    Float(u32),
+    Str(u32),
+    Integer(u32, Notation),
+    Float(u32, Notation),
     Illegal(u32),
     Char(char),
     OParen,
@@ -49,9 +60,9 @@ impl Token {
     pub fn kind(&self) -> TokenKind {
         match self {
             Token::Id(_) => TokenKind::Id,
-            Token::Literal(_) => TokenKind::Literal,
-            Token::Integer(_) => TokenKind::Integer,
-            Token::Float(_) => TokenKind::Float,
+            Token::Str(_) => TokenKind::Literal,
+            Token::Integer(_, _) => TokenKind::Integer,
+            Token::Float(_, _) => TokenKind::Float,
             Token::Char(_) => TokenKind::Char,
             Token::OBracket => TokenKind::OBracket,
             Token::CBracket => TokenKind::CBracket,
