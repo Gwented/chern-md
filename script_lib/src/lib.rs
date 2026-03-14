@@ -1,10 +1,10 @@
 // Should this be pub(crate)?
+mod algo;
 pub mod analyzer;
 pub mod lexer;
 pub mod linter;
 pub mod parser;
-pub mod symbols;
-pub mod token;
+pub mod types;
 
 #[cfg(test)]
 mod tests {
@@ -12,8 +12,10 @@ mod tests {
 
     use common::{intern::Intern, storage::FileLoader};
 
-    use crate::lexer::Lexer;
-    use crate::token::{Notation, Token};
+    use crate::{
+        lexer::Lexer,
+        types::token::{Notation, Token},
+    };
 
     #[test]
     fn lex_tok_test() {

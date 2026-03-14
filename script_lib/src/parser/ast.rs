@@ -43,19 +43,19 @@ pub enum Item {
 #[derive(Debug)]
 pub(crate) enum Expr {
     Var(NameId, Span),
-    // isize?
+    // Staying capped at i64 and f64 for pacing purposes
+    // TODO: Need to likely carry notation here
     Integer(i64, Span),
     Float(f64, Span),
-    Literal(NameId, Span),
+    Str(NameId, Span),
     Call(Call, Span),
     FieldAccess(AbstractFieldAccess, Span),
     Unary(Unary, Span),
 }
 
 #[derive(Debug)]
-pub struct Call {
+pub(crate) struct Call {
     pub(crate) name_id: NameId,
-    // Vec?
     pub(crate) exprs: Vec<Expr>,
 }
 

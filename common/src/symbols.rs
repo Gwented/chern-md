@@ -147,6 +147,11 @@ impl Cond {
     }
 }
 
+//TEST:
+// public static void main(String[] args) { for (int i = 0; i < args.length; ++i) { System. } }
+pub static ARGS_ARRAY: [&str; 5] = ["warn", "scient", "hex", "bin", "octal"];
+pub const LARGEST_ARG: usize = 6;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InnerArgs {
     Warn,

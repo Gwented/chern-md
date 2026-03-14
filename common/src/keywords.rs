@@ -1,3 +1,4 @@
+//TEST:
 pub const LARGEST_KW: usize = 12;
 
 pub static KEYWORDS_ARRAY: [&str; 39] = [
@@ -208,47 +209,4 @@ pub fn is_type(id: u32) -> bool {
 
 pub fn is_section(id: u32) -> bool {
     (29..=32).contains(&id)
-}
-
-//WARN: This belongs elsewhere
-//This should maybe account for known namespaces inside the symbol table
-pub fn fuzzy_find_kw(other_bytes: &[u8]) -> Option<usize> {
-    if other_bytes.len() > LARGEST_KW {
-        return None;
-    }
-
-    for (i, kw) in KEYWORDS_ARRAY.iter().enumerate() {
-        let mut chances = 2;
-        let mut matched = 0;
-
-        let kw_bytes = kw.as_bytes();
-
-        // PLEASE DONT MAKE ME IMPORT
-        let size_diff = std::cmp::max(other_bytes.len(), kw_bytes.len())
-            - std::cmp::min(other_bytes.len(), kw_bytes.len());
-
-        if size_diff > 2 {
-            continue;
-        }
-
-        let cap = std::cmp::min(other_bytes.len(), kw_bytes.len());
-
-        for j in 0..cap {
-            if other_bytes[j] == kw_bytes[j] {
-                matched += 1;
-                chances = 1;
-            } else if chances == 0 {
-                break;
-            } else {
-                chances -= 1;
-            }
-        }
-
-        if matched >= 2 {
-            // dbg!(cap, matched, cap - matched);
-            return Some(i);
-        }
-    }
-
-    None
 }

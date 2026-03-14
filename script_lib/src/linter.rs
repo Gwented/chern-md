@@ -126,7 +126,7 @@ fn print_exprs(conds: &Vec<Expr>, indent: usize, interner: &Intern) {
             Expr::Integer(num, _) => {
                 println!("{spaces}number: {num}")
             }
-            Expr::Literal(name_id, _) => {
+            Expr::Str(name_id, _) => {
                 let name = interner.search(name_id.id as usize);
                 println!("{spaces}{name}")
             }

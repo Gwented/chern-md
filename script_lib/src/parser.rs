@@ -13,8 +13,8 @@ use crate::parser::ast::{
 use crate::parser::context::Context;
 use crate::parser::error::Branch;
 use crate::parser::parse_state::StateFlag;
-use crate::symbols::SpannedToken;
-use crate::token::{Token, TokenKind};
+use crate::types::symbols::SpannedToken;
+use crate::types::token::{Token, TokenKind};
 use common::intern::Intern;
 use common::keywords::{self, Keyword};
 use common::metadata::FileMetadata;
@@ -46,6 +46,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                         ctx.report_verbose(
                             "Found a bind statement more than once",
                             Branch::Neutral,
+                            interner,
                         );
 
                         continue;
@@ -62,6 +63,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                         ctx.report_verbose(
                             "Found a bind statement more than once",
                             Branch::Neutral,
+                            interner,
                         );
 
                         continue;
@@ -80,6 +82,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                         ctx.report_verbose(
                             "Found \"var\" section more than once",
                             Branch::Searching,
+                            interner,
                         );
 
                         continue;
@@ -116,6 +119,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                         ctx.report_verbose(
                             "Found \"nest\" section more than once",
                             Branch::Searching,
+                            interner,
                         );
                         continue;
                     } else {
@@ -152,12 +156,14 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                         ctx.report_verbose(
                             "Found \"complex\" section more than once",
                             Branch::Searching,
+                            interner,
                         );
                         continue;
                         if state.has_complex() {
                             ctx.report_verbose(
                                 "Found \"complex\" section more than once",
                                 Branch::Complex,
+                                interner,
                             );
                             continue;
                         } else {
@@ -194,6 +200,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                         ctx.report_verbose(
                             "Found \"override\" section more than once",
                             Branch::Searching,
+                            interner,
                         );
                         continue;
                     } else {
@@ -226,7 +233,12 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                     let name = interner.search(id as usize);
                     let fmsg = format!("identifier \"{name}\"");
 
-                    ctx.report_template("a section with a '->' after", &fmsg, Branch::Searching);
+                    ctx.report_template(
+                        "a section with a '->' after",
+                        &fmsg,
+                        Branch::Searching,
+                        interner,
+                    );
                 }
             },
             Token::Illegal(id) => {
@@ -236,7 +248,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
 
                 let msg = format!("Found illegal token {err_str}");
 
-                ctx.report_verbose(&msg, Branch::Broken);
+                ctx.report_verbose(&msg, Branch::Broken, interner);
             }
             Token::EOF => break,
             t => match t {
@@ -246,12 +258,12 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                     let name = interner.search(id as usize);
                     let fmsg = format!("{} \"{}\"", t.kind(), name);
 
-                    ctx.report_template("a section", &fmsg, Branch::Searching);
+                    ctx.report_template("a section", &fmsg, Branch::Searching, interner);
                 }
                 _ => {
                     ctx.advance_tok();
                     let fmsg = format!("'{}'", t.kind());
-                    ctx.report_template("a section", &fmsg, Branch::Searching);
+                    ctx.report_template("a section", &fmsg, Branch::Searching, interner);
                 }
             },
         }
@@ -479,6 +491,7 @@ fn parse_nest_sect(ctx: &mut Context, interner: &Intern) -> Result<Item, Token> 
             ctx.report_verbose(
                 &format!("Expected the keyword \"enum\" or \"struct\", found identifier {name}"),
                 Branch::NestType,
+                interner,
             );
 
             return Err(Token::Poison);
@@ -534,7 +547,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
             ctx.advance_tok();
 
             let fmt_tok = format!("{} \"{name}\"", kind);
-            ctx.report_template("a type", &fmt_tok, Branch::VarType);
+            ctx.report_template("a type", &fmt_tok, Branch::VarType, interner);
 
             Err(Token::Str(id))
         }
@@ -542,7 +555,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
             //FIX: Points to EOF since it is technically the error.
             ctx.advance_tok();
 
-            ctx.report_verbose("Expected type, found <eof>", Branch::VarType);
+            ctx.report_verbose("Expected type, found <eof>", Branch::VarType, interner);
             Err(Token::EOF)
         }
         Token::Poison => {
@@ -554,7 +567,7 @@ fn parse_type(ctx: &mut Context, interner: &Intern) -> Result<TypeExpr, Token> {
 
             let fmt_tok = format!("'{}'", t.kind());
 
-            ctx.report_template("a type", &fmt_tok, Branch::VarType);
+            ctx.report_template("a type", &fmt_tok, Branch::VarType, interner);
             //WARN:
             Err(Token::Poison)
         }
@@ -758,7 +771,7 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
     let id = ctx.expect_id_verbose(
         TokenKind::Id,
         "",
-        " is not a valid argument identifier. |e.g. #warn|",
+        " is not a valid argument.",
         Branch::VarTypeArgs,
         interner,
     )?;
@@ -766,7 +779,7 @@ fn parse_arg(ctx: &mut Context, interner: &Intern) -> Result<InnerArgs, Token> {
     // FIX: Change from try_from to Some
     InnerArgs::try_from(interner.search(id as usize)).or_else(|invalid_id| {
         let msg = format!("The argument \"#{invalid_id}\" does not exist");
-        ctx.report_verbose(&msg, Branch::VarTypeArgs);
+        ctx.report_verbose(&msg, Branch::VarTypeArgs, interner);
 
         return Err(Token::Poison);
     })
@@ -801,7 +814,12 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             let name = interner.search(id as usize);
 
             let fmt_tok = format!("{} \"{name}\"", err_tok.kind());
-            ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
+            ctx.report_template(
+                "a condition after declared type",
+                &fmt_tok,
+                Branch::VarCond,
+                interner,
+            );
 
             //WARN:
             Err(Token::Poison)
@@ -810,7 +828,12 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             let err_tok = ctx.advance_tok();
 
             let fmt_tok = format!("{} \"{ch}\"", err_tok.kind());
-            ctx.report_template("a condition after declared type", &fmt_tok, Branch::VarCond);
+            ctx.report_template(
+                "a condition after declared type",
+                &fmt_tok,
+                Branch::VarCond,
+                interner,
+            );
 
             //WARN:
             Err(Token::Poison)
@@ -824,6 +847,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
                     "a valid condition",
                     "another '!'. `Not` can only be used once in a single operation.",
                     Branch::VarCond,
+                    interner,
                 );
                 //WARN:
                 return Err(Token::Poison);
@@ -841,7 +865,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             ctx.advance_tok();
 
             let fmt_tok = format!("'{}'", t.kind());
-            ctx.report_template("a valid condition", &fmt_tok, Branch::VarCond);
+            ctx.report_template("a valid condition", &fmt_tok, Branch::VarCond, interner);
 
             Err(t)
         }
@@ -871,7 +895,7 @@ fn parse_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize)
 
                 let name_id = NameId::new(id);
 
-                args.push(Expr::Literal(name_id, span));
+                args.push(Expr::Str(name_id, span));
             }
             Token::Integer(id, _) => {
                 let span = ctx.advance_span();
@@ -904,7 +928,7 @@ fn parse_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize)
                 // HELP
                 let msg = format!("Cannot have \"{name}\" within function parameters");
 
-                ctx.report_verbose(&msg, Branch::VarCond);
+                ctx.report_verbose(&msg, Branch::VarCond, interner);
                 return Err(Token::Poison);
             }
             Token::CParen => break,
@@ -917,7 +941,7 @@ fn parse_func(ctx: &mut Context, interner: &Intern) -> Result<(Vec<Expr>, usize)
                     err_tok.kind()
                 );
 
-                ctx.report_verbose(&msg, Branch::VarCond);
+                ctx.report_verbose(&msg, Branch::VarCond, interner);
                 return Err(Token::Poison);
             }
         }
@@ -972,6 +996,8 @@ fn handle_conds(ctx: &mut Context, interner: &Intern) -> Result<Vec<Expr>, Token
         }
 
         if err_count == 0 {
+            //BUG: Cont: 'e' is valid, but EOF is hit when ']' is expected. Why is EOF not being
+            //higlighted? We are AT EOF. RIGHT here.
             _ = ctx.expect_verbose(
                 TokenKind::CBracket,
                 "Expected ']' at end of condition, found ",

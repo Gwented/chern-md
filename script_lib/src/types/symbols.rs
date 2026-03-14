@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use common::symbols::{
     BuiltinTypeId, Cond, EnumId, FuncId, InnerArgs, NameId, Span, StructId, SymbolId, TypeDefId,
+    TypedId,
 };
 
-use crate::token::{BuiltinType, Token};
+use crate::types::token::{BuiltinType, Token};
 
 //WARN: THERE ARE MANY WAYS OF DOING THIS SO I AM JUST CHOOSING THIS FOR NOW I AM VERY CONFUSED
 //MAY REMOVE
@@ -186,11 +187,11 @@ impl SymbolTable {
 // but as uh
 
 //TODO:
-//
+// Unsure if serial needs this because the IR could be so simple that this isn't really necessary
 #[derive(Debug)]
 pub struct TypeDef {
     pub name_id: NameId,
-    // pub type_id: TypeIdent,
+    pub typed_id: TypedId,
     pub args: Vec<InnerArgs>,
     pub conds: Vec<Cond>,
 }
@@ -198,13 +199,13 @@ pub struct TypeDef {
 impl TypeDef {
     pub fn new(
         name_id: NameId,
-        // type_id: TypeIdent,
+        typed_id: TypedId,
         args: Vec<InnerArgs>,
         conds: Vec<Cond>,
     ) -> TypeDef {
         TypeDef {
             name_id,
-            // type_id,
+            typed_id,
             args,
             conds,
         }

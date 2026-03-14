@@ -5,6 +5,7 @@ use crate::keywords;
 // MAKE THE MACRO PLEASE
 // What macro. What is a macro? What is hygiene?
 
+#[derive(Debug)]
 pub struct Intern {
     map: HashMap<String, u32>,
     stored: Vec<String>,

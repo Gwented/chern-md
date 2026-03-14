@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use common::symbols::{AstId, Cond, FuncId, InnerArgs, NameId, TypedId};
 
-use crate::token::BuiltinType;
+use crate::types::token::BuiltinType;
 
 // What is a drop? I am new to thinking i have never thought before what is RAII
 // is that a gui framework

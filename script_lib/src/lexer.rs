@@ -1,8 +1,8 @@
 use common::{intern::Intern, symbols::Span};
 
 use crate::{
-    symbols::SpannedToken,
-    token::{Notation, Token},
+    types::symbols::SpannedToken,
+    types::token::{Notation, Token},
 };
 
 /// Known size in bytes for `@def` and `@end`
@@ -340,6 +340,8 @@ impl Lexer<'_> {
             eprintln!("Missing `@end`");
             panic!();
         }
+
+        dbg!(&tokens);
 
         tokens
     }

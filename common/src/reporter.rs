@@ -26,36 +26,35 @@ pub struct LineData {
 /// Returns line, column and red arrows under given span, with the rest of the line also shown.
 pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData {
     let src_str = str::from_utf8(src_bytes).unwrap_or("<invalid source file>");
-    // dbg!(span);
-    // panic!("form err diag");
 
     // first line number and last line number counting \n
     let (first_ln_num, last_ln_num) = get_src_line_info(src_bytes, span);
     // dbg!(first_ln_num, last_ln_num);
 
     let first_ln_start_byte = get_start_of_line(src_bytes, span.start);
-    dbg!(src_bytes[first_ln_start_byte] as char);
-    dbg!(first_ln_start_byte);
-    // panic!();
+
     let line_amt = last_ln_num - first_ln_num + 1;
 
     let mut fmt_segments = Vec::new();
 
     let first_ln_last_byte = get_line_end(src_bytes, first_ln_start_byte);
+    // dbg!(src_bytes[first_ln_last_byte - 1] as char);
+    // panic!();
     let first_ln_bytes = &src_bytes[first_ln_start_byte..first_ln_last_byte];
 
     //TODO: Should maybe just return the line here on error since unwrap_or seems wrong.
     let first_ln_str = str::from_utf8(first_ln_bytes).expect("Lexer broke");
 
-    //NOTE: First line span start relative to the line its on
+    //NOTE: First line span start position relative to the line its on
     let span_start_rel = span.start - first_ln_start_byte;
 
     let span_end_rel = if span.end < first_ln_last_byte {
+        dbg!(span.end - first_ln_start_byte);
         span.end - first_ln_start_byte
     } else {
+        dbg!(first_ln_last_byte - first_ln_start_byte);
         first_ln_last_byte - first_ln_start_byte
     };
-    dbg!(first_ln_last_byte, first_ln_start_byte);
 
     //BUG: Starts here
     fmt_segments.push(format_line_segment(
@@ -163,7 +162,7 @@ pub fn form_help_diag(
     todo!();
 }
 
-pub fn form_help(msg: &str, can_color: bool) -> String {
+pub fn standardize_help(msg: &str, can_color: bool) -> String {
     if can_color {
         format!("\n{ORANGE}help{NC}: {msg}\n")
     } else {
@@ -219,8 +218,6 @@ fn get_start_of_line(src: &[u8], span_start: usize) -> usize {
 
     for i in (0..=span_start).rev() {
         if src[i - 1] == b'\n' {
-            // dbg!(src[i - 1] as char);
-            // panic!("Hi");
             return i;
         }
     }
@@ -236,13 +233,11 @@ fn get_line_end(src_bytes: &[u8], span_start: usize) -> usize {
         if b == b'\r' && src_bytes.get(i + 1).copied() == Some(b'\n') {
             return i;
         } else if b == b'\n' {
-            // dbg!(src_bytes[i - 1] as char);
-            // panic!();
             return i;
         }
     }
 
-    // Still don't remember why I'm returning this
+    // Returning this because if the length is made it to then...
     src_bytes.len()
 }
 
@@ -263,11 +258,9 @@ fn get_err_start(src: &[u8], span_end: usize) -> usize {
 }
 
 fn char_width_offset(src_str: &str, start: usize, end: usize) -> usize {
-    // dbg!(&src_str[start..end]);
-    // panic!();
     src_str[start..end]
         .chars()
-        .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
+        .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
         .sum()
 }
 
@@ -282,13 +275,18 @@ fn format_line_segment(
     can_color: bool,
 ) -> String {
     // Is zero and reusing offset since it's only the space
-    //BUG: Index out of bounds
-    dbg!(ln_str, ln_span_start, ln_span_end, ln_num);
-
     let space_offset = char_width_offset(ln_str, 0, ln_span_start);
-    // ln_span_end is + 1 due to the spans from the lexer producing inclusive, exclusive ranges.
-    let arrow_offset = char_width_offset(ln_str, ln_span_start, ln_span_end + 1);
-    // panic!();
+
+    //WARN: If this isn't done EOF cases cause a panic.
+    // May just no have EOF spanning displayed but only if bugs are present from this.
+    let end = if ln_span_end + 1 > ln_str.len() {
+        ln_span_end
+    } else {
+        // ln_span_end is + 1 due to the spans from the lexer producing inclusive, exclusive ranges.
+        ln_span_end + 1
+    };
+
+    let arrow_offset = char_width_offset(ln_str, ln_span_start, end);
 
     let spaces = " ".repeat(space_offset);
     let arrows = "^".repeat(arrow_offset);

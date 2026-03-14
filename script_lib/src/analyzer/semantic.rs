@@ -2,7 +2,7 @@ use std::io::IsTerminal;
 
 use common::{keywords, metadata::FileMetadata, reporter, symbols::Span};
 
-use crate::analyzer::error::Diagnostic;
+use crate::{algo, analyzer::error::Diagnostic};
 
 /// Amount of '-' to print for multiple error separation
 const TOTAL_SEPARATORS: usize = 60;
@@ -47,13 +47,11 @@ impl SemanticReporter<'_> {
     }
 
     fn try_help(&self, err_name: &str) -> Option<String> {
-        let kw_index = keywords::fuzzy_find_kw(err_name.as_bytes())?;
-
-        let found_kw = keywords::KEYWORDS_ARRAY[kw_index];
+        let found_kw = algo::fuzzy_match(err_name.as_bytes(), algo::FuzzyMatch::KW)?;
 
         let msg = format!("Found similar keyword \"{}\"", found_kw);
 
-        let help = reporter::form_help(&msg, self.metadata.can_color);
+        let help = reporter::standardize_help(&msg, self.metadata.can_color);
 
         Some(help)
     }

@@ -39,8 +39,6 @@ impl<R: Read> FileLoader<'_, R> {
         let mut requires_end = false;
         let mut saw_quotes = false;
 
-        let mut new_line_pos: Vec<usize> = Vec::new();
-
         let mut lex_start = 0;
 
         self.handle.fill_buf().or_else(|e| {
@@ -125,7 +123,8 @@ impl<R: Read> FileLoader<'_, R> {
         }
         // TODO: Assert this...
 
-        // Case of no @def and no @end which is ok
+        // Case of no @def and no @end which requires a '0' return since hte entire file should be
+        // read. This does not mean it is correct, it only means the read limit wasn't reached.
         if !requires_end {
             // NOTE: May use lifetimes...
             Ok(FileMetadata::new(

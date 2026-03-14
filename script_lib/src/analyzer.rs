@@ -5,7 +5,7 @@ mod semantic;
 
 use common::{
     intern::Intern,
-    keywords::{self, Keyword},
+    keywords::Keyword,
     metadata::FileMetadata,
     symbols::{
         AstId, BuiltinTypeId, Cond, EnumId, FuncId, InnerArgs, NameId, StructId, TypeDefId, TypedId,
@@ -22,7 +22,7 @@ use crate::{
     parser::ast::{
         AbstractEnum, AbstractStruct, AbstractTypeDef, Expr, Item, Program, TypeExpr, UnaryOp,
     },
-    token::BuiltinType,
+    types::token::BuiltinType,
 };
 
 //WARN: 232 bytes 232 bytes 232 bytes 232 bytes 232 bytes 232 bytes
@@ -296,7 +296,7 @@ impl Analyzer<'_> {
                 // Ok(Cond::Func(func_id))
                 todo!();
             }
-            Expr::Literal(name_id, span) => {
+            Expr::Str(name_id, span) => {
                 let err_name = self.interner.search(name_id.id as usize);
                 let err_msg = format!("\"{err_name}\" is not a valid condition");
 
@@ -308,7 +308,7 @@ impl Analyzer<'_> {
                 todo!("Integer");
             }
             Expr::Float(num, span) => {
-                todo!("Integer");
+                todo!("Float");
             }
             Expr::FieldAccess(field_access, span) => {
                 //TODO: Is this worth evaluating as an expression just to get the name?
@@ -354,8 +354,17 @@ impl Analyzer<'_> {
         todo!();
     }
 
+    // How do we solve this?
     fn resolve_expr(&mut self, expr: &Expr) -> Result<TypedId, ()> {
-        todo!();
+        match expr {
+            Expr::Var(name_id, span) => todo!(),
+            Expr::Integer(num, span) => todo!(),
+            Expr::Float(num, span) => todo!(),
+            Expr::Str(name_id, span) => todo!(),
+            Expr::Call(call, span) => todo!(),
+            Expr::FieldAccess(abstract_field_access, span) => todo!(),
+            Expr::Unary(unary, span) => todo!(),
+        }
     }
 
     // TODO: Register functions user made functions first...

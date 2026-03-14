@@ -1,12 +1,14 @@
 //TODO: Centralize how errors are formatted for errors and help to bring sources of truth
-use std::io::IsTerminal;
 
-use common::{intern::Intern, metadata::FileMetadata, reporter, symbols::Span};
+use common::{intern::Intern, keywords, metadata::FileMetadata, reporter, symbols::Span};
 
 use crate::{
+    algo,
     parser::error::{Branch, Diagnostic},
-    symbols::SpannedToken,
-    token::{self, Token, TokenKind},
+    types::{
+        symbols::SpannedToken,
+        token::{self, Token, TokenKind},
+    },
 };
 
 //NOTE: C_ == current. A_ == ahead
@@ -61,7 +63,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// Returns a name id on success and the failed token on error.
+    /// Returns an interned name id on success and the failed token on error.
     pub(super) fn expect_id_verbose(
         &mut self,
         expected: TokenKind,
@@ -93,16 +95,13 @@ impl<'a> Context<'a> {
         };
 
         let help = self
-            .try_help(expected, found.token.kind(), branch)
+            .try_help(expected, &found, branch, interner)
             .unwrap_or_default();
 
-        // 19 - 35 Span
-        //TODO: Multi-line errors
-        let line_data = reporter::form_err_diag(
-            &self.metadata.src_bytes,
-            &found.span,
-            self.metadata.can_color,
-        );
+        let span = self.safely_handle_span(found);
+
+        let line_data =
+            reporter::form_err_diag(&self.metadata.src_bytes, &span, self.metadata.can_color);
 
         let msg = if let Some(name) = id_opt {
             let msg = format!("(in {branch})\n{bmsg}\"{name}\"{amsg}");
@@ -123,18 +122,17 @@ impl<'a> Context<'a> {
 
     /// Intended for basic errors that need little context after
     /// ALWAYS advance before using this or ensure an advance happened before
-    pub(super) fn report_verbose(&mut self, msg: &str, branch: Branch) {
+    pub(super) fn report_verbose(&mut self, msg: &str, branch: Branch, interner: &Intern) {
         let found = &self.tokens[self.pos - 1];
 
         let help = self
-            .try_help(TokenKind::Poison, found.token.kind(), branch)
+            .try_help(TokenKind::Poison, &found, branch, interner)
             .unwrap_or_default();
 
-        let line_data = reporter::form_err_diag(
-            &self.metadata.src_bytes,
-            &found.span,
-            self.metadata.can_color,
-        );
+        let span = self.safely_handle_span(found);
+
+        let line_data =
+            reporter::form_err_diag(&self.metadata.src_bytes, &span, self.metadata.can_color);
 
         let base_msg = format!("(in {branch})\n{msg}");
 
@@ -147,7 +145,7 @@ impl<'a> Context<'a> {
         self.err_vec.push(report);
     }
 
-    /// Returns the found token on success and failure
+    /// Returns the found token on success and failure.
     // Return token based off of it's most probable path?
     // TODO:  Maybe lazily evaluate since searching the interner by default is a weird performance
     // hit. Probably.
@@ -162,35 +160,44 @@ impl<'a> Context<'a> {
         let found = &self.tokens[self.pos];
         self.pos += 1;
 
-        //NOTE: Characters are also not directly printed here...
         if found.token.kind() != expected {
-            let id_opt = match found.token {
+            let id_str_opt = match found.token {
+                //TODO: Do something with illegal
                 Token::Id(id) | Token::Str(id) | Token::Integer(id, _) | Token::Illegal(id) => {
-                    Some(id)
+                    Some(interner.search(id as usize).to_string())
                 }
+                Token::Illegal(id) => {
+                    let illegal_msg = interner.search(id as usize);
+                    let new_msg = format!("illegal {illegal_msg}");
+
+                    Some(new_msg)
+                }
+                Token::Char(ch) => Some(ch.to_string()),
                 _ => None,
             };
 
-            let line_data = reporter::form_err_diag(
-                &self.metadata.src_bytes,
-                &found.span,
-                self.metadata.can_color,
-            );
+            //TODO: Is there a point to explicitly choosing to use kind for comparisons which
+            //already have Token types?
+
+            let span = self.safely_handle_span(found);
+
+            let line_data =
+                reporter::form_err_diag(&self.metadata.src_bytes, &span, self.metadata.can_color);
 
             let help = self
-                .try_help(expected, found.token.kind(), branch)
+                .try_help(expected, &found, branch, interner)
                 .unwrap_or_default();
 
-            let msg = if let Some(id) = id_opt {
-                let name = interner.search(id as usize);
-
+            let msg = if let Some(id_str) = id_str_opt {
                 let base_msg = format!(
-                    "(in {branch})\n{bmsg}{} \"{name}\"{amsg}",
+                    "(in {branch})\n{bmsg}{} \"{id_str}\"{amsg}",
                     found.token.kind()
                 );
+
                 reporter::standardize_err(&base_msg, &line_data, &help)
             } else {
                 let base_msg = format!("(in {branch})\n{bmsg}'{}'{amsg}", found.token.kind());
+
                 reporter::standardize_err(&base_msg, &line_data, &help)
             };
 
@@ -207,18 +214,23 @@ impl<'a> Context<'a> {
     /// More composable "Expected but found" error.
     /// ALWAYS advance before using this
     /// Expected [emsg], found [fmsg]
-    pub(super) fn report_template(&mut self, emsg: &str, fmsg: &str, branch: Branch) {
+    pub(super) fn report_template(
+        &mut self,
+        emsg: &str,
+        fmsg: &str,
+        branch: Branch,
+        interner: &Intern,
+    ) {
         let found = &self.tokens[self.pos - 1];
 
         let help = self
-            .try_help(TokenKind::Poison, found.token.kind(), branch)
+            .try_help(TokenKind::Poison, &found, branch, interner)
             .unwrap_or_default();
 
-        let line_data = reporter::form_err_diag(
-            &self.metadata.src_bytes,
-            &found.span,
-            self.metadata.can_color,
-        );
+        let span = self.safely_handle_span(found);
+
+        let line_data =
+            reporter::form_err_diag(&self.metadata.src_bytes, &span, self.metadata.can_color);
 
         let base_msg = format!("(in {branch})\nExpected {emsg}, found {fmsg}");
 
@@ -226,7 +238,7 @@ impl<'a> Context<'a> {
 
         self.recover(branch);
 
-        let report = Diagnostic::new(msg, Branch::VarTypeArgs);
+        let report = Diagnostic::new(msg, branch);
 
         self.err_vec.push(report);
     }
@@ -265,13 +277,19 @@ impl<'a> Context<'a> {
         }
     }
 
-    //TEST:
-    fn try_help(&self, expected: TokenKind, found: TokenKind, branch: Branch) -> Option<String> {
+    //TEST: Trying more with this
+    fn try_help(
+        &self,
+        expected: TokenKind,
+        found: &SpannedToken,
+        branch: Branch,
+        interner: &Intern,
+    ) -> Option<String> {
         let prev_tok = self.tokens.get(self.pos.saturating_sub(2))?.clone();
         let prev_kind = prev_tok.token.kind();
 
         match branch {
-            Branch::VarType => match found {
+            Branch::VarType => match found.token.kind() {
                 //FIX: Still a little too general
                 TokenKind::OParen if expected == TokenKind::Colon => {
                     let msg = "Is this missing '[' to define conditions?";
@@ -294,28 +312,42 @@ impl<'a> Context<'a> {
                 TokenKind::CAngleBracket if prev_kind == TokenKind::Comma => {
                     // Egregious message
                     let msg = "Remove trailing ',' or add a second type";
-                    let help = reporter::form_help(msg, self.metadata.can_color);
+                    let help = reporter::standardize_help(msg, self.metadata.can_color);
 
                     Some(help)
                 }
                 _ => None,
             },
-            Branch::VarCond => match found {
+            Branch::VarCond => match found.token.kind() {
                 TokenKind::CBracket if prev_kind == TokenKind::Comma => {
                     let msg = "Remove trailing ',' or add condition";
-                    let help = reporter::form_help(msg, self.metadata.can_color);
+                    let help = reporter::standardize_help(msg, self.metadata.can_color);
 
                     Some(help)
                 }
                 _ => None,
             },
-            Branch::NestEnum => match found {
+            Branch::NestEnum => match found.token.kind() {
                 TokenKind::Colon => {
                     let msg = "Enums use parenthesis to hold types";
-                    // let suggestion = prev_tok.span.clone();
-                    // dbg!(&prev_tok);
-                    // panic!();
-                    let help = reporter::form_help(msg, self.metadata.can_color);
+
+                    let help = reporter::standardize_help(msg, self.metadata.can_color);
+
+                    Some(help)
+                }
+                _ => None,
+            },
+            Branch::VarTypeArgs => match found.token {
+                Token::Id(id) => {
+                    let found_str = interner.search(id as usize);
+
+                    let similar_arg =
+                        algo::fuzzy_match(found_str.as_bytes(), algo::FuzzyMatch::Arg)?;
+
+                    let help = reporter::standardize_help(
+                        &format!("Found similar argument \"{similar_arg}\"",),
+                        self.metadata.can_color,
+                    );
 
                     Some(help)
                 }
@@ -325,6 +357,7 @@ impl<'a> Context<'a> {
         }
     }
 
+    //NOTE: Unsure if this needs to be centralized or if that's doing too much here
     pub(super) fn emit_errors(&self) {
         let header_err = if self.metadata.can_color {
             format!("{}error{}", reporter::RED, reporter::NC)
@@ -339,6 +372,17 @@ impl<'a> Context<'a> {
         }
 
         eprintln!("Reported {} error(s)\n", self.err_vec.len());
+    }
+
+    //TEST: IF ANYTHING HAPPENS TO ERROR MESSAGES REMOVE THIS
+    fn safely_handle_span(&self, found: &SpannedToken) -> Span {
+        if found.token.kind() == TokenKind::EOF {
+            // Minus 2 since we advanced at the beginning
+            let start = self.tokens.get(self.pos - 2).unwrap_or(found).span.start;
+            Span::new(start, found.span.end)
+        } else {
+            found.span.clone()
+        }
     }
 
     pub(super) fn skip(&mut self, dest: usize) -> () {
