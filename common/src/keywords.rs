@@ -1,5 +1,4 @@
-//TEST:
-pub const LARGEST_KW: usize = 12;
+use std::ops::RangeInclusive;
 
 pub static KEYWORDS_ARRAY: [&str; 39] = [
     // primitives
@@ -39,9 +38,10 @@ pub static KEYWORDS_ARRAY: [&str; 39] = [
     "nest",
     "complex", // 31
     "override",
-    // Directives
+    // Predicate keywords
     "IsEmpty",
     "IsWhitespace", // 34
+    // Predicates (Function)
     "Range",
     "StartsW", // 36
     "EndsW",
@@ -202,11 +202,40 @@ impl Keyword {
     // }
 }
 
-//TODO: Assert these
+// Not sure about the amount of casting everywhere
+const TYPE_START: u32 = 0;
+const TYPE_END: u32 = 24;
+
+const SECT_START: u32 = 29;
+const SECT_END: u32 = 32;
+
+const STMT_START: u32 = 27;
+const STMT_END: u32 = 28;
+
+const PREDICATE_FN_START: u32 = 35;
+const PREDICATE_FN_END: u32 = 38;
+
+//WARN: The amount of casting here is painful. SEVERELY painful.
 pub fn is_type(id: u32) -> bool {
-    id <= 24
+    id <= TYPE_END
 }
 
-pub fn is_section(id: u32) -> bool {
-    (29..=32).contains(&id)
+pub fn is_sect(id: u32) -> bool {
+    (SECT_START..=SECT_END).contains(&id)
+}
+
+pub fn stmt_range() -> RangeInclusive<usize> {
+    (STMT_START as usize)..=(STMT_END as usize)
+}
+
+pub fn sect_range() -> RangeInclusive<usize> {
+    (SECT_START as usize)..=(SECT_END as usize)
+}
+
+pub fn predicate_fn_range() -> RangeInclusive<usize> {
+    (PREDICATE_FN_START as usize)..=(PREDICATE_FN_END as usize)
+}
+
+pub fn type_range() -> RangeInclusive<usize> {
+    (TYPE_START as usize)..=(TYPE_END as usize)
 }

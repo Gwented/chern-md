@@ -100,7 +100,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(plain_id) = ctx.peek_tok()
-                            && keywords::is_section(plain_id)
+                            && keywords::is_sect(plain_id)
                                 // Oh my
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
@@ -137,7 +137,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && keywords::is_section(name_id)
+                            && keywords::is_sect(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -183,7 +183,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && keywords::is_section(name_id)
+                            && keywords::is_sect(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -217,7 +217,7 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
 
                     while ctx.peek_kind() != TokenKind::EOF {
                         if let Token::Id(name_id) = ctx.peek_tok()
-                            && keywords::is_section(name_id)
+                            && keywords::is_sect(name_id)
                             && ctx.peek_ahead(1).token.kind() == TokenKind::SlimArrow
                         {
                             break;
@@ -227,7 +227,6 @@ pub fn parse(metadata: &FileMetadata, tokens: &Vec<SpannedToken>, interner: &Int
                     }
                 }
                 id => {
-                    //TODO: CHECK FOR SIMILARITY
                     ctx.advance_tok();
 
                     let name = interner.search(id as usize);
@@ -845,7 +844,7 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             if ctx.peek_kind() == TokenKind::ExclamationPoint {
                 ctx.report_template(
                     "a valid condition",
-                    "another '!'. `Not` can only be used once in a single operation.",
+                    "another '!'",
                     Branch::VarCond,
                     interner,
                 );
@@ -854,7 +853,6 @@ fn parse_cond(ctx: &mut Context, interner: &Intern) -> Result<Expr, Token> {
             }
 
             let wrapped = parse_cond(ctx, interner)?;
-            dbg!(&wrapped);
 
             let unary = Unary::new(UnaryOp::Not, Box::new(wrapped));
 

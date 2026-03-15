@@ -1,8 +1,7 @@
 @def
-    var->
-        let: var [e] #wan
-
-
+var->
+    hi: str IsEmp("e")]
+    let: x [greet()]
 @end
 // alias default(x, y) = IsEmpty Contains(x?: 5, y?: 5)
 /*

@@ -21,11 +21,6 @@ impl SemanticReporter<'_> {
         }
     }
 
-    // pub(super) fn report_basic(&mut self, msg: &str) {
-    //     let diag = Diagnostic::new(msg.to_owned());
-    //     self.err_vec.push(diag);
-    // }
-
     /// Draws red arrows under the span given. Option `err_name` represents whether or not a keyword that
     /// could be similar in name should be looked for.
     pub(super) fn report_spanned(&mut self, msg: &str, err_name: Option<&str>, span: &Span) {

@@ -1,32 +1,45 @@
 use std::cmp;
 
 use common::keywords;
-// C++ dev got lost
 
 pub(crate) enum FuzzyMatch {
     KW,
+    Sect,
+    Stmt,
     Arg,
 }
 
 pub fn fuzzy_match(given: &[u8], target: FuzzyMatch) -> Option<&str> {
-    // Could make largest handled at the match itself but. Well it doesn't matter.
     match target {
-        FuzzyMatch::KW => fuzzy_match_inner(given, &keywords::KEYWORDS_ARRAY, keywords::LARGEST_KW),
+        FuzzyMatch::KW => fuzzy_match_inner(given, &keywords::KEYWORDS_ARRAY),
+        FuzzyMatch::Stmt => {
+            fuzzy_match_inner(given, &keywords::KEYWORDS_ARRAY[keywords::stmt_range()])
+        }
+        FuzzyMatch::Sect => {
+            fuzzy_match_inner(given, &keywords::KEYWORDS_ARRAY[keywords::sect_range()])
+        }
         FuzzyMatch::Arg => fuzzy_match_inner(
             given,
             // TODO: Please rename this
-            // I don't know maybe
             &common::symbols::ARGS_ARRAY,
-            common::symbols::LARGEST_ARG,
         ),
     }
 }
 
 /// `given` represents the given bytes that are to be compared to the elements of `arr`.
 /// `largest` represents the largest element of `arr` so that an early return is possible.
-// Returns option string instead of index because args aren't loaded at startup
-fn fuzzy_match_inner<'a, 'b>(given: &'a [u8], arr: &'b [&str], largest: usize) -> Option<&'b str> {
-    if given.len() > largest {
+// Returns option string instead of index because not all arrays are loaded at startup
+fn fuzzy_match_inner<'a, 'b>(given: &'a [u8], arr: &'b [&str]) -> Option<&'b str> {
+    // Calculating this in-line instead of constants due to it being prone to bugs
+    let mut max_len = 0;
+
+    for var in arr {
+        if var.len() > max_len {
+            max_len = var.len();
+        }
+    }
+
+    if given.len() > max_len || given.len() == 1 {
         return None;
     }
 
@@ -36,7 +49,6 @@ fn fuzzy_match_inner<'a, 'b>(given: &'a [u8], arr: &'b [&str], largest: usize) -
 
         let var_bytes = var.as_bytes();
 
-        // PLEASE DONT MAKE ME IMPORT
         let size_diff =
             cmp::max(given.len(), var_bytes.len()) - cmp::min(given.len(), var_bytes.len());
 
@@ -57,7 +69,9 @@ fn fuzzy_match_inner<'a, 'b>(given: &'a [u8], arr: &'b [&str], largest: usize) -
             }
         }
 
-        if matched >= 2 {
+        //NOTE: Second constraint needs to be iterated upon based off of what it produces on
+        //average
+        if matched >= 2 && matched + 1 >= var_bytes.len() {
             // Similar
             return Some(arr[i]);
         }

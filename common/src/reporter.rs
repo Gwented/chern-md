@@ -29,7 +29,6 @@ pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData
 
     // first line number and last line number counting \n
     let (first_ln_num, last_ln_num) = get_src_line_info(src_bytes, span);
-    // dbg!(first_ln_num, last_ln_num);
 
     let first_ln_start_byte = get_start_of_line(src_bytes, span.start);
 
@@ -38,8 +37,6 @@ pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData
     let mut fmt_segments = Vec::new();
 
     let first_ln_last_byte = get_line_end(src_bytes, first_ln_start_byte);
-    // dbg!(src_bytes[first_ln_last_byte - 1] as char);
-    // panic!();
     let first_ln_bytes = &src_bytes[first_ln_start_byte..first_ln_last_byte];
 
     //TODO: Should maybe just return the line here on error since unwrap_or seems wrong.
@@ -49,10 +46,8 @@ pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData
     let span_start_rel = span.start - first_ln_start_byte;
 
     let span_end_rel = if span.end < first_ln_last_byte {
-        dbg!(span.end - first_ln_start_byte);
         span.end - first_ln_start_byte
     } else {
-        dbg!(first_ln_last_byte - first_ln_start_byte);
         first_ln_last_byte - first_ln_start_byte
     };
 
@@ -110,8 +105,6 @@ pub fn form_err_diag(src_bytes: &[u8], span: &Span, can_color: bool) -> LineData
     }
 }
 
-// WHATS THE POINT IN CALLING IT TEST IF YOU LET IT STAY LIKE 5 SECONDS AFTER
-// Better name please
 pub fn standardize_err(base_msg: &str, line_data: &LineData, help: &str) -> String {
     let separators = "-".repeat(TOTAL_SEPARATORS);
 
@@ -121,44 +114,48 @@ pub fn standardize_err(base_msg: &str, line_data: &LineData, help: &str) -> Stri
     )
 }
 
-//TEST:
-pub fn form_help_diag(
+// TEST:
+// Should look like
+//
+// (msg\n)
+//
+// -> {GREEN}+ [{NC}Range()]
+
+pub fn form_suggest_diag(
     src_bytes: &[u8],
     span: &Span,
-    msg: &str,
-    add: bool,
+    op: &str,
     suggestion: &str,
+    should_add: bool,
     can_color: bool,
 ) -> String {
+    let end_byte = get_line_end(src_bytes, span.start);
+
+    let rest_of_ln = str::from_utf8(&src_bytes[span.start..end_byte]).unwrap();
+
     let op_count = suggestion.len();
 
-    let ops = if add {
-        "+".repeat(op_count)
-    } else {
-        "-".repeat(op_count)
-    };
+    let ops = op.repeat(op_count);
 
-    let ops = if can_color {
-        format!("{GREEN}{ops}{NC}")
-    } else {
-        format!("{RED}{ops}{NC}")
-    };
+    let color = if should_add { GREEN } else { RED };
 
-    // Could both of these look less odd?
-    // let space_offset = src_str[seg_start..span.start]
-    //     .chars()
-    //     .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
-    //     .sum();
+    // let suggest_header = if can_color {
+    //     format!("---> {color}{suggestion}{NC}{rest_of_ln}")
+    // } else {
+    //     format!("-> {suggestion}{rest_of_ln}")
+    // };
     //
-    // let spaces = " ".repeat(space_offset);
+    // let ops = if can_color {
+    //     format!("{color}{ops}{NC}")
+    // } else {
+    //     format!("{ops}")
+    // };
     //
-    // let help = form_help(msg, can_color);
+    // let spaces = " ".repeat(suggestion.len());
     //
-    // let fmt_segment = format!("\t{spaces}{suggestion}\n\t{spaces}{ops}\n\t{help}");
+    // let help_diag = format!("{suggest_header}\n {spaces}{ops} <UNFINISHED>");
     //
-    // println!("{}", &fmt_segment);
-    //
-    // fmt_segment
+    // help_diag
     todo!();
 }
 
@@ -258,14 +255,20 @@ fn get_err_start(src: &[u8], span_end: usize) -> usize {
 }
 
 fn char_width_offset(src_str: &str, start: usize, end: usize) -> usize {
-    src_str[start..end]
+    let ws_amt = src_str[start..end]
+        .chars()
+        .rev()
+        .take_while(|c| c.is_whitespace())
+        .count();
+
+    dbg!(ws_amt);
+    src_str[start..(end - ws_amt)]
         .chars()
         .map(|c| UnicodeWidthChar::width(c).unwrap_or(1))
         .sum()
 }
 
-//TODO: Not the best that this is still error specific, but maybe the reporter can have entry points
-// more so line a cli that dispatches based off of the enum? Seems convoluted.
+//TODO: Needs better way to get color data and highlight type
 /// Formats a single line segment with arrows under the error span.
 fn format_line_segment(
     ln_num: usize,

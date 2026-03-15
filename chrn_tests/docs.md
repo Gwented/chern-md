@@ -156,13 +156,12 @@ There is also a "like" category. A "JAVA_LIKE" category would have all of the in
 #### Full example of language
 
 // YOU HAVE DONE THE SAME EXAMPLE OVER 50 TIMES CHOOSE SOMETHING ELSE
-// fastfetch
 ```chrn
 @def
     var->
         name: str
         age: u8 #warn #bin
-        pets: List<Pet> [!IsEmpty, Range(0, 15)]
+        pets: List<Pet> [!IsEmpty, Range(5, 15)]
     nest->
         struct Pet {
             name: str [!IsWhitespace]

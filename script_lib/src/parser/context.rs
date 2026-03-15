@@ -16,7 +16,7 @@ use crate::{
 // ALL SET LOGIC AND PARSE LOGIC NEED TO WORK WITH EACH OTHER
 // TODO:  Readjust Sets for new behavior
 
-//NOTE: The basic exit sets should ONLY be used for tokens that HAVE to be stopped on.
+//NOTE: The basic exit sets should ONLY have tokens that will ALWAYS be stopped on.
 const C_BASE_EXIT_SET: u64 = token::EOF | token::ILLEGAL;
 const A_BASE_EXIT_SET: u64 = token::SLIM_ARROW;
 
@@ -163,7 +163,7 @@ impl<'a> Context<'a> {
         if found.token.kind() != expected {
             let id_str_opt = match found.token {
                 //TODO: Do something with illegal
-                Token::Id(id) | Token::Str(id) | Token::Integer(id, _) | Token::Illegal(id) => {
+                Token::Id(id) | Token::Str(id) | Token::Integer(id, _) => {
                     Some(interner.search(id as usize).to_string())
                 }
                 Token::Illegal(id) => {
@@ -277,7 +277,10 @@ impl<'a> Context<'a> {
         }
     }
 
-    //TEST: Trying more with this
+    // What if the error handler took the current branch as it's universe and a custom dataset
+    // based off of the expected token, previous token, and possibly the next token. The information
+    // it would have is, it's max_read, a score based off of the tokens it finds, and an EOS token that
+    // is reached from either, hitting a particular token it's dataset declares EOS, or hitting max_read.
     fn try_help(
         &self,
         expected: TokenKind,
@@ -285,31 +288,67 @@ impl<'a> Context<'a> {
         branch: Branch,
         interner: &Intern,
     ) -> Option<String> {
+        // Maybe saturating could lead to mis info
         let prev_tok = self.tokens.get(self.pos.saturating_sub(2))?.clone();
         let prev_kind = prev_tok.token.kind();
 
         match branch {
-            Branch::VarType => match found.token.kind() {
-                //FIX: Still a little too general
-                TokenKind::OParen if expected == TokenKind::Colon => {
-                    let msg = "Is this missing '[' to define conditions?";
-                    // TEST:
-                    let start = prev_tok.span.start - 1;
+            Branch::Neutral => match found.token {
+                Token::Id(id) | Token::Illegal(id) => {
+                    let found_bytes = interner.search(id as usize).as_bytes();
 
-                    let span = Span::new(start, prev_tok.span.end);
+                    // Statements and sections are possible so both are tried
+                    let similar = algo::fuzzy_match(found_bytes, algo::FuzzyMatch::Stmt)
+                        .is_none()
+                        .then_some(algo::fuzzy_match(found_bytes, algo::FuzzyMatch::Sect))??;
 
-                    let help = reporter::form_help_diag(
-                        &self.metadata.src_bytes,
-                        &span,
-                        msg,
-                        true,
-                        "[",
-                        self.metadata.can_color,
-                    );
+                    let msg = format!("Found similar section \"{similar}\"");
+                    let help = reporter::standardize_help(&msg, self.metadata.can_color);
 
                     Some(help)
                 }
-                TokenKind::CAngleBracket if prev_kind == TokenKind::Comma => {
+                _ => None,
+            },
+            Branch::Searching => match found.token {
+                Token::Id(id) | Token::Illegal(id) => {
+                    let found_bytes = interner.search(id as usize).as_bytes();
+
+                    let similar_sect = algo::fuzzy_match(found_bytes, algo::FuzzyMatch::Sect)?;
+
+                    let msg = format!("Found similar section \"{similar_sect}\"");
+                    let help = reporter::standardize_help(&msg, self.metadata.can_color);
+
+                    Some(help)
+                }
+                _ => None,
+            },
+            Branch::Var => match found.token {
+                Token::OParen if expected == TokenKind::Colon => {
+                    None
+                    // let msg = "Is this missing '[' to define conditions?";
+                    //
+                    // let span = Span::new(prev_tok.span.start, found.span.end);
+                    //
+                    // let fmt_help = reporter::form_suggest_diag(
+                    //     &self.metadata.src_bytes,
+                    //     &span,
+                    //     "+",
+                    //     "[",
+                    //     true,
+                    //     self.metadata.can_color,
+                    // );
+                    //
+                    // let msg = reporter::standardize_help(&msg, self.metadata.can_color);
+                    //
+                    // let built_help = format!("{fmt_help}\n{msg}");
+                    //
+                    // Some(built_help)
+                }
+                _ => None,
+            },
+            Branch::VarType => match found.token {
+                //FIX: Still a little too general
+                Token::CAngleBracket if prev_kind == TokenKind::Comma => {
                     // Egregious message
                     let msg = "Remove trailing ',' or add a second type";
                     let help = reporter::standardize_help(msg, self.metadata.can_color);
@@ -339,10 +378,9 @@ impl<'a> Context<'a> {
             },
             Branch::VarTypeArgs => match found.token {
                 Token::Id(id) => {
-                    let found_str = interner.search(id as usize);
+                    let found_bytes = interner.search(id as usize).as_bytes();
 
-                    let similar_arg =
-                        algo::fuzzy_match(found_str.as_bytes(), algo::FuzzyMatch::Arg)?;
+                    let similar_arg = algo::fuzzy_match(found_bytes, algo::FuzzyMatch::Arg)?;
 
                     let help = reporter::standardize_help(
                         &format!("Found similar argument \"{similar_arg}\"",),
